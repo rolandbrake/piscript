@@ -1,0 +1,14 @@
+fun binary_search(l = [], value =  0) {
+    let low = 0;
+    let high = #l - 1;
+    while(low <= high) {
+        let mid = floor((low+high) / 2);
+        if(l[mid] > value) high = mid - 1;
+        elif(l[mid] < value) low = mid + 1;
+        else return mid;
+    }
+    return -1;
+}
+
+for(i in 1..6)
+    println(binary_search([1,2,3,4,5], i));

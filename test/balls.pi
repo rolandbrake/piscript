@@ -1,0 +1,66 @@
+// Bouncing Balls
+let Circle = {
+    constructor(x, y, r, c, dx, dy) {
+        this.x = x
+        this.y = y
+        this.r = r
+        this.c = c
+        this.dx = dx
+        this.dy = dy
+    }
+}
+
+ 
+// Returns a random number between -3 and 3 representing balls velocity
+fun rand_vel() {
+    let v = rand() * 6 - 3
+    if abs(v) < 1
+        return 1.5 * (v < 0 ? -1 : 1)
+    return v
+}
+
+
+// Updates circle position
+fun update_circle(c) {
+    c.x = c.x + c.dx
+    c.y = c.y + c.dy
+
+    if c.x + c.r > WIDTH + 32 || c.x - c.r < -32
+        c.dx = c.dx * -1
+
+    if c.y + c.r > HEIGHT + 32|| c.y - c.r < -32
+        c.dy = c.dy * -1
+}
+
+
+// Draws circle on the screen
+fun draw_circle(c) {
+    circ(c.x, c.y, c.r, c.c, true)
+    circ(c.x, c.y, c.r, 0)
+}
+
+
+// Initializes circles [generate random circles]
+circles = []
+for(i in 0..500) 
+    circles += Circle(
+        rand() * 100 + 14, // avoid edges
+        rand() * 100 + 14,
+        rand() * 10 + 10,
+        rand() * 16,
+        rand_vel(),
+        rand_vel()
+    )
+
+// Main loop
+while true {
+    clear(0)
+
+    for i in 0..#circles {
+        update_circle(circles[i])
+        draw_circle(circles[i])
+    }
+
+    draw()
+    sleep(20)
+}

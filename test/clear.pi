@@ -1,0 +1,7 @@
+i = 0
+while (i < 100000) {
+  clear(rand() * 32)
+  draw()
+  sleep(100)
+  i += 1
+}

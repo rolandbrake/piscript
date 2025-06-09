@@ -1,0 +1,29 @@
+fun isPrime(n) {   
+    for i in 2..floor(n**0.5) + 1
+        if(n % i == 0)
+            return false        
+    return true
+}
+
+fun isWeiferich(p) {
+    if !isPrime(p)
+        return false    
+    let q = 1
+    let p2 = p ** 2    
+    while p > 1 {
+        q = (2 * q) % p2
+        p -= 1
+    }
+    if q == 1
+        return true
+    else
+        return false
+}
+
+println("Wieferich primes less than 5000: ")
+i = 2
+while i <= 5000 {
+    if isWeiferich(i)
+        println(i)
+    i++
+}

@@ -1,0 +1,22 @@
+let LETTERS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+
+fun rot13(message = '') {
+    let res = "";
+    for(ch in message) {
+        let i = 0;
+        for(l in LETTERS) {                                             
+            if(l == ch) {         
+                if(i < 26)   
+                    res += LETTERS[(i + 13) % 26];   
+                else
+                    res += LETTERS[((i + 13) % 26) + 26];             
+                break;
+            }
+            i++;            
+        }
+    }
+    return res;
+}
+
+println(rot13("YsREgKcTNODgGwvChyXqDgFJwCVQGmJpAAZUAAHLpMjmtdPVScwoKUctXbYeCHFFJwECJuLODFdssPQhdxxOyMXBDAYUDGtjnr"));

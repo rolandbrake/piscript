@@ -1,0 +1,11 @@
+fun swap(list = [], i = 0, j = 0) {
+    let temp = list[i];
+    list[i] = list[j];
+    list[j] = temp;
+}
+
+let list = [1 ,2 ,3];
+
+swap(list, 0, 2);
+
+println(list);

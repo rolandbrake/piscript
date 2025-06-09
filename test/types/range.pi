@@ -1,0 +1,2 @@
+let oneToTen = 1..10;
+println(oneToTen);  // Expected output: 1..10

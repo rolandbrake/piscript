@@ -1,0 +1,36 @@
+fun isPrime(n){       
+    for(i in 2..floor(n**0.5) + 1)
+        if(n % i == 0)
+            return false;        
+    return true;
+}
+
+for(i in 2..200){
+    if(isPrime(i))
+        println(i);
+}
+
+
+
+
+fun isPrime(num = 0) {
+    if (num <= 1) return false;
+    if (num <= 3) return true;
+    if (num % 2 == 0 || num % 3 == 0) return false;
+    for (i in 5..num:2)
+        if (num % i == 0) return false;
+    return true;
+}
+
+let sum = 0;
+
+for(i in 1..100000){
+    if(isPrime(i))
+        sum += i;
+}
+
+
+println("Sum of primes up to 10000: " + sum);
+
+
+

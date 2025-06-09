@@ -1,0 +1,9 @@
+while(true) {
+    r = 96
+    for(i in 0..32) {
+        circ(64, 64, r, rand() * 16, true)           
+        r = r - 8
+        draw()     
+        sleep(50)
+    }    
+}

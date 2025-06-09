@@ -1,0 +1,122 @@
+shipx = 63
+shipy = 63
+ship = 1
+
+speed = 2
+delay = 0
+
+bullets = []
+Bullet = {
+    constructor(x, y) {
+        this.x = x
+        this.y = y
+    }
+}
+
+Enemy = {
+    constructor(x, y) {
+        this.x = x
+        this.y = y
+        this.sprite = 11
+    }
+}
+
+enemies = []
+
+starx = []
+stary = []
+for(i in 0..100) {
+    starx += rand() * 128
+    stary += rand() * 128
+}
+
+fun drawStars() {
+    for(i in 0..len(stary))
+        if(i < 25)
+            pixel(starx[i], stary[i], 6)
+        else
+            pixel(starx[i], stary[i], 1)
+
+    for(i in 0..len(stary)) {
+        if(i < 25)
+            stary[i] = stary[i] + 0.75
+        else
+            stary[i] = stary[i] + 0.25
+        if(stary[i] > 128)
+            stary[i] = 0
+    }
+}
+
+enemy = 11
+
+flame = 4
+score = 0
+
+// --- NEW: Target FPS and frame time calculation ---
+targetFPS = 30  // Desired FPS (e.g., 30, 60, etc.)
+frameTime = 1000 / targetFPS  // Desired time per frame (ms)
+
+while(true) {
+    frameStart = time()  // Get current time (ms)
+
+    clear(0)
+    
+    prevx = shipx
+    drawStars()
+
+    for(i in 0..len(bullets)) {
+        sprite(0, bullets[i].x, bullets[i].y)        
+        bullets[i].y = bullets[i].y - 2        
+        if(bullets[i].y < 0) {
+            remove(bullets, i)
+        }        
+    }
+
+    if (key('KEY_SPACE', true))     
+        bullets += Bullet(shipx, shipy - 4)
+
+
+    if (key('KEY_UP') && shipy > 10)
+        shipy = shipy - speed
+    if (key('KEY_DOWN') && shipy < 128 - 8)
+        shipy = shipy + speed
+    if (key('KEY_LEFT') && shipx > 0) {
+        shipx = shipx - speed
+        ship = 3
+    }
+    if (key('KEY_RIGHT') && shipx < 128 - 8) {
+        shipx = shipx + speed
+        ship = 2
+    }
+
+    if(prevx == shipx)
+        ship = 1
+    
+    
+    sprite(round(enemy), 50, 50)
+    sprite(ship, shipx, shipy)   
+    sprite(flame, shipx + 2, shipy + 8)
+
+
+    text(4, 4, score, 6);
+      
+    delay++
+    flame++
+    enemy += 0.1    
+    if(flame > 8)
+        flame = 4
+
+    if(enemy > 12)
+        enemy = 11
+
+    draw()
+
+    // --- NEW: Frame rate control ---
+    frameEnd = time()  // Get time after rendering (ms)
+    frameDuration = frameEnd - frameStart  // Actual time taken (ms)
+    sleepTime = frameTime - frameDuration  // Time left to sleep
+
+    if (sleepTime > 0)
+        sleep(sleepTime)  // Sleep to maintain target FPS
+    // (If frame took too long, skip sleep to catch up)
+}

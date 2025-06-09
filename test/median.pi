@@ -1,0 +1,28 @@
+fun sort(list = []) {
+    let n = #list;
+    let swapped = false;
+    for (i in 0..n) {
+        for (j in 0..n - i) {
+            if (list[j] > list[j + 1]) {
+                let temp = list[j];
+                list[j] = list[j + 1];
+                list[j + 1] = temp;
+                swapped = true;
+            }
+        }
+        if (!swapped)
+            break;
+    }
+    return list;
+}
+
+fun median(list = []){
+    let srtd = sort(list);       
+    let alen = #srtd;
+    return 0.5*( srtd[floor((alen-1)/2)] + srtd[floor(alen/2)]);
+}
+
+let a = [4.1, 5.6, 7.2, 1.7, 9.3, 4.4, 3.2];
+println("a: " + a + " a median: " + median(a));
+a = [4.1, 7.2, 1.7, 9.3, 4.4, 3.2];
+println("a: " + a + " a median: " + median(a));

@@ -1,0 +1,9 @@
+let width = 128;
+let height = 128;
+while(true) {
+  for (x in 0..width) 
+      for (y in 0..height) 
+          pixel(x, y, floor(rand() * 16) + 1);
+
+  draw();
+}

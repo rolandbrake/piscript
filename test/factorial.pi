@@ -1,0 +1,10 @@
+fun factorial(n = 0) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+for (i in 1..20) 
+    println("Factorial of " + i + " is " + factorial(i));

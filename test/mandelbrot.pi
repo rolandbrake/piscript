@@ -1,0 +1,29 @@
+let y = 0;
+while (y < 128) {
+  let x = 0;
+  while (x < 128) {
+    let e = y / 64 - 1.5;
+    let f = x / 64 - 0.95;
+
+    let a = 0;
+    let b = 0;
+    let i = 0;
+    let j = 0;
+    let c = 16;
+
+    while (i * i + j * j < 4 && c < 32) {
+      i = a * a - b * b + e;
+      j = 2 * a * b + f;
+      a = i;
+      b = j;
+      c = c + 1;
+    }
+    running = false;
+    pixel(y, x, c);    
+    x = x + 1;
+  }
+  y = y + 1;
+}
+
+draw();
+

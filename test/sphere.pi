@@ -1,0 +1,42 @@
+start = time()
+fun log2(x) {
+ return log(x)/log(2)
+}
+
+fun smin(a,b,k) {
+ let res=2^(-k*a)+2^(-k*b)
+ return -log2(res)/k
+}
+
+fun dist(x,y,z) {
+ return sqrt(x**2+y**2+z**2)-2
+}
+
+fun render(px, py) {
+    let dx=(px-64)/40
+    let dy=(py-64)/40
+    let dz=1
+    let t=0
+    for(i in 0..10) {        
+        t = t + dist(dx*t, dy*t,-3+dz*t)
+        if (t < 0.0001 || t > 50) 
+            break
+    }    
+    let hx=dx*t
+    let hy=dy*t
+    let hz=-3+dz*t
+    if(t<5)
+        return 4+5*(hx+(time() - start)/2000)
+    else
+        return 0
+}
+
+while(true) {    
+  clear(0)
+  for(x in 0..128)
+    for(y in 0..128)         
+        pixel(x,y,render(x,y))
+    
+
+  draw()  
+}

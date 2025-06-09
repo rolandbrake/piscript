@@ -1,0 +1,121 @@
+let ptr = 0; // Data pointer
+    
+// Max memory limit. It is the highest number which
+// can be represented by an unsigned 16-bit binary
+// number. Many computer programming environments
+// beside brainfuck may have predefined
+// constant values representing 65535.
+let length = 2048;
+    
+// Array of byte type simulating memory of max
+// 65535 bits from 0 to 65534.
+// let memory = [0] * length;
+let memory = [0] * length;
+    
+// Interpreter function which accepts the code
+// a string parameter
+fun interpret(code = "")
+{
+    let c = 0;
+    let len = #code, i = 0;
+    // Parsing through each character of the code
+    while (i < len)
+    {      
+        // BrainFuck is a tiny language with only
+        // eight instructions. In this loop we check 
+        // and execute all those eight instructions
+            
+            
+        // > moves the pointer to the right
+        if (code[i] == '>')
+        {
+            if (ptr == length - 1)//If memory is full
+                ptr = 0;//pointer is returned to zero
+            else
+                ptr ++;
+        }
+            
+        // < moves the pointer to the left
+        elif (code[i] == '<')
+        {
+       
+            if (ptr == 0) // If the pointer reaches zero
+
+                // pointer is returned to rightmost memory
+                // position
+                ptr = length - 1;
+            else
+                ptr--;
+        }
+            
+        // + increments the value of the memory
+        // cell under the pointer
+        elif (code[i] == '+') {            
+          if(memory[ptr] == 255)
+            memory[ptr] = 0;
+          else 
+            memory[ptr]++;                      
+        }
+
+        // - decrements the value of the memory cell
+        // under the pointer
+        elif (code[i] == '-')
+          if(memory[ptr] == 0)
+            memory[ptr] = 255;
+          else             
+            memory[ptr]--;
+
+        // . outputs the character signified by the
+        // cell at the pointer
+        elif (code[i] == '.')
+            print(char(memory[ptr]));
+
+        // , inputs a character and store it in the
+        // cell at the pointer
+        elif (code[i] == ',')
+            memory[ptr] = read() % 255;                    
+
+        // [ jumps past the matching ] if the cell
+        // under the pointer is 0
+        elif (code[i] == '[')
+        {                                                    
+            if (memory[ptr] == 0)
+            {                         
+                i++;
+                while (c > 0 || code[i] != ']')
+                {                  
+                    if (code[i] == '[')
+                        c++;                                        
+                    elif (code[i] == ']')
+                        c--;
+                    i++;
+                }
+            }
+        }
+
+        // ] jumps back to the matching [ if the
+        // cell under the pointer is nonzero
+        elif (code[i] == ']')
+        {                        
+            if (memory[ptr] != 0)
+            {
+                i--;
+                while (c > 0 || code[i] != '[')
+                {
+                    if (code[i] == ']')
+                        c++;
+                    elif (code[i] == '[')
+                        c--;
+                    i--;
+                }                
+            }
+        }
+        i++;
+    }    
+}
+ 
+// Driver code
+let code = "+[-->-[>>+>-----<<]<--<---]>-.>>>+.>>..+++[.>]<<<<.+++.------.<<-.>>>>+.";
+println("Output: ");
+interpret(code);
+println();

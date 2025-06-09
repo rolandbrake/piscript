@@ -1,0 +1,16 @@
+
+c = 0
+s = 8
+// for the complete set of palette of 32 colors
+// s = 4
+l = 0
+while(l <= 128) {
+  clear()
+for(i in 0..128 : s) {
+    rect(i + s, 0, i + s, l, c, true)            
+    c++ 
+}
+draw()
+  l += 2
+  c = 0
+}

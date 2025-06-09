@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/x-icon" href="pi.ico" />
+
+    <!-- CodeMirror core -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css"
+    />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+
+    <!-- Optional: add language modes, themes, etc. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <!-- Keymap for VS Code-like shortcuts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/keymap/sublime.min.js"></script>
+
+    <title>Piscript Web</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #121212;
+        font-family: sans-serif;
+        color: #fff;
+      }
+
+      #console-container {
+        width: 100%;
+        flex: 1;
+        overflow-y: auto;
+        background: #111;
+        color: #0f0;
+        font-family: monospace;
+        font-size: 0.9rem;
+        padding: 0.5rem;
+        border-top: 2px solid #333;
+      }
+
+      #container {
+        display: flex;
+        flex-direction: row;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      #left,
+      #right {
+        flex: 1;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #left {
+        max-width: 50%;
+        background-color: #1e1e1e;
+        border-right: 2px solid #333;
+      }
+
+      #editor {
+        flex: 1;
+        width: 100%;
+        height: 80%;
+        resize: none;
+        background: #2c2c2c;
+        color: #fff;
+        border: 1px solid #444;
+        border-radius: 6px;
+        padding: 1rem;
+        font-family: consolas, monospace;
+        font-size: 0.9rem;
+        scrollbar-color: #444 #1e1e1e;
+        scrollbar-width: thin;
+      }
+
+      .CodeMirror {
+        height: 100% !important;
+        background: #2c2c2c;
+        color: white;
+        font-family: monospace;
+        font-size: 0.9rem;
+        border-radius: 6px;
+      }
+
+      .CodeMirror-scrollbar-filler {
+        background-color: transparent !important;
+      }
+
+      button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        background: #007acc;
+        color: white;
+        border: none;
+        border-radius: 0;
+        cursor: pointer;
+        transition: background 0.2s ease-in-out;
+        align-self: flex-start;
+      }
+
+      button:hover {
+        background: #005fa3;
+      }
+
+      #right {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #1e1e1e;
+        padding: 1rem;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      canvas {
+        flex: 2;
+        height: 80%;
+        max-width: 100%;
+        image-rendering: pixelated;
+        border: 2px solid #444;
+        background-color: #29adff;
+        margin-bottom: 1rem;
+      }
+
+      @media (max-width: 768px) {
+        #container {
+          flex-direction: column-reverse;
+          height: 100vh;
+        }
+
+        #left {
+          max-width: 100%;
+          min-height: 50vh;
+          height: 50vh;
+          border-right: none;
+          border-top: 2px solid #333;
+          overflow: hidden;
+        }
+
+        #right {
+          /* width: 100%; */
+          height: 50vh;
+          padding: 1rem;
+          box-sizing: border-box;
+        }
+
+        canvas {
+          width: 100% !important;
+          height: auto !important;
+          /* max-height: 100%; */
+          display: block;
+          aspect-ratio: 1 / 1;
+        }
+
+        #console-container {
+          height: 40%;
+          overflow-y: auto;
+        }
+      }
+
+      .button-group {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="left">
+        <!-- <textarea id="code-input">// Write your Piscript code here</textarea> -->
+        <div id="editor"></div>
+        <div class="button-group">
+          <button id="run">Run</button>
+          <button id="stop" disabled>Stop</button>
+        </div>
+      </div>
+      <div id="right">
+        <canvas id="canvas" width="128" height="128" tabindex="-1"></canvas>
+        <div id="console-container">
+          <div id="console-output"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function onExecutionFinished() {
+        console.log("Execution finished (from C)");
+        document.getElementById("run").disabled = false;
+        document.getElementById("stop").disabled = true;
+        isRunning = false;
+      }
+      let isRunning = false;
+
+      function writeToConsole(text) {
+        const out = document.getElementById("console-output");
+        // Create text node instead of innerHTML for better performance
+        const div = document.createElement("div");
+        div.textContent = text;
+        out.appendChild(div);
+        out.scrollTop = out.scrollHeight;
+
+        // Force synchronous update
+        void out.offsetHeight; // Trigger reflow
+      }
+
+      var Module = {
+        canvas: document.getElementById("canvas"),
+        noInitialRun: true, // Prevent main() from running on load
+        print: writeToConsole, // stdout -> browser
+        printErr: writeToConsole, // stderr -> browser
+        onRuntimeInitialized() {
+          document.getElementById("run").disabled = false;
+        },
+      };
+
+
+
+
+      let editor = CodeMirror(document.getElementById("editor"), {
+        mode: "javascript", // Replace later with Piscript mode
+        theme: "dracula", // You can change this to "dracula", etc.
+        lineNumbers: true,
+        value: "/* ENTER YOUR CODE HERE */",
+        keyMap: "sublime", // 👈 Enable VS Code-like shortcuts
+      });
+
+      let startMain;
+
+      document.getElementById("run").addEventListener("click", async () => {
+        if (isRunning) return;
+
+        const setSource = Module.cwrap("set_source", null, ["string"]);
+        // const code = document.getElementById("code-input").value;
+        const code = editor.getValue();
+        setSource(code);
+
+        // Clear previous output
+        document.getElementById("console-output").innerHTML = "";
+
+        // Prevent double running
+        document.getElementById("run").disabled = true;
+        document.getElementById("stop").disabled = false;
+        isRunning = true;
+
+        // Lazy-load main() on first click
+        if (!startMain) {
+          startMain = Module._main;
+        }
+        canvas.focus();
+        startMain();
+      });
+
+      document.getElementById("stop").addEventListener("click", () => {
+        console.log("stop");
+        if (!isRunning) return;
+
+        const cancelLoop = Module.cwrap("stop_execution", null, []);
+        cancelLoop();
+
+        document.getElementById("run").disabled = false;
+        document.getElementById("stop").disabled = true;
+        isRunning = false;
+      });
+
+    </script>
+    <!-- Replace this with your actual Emscripten-generated script -->
+    <!-- {{{ SCRIPT }}} -->
+    <script src="piscript.js" async></script>
+  </body>
+</html>

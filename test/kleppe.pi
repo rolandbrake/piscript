@@ -1,0 +1,7 @@
+clear(0)
+for(x in 0..128)
+  for(y in 0..128) {
+    if(((x-64) * 32) % (y-64))
+      pixel(x, y, 7)
+  }
+draw()

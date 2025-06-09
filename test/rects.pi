@@ -1,0 +1,6 @@
+clear(0);
+while (true) {
+  sleep(100);
+  rect(rand() * 128, rand() * 128, rand() * 32, rand() * 32, rand() * 32, true);
+  draw();
+}

@@ -1,0 +1,49 @@
+fun merge_sort(m) {   
+    
+    if(#m <= 1) 
+        return m    
+  
+    let middle = floor(#m / 2)  
+    let left = m[:middle]  
+    let right = m[middle:]  
+    left = merge_sort(left)    
+    right = merge_sort(right)
+    return merge(left, right)
+  
+}
+  
+  
+fun merge(left, right) {
+    let result = []
+    let left_idx = 0, right_idx = 0  
+    while(left_idx < #left && right_idx < #right) {       
+        // change the direction of this comparison to change the direction of the sort
+        if(left[left_idx] <= right[right_idx]){
+            result += left[left_idx]
+            left_idx += 1
+        }
+        else {
+            result += right[right_idx]
+            right_idx += 1
+        }
+    }
+
+    if (left_idx < #left) 
+        append(left[left_idx:],result)
+
+    if (right_idx < #right)               
+        append(right[right_idx:],result)
+
+    return result
+}
+
+fun append(list = [], result = []) {            
+    for(i in list)
+        result += i  
+}
+
+let list = [5,3,4,1,2]
+println(merge_sort(list))
+
+  
+  

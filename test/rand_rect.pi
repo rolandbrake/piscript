@@ -1,0 +1,25 @@
+fun drawRect(x, y, width, height, color) {
+    let h = x + height - 1;
+    let w = y + width - 1;
+    if(h > 128)
+        h = 128;
+    if(w > 128)
+        w = 128;
+    for(i in x..h)
+        for(j in y..w)
+            pixel(j, i, color)
+}
+
+
+fun drawRects() {
+    for(i in 0..16)
+        for(j in 0..16){
+            drawRect(i*8, j*8, 8, 8, floor(rand() * 32));
+        }    
+}
+
+while(true) {
+    sleep(100);
+    drawRects();
+    draw();
+}

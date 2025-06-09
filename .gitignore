@@ -1,0 +1,51 @@
+
+
+## ✅ `.gitignore` File for Piscript (C, SDL2, Emscripten)
+
+Here's the `.gitignore` file:
+
+```gitignore
+# Compiled object files
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lib
+*.a
+
+# Executables
+*.exe
+*.out
+*.wasm
+# *.html
+*.js
+
+# Debug files
+*.log
+*.tmp
+
+# Build directories
+build/
+dist/
+bin/
+emsdk/
+
+# Emscripten cache
+.cache/
+emscripten_cache/
+
+# IDE-specific files
+.vscode/
+.idea/
+*.code-workspace
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db

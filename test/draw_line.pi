@@ -1,0 +1,33 @@
+
+
+// Function to draw a line between two points
+fun draw_line(x1, y1, x2, y2, color) {
+    let dx = abs(x2 - x1)
+    let dy = abs(y2 - y1)
+    let sx = x1 < x2? 1 : -1
+    let sy = y1 < y2? 1 : -1
+    let err = dx - dy
+    
+    while (true) {
+        pixel(x1, y1, color)
+        if (x1 == x2 && y1 == y2) break
+        let e2 = 2 * err
+        if (e2 > -dy) { err -= dy; x1 += sx }
+        if (e2 < dx) { err += dx; y1 += sy }
+    }
+    draw()
+  }
+  
+  let start = time()
+  let current = time()
+  let frame_rate = 0
+  while(true) {
+    current = time()
+    if (current - start > 1) {
+        start = current        
+        frame_rate = 0
+    }
+    frame_rate++
+    draw_line(floor(rand() * 128), floor(rand() * 128), floor(rand() * 128), 
+    floor(rand() * 128), floor(rand() * 32)) 
+  }

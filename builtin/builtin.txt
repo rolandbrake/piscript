@@ -1,0 +1,179 @@
+---------------------------
+Audio Processing Functions:
+---------------------------
+
+sound
+music
+
+----------------------------------
+Collection Manipulation Functions:
+----------------------------------
+
+pop
+push
+peek
+empty
+sort
+insert (add element at specified index)
+remove (remove element from provided index)
+unshift
+append (append elements to the end of the collection)
+find (find an element inside a collection return the index)
+contains
+index_of
+len 
+range
+
+----------------------------------
+Map/Object Manipulation Functions:
+----------------------------------
+
+keys
+vals    
+
+
+---------------------------------
+Functional Programming Functions:
+---------------------------------
+
+map (map a lambda function to a list of element, return the result)
+reduce 
+fill
+join    
+reverse
+slice
+filter
+clone
+cont
+
+-----------------------
+Input/Output FUnctions:
+-----------------------
+
+println(str1, str2, ...)
+print(str1, str2, ...)
+printf(format, val1, val2, ...) //e.g printf("Hello, World!{0}\n", 3);
+text(x, y, txt, color) // draw text on screen
+key(key_name, once) 
+input(discr) // input value from standard input
+
+------------------------------
+Matrix Manipulation Functions:
+------------------------------
+
+zeros
+ones
+eye
+mult
+dot
+cross
+rand_m
+is_mat (return true if the given argument is a matrix)
+size
+
+-----------------------
+Mathematical Functions:
+-----------------------
+these functions can take one numerical value or a list of numerical values
+(floor ceil round sqrt sin cos tan asin acos atan deg rad exp log2 log10 pow abs) 
+floor
+ceil
+round
+rand (generate random number between 0 and 1)
+rand_n(size) (return a list of random numbers of size [size])
+rand_i(min, max) (generate a random integer number between min and max)
+sqrt
+sin
+cos
+tan
+asin
+acos
+atan
+deg
+rad
+sum(list) (sum of a list of numbers)
+exp
+log2
+log10
+pow        
+abs
+mean
+avg
+var
+dev
+median
+std
+mode
+max(list)
+min(list)
+
+---------------------------
+Screen Rendering Functions:
+---------------------------
+
+pixel
+line
+draw
+clear
+circ
+rect
+poly
+sprite
+color (return the color of specified pixels)
+
+
+------------------------------
+String Manipulation Functions:
+------------------------------
+
+char
+ord
+trim
+upper
+lower
+replace
+split
+join
+
+is_upper
+is_lower
+is_digit
+is_numeric
+is_alpha
+is_alnum
+
+
+---------------
+Time Functions:
+---------------
+
+sleep
+time
+
+---------------
+Type Functions:
+---------------
+
+type
+
+is_list
+is_map
+is_num
+is_str
+is_bool
+is_inf  
+
+as_list
+as_num
+as_str
+as_bool
+
+
+-----------------
+System Functions:
+-----------------
+fps
+error
+cursor
+mouse
+

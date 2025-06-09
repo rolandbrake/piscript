@@ -1,0 +1,28 @@
+// Fibonacci series using recursion
+fun fib(n = 0) {
+    if(n <= 1)
+        return n;
+    return fib(n-1) + fib(n-2);
+}
+
+println(fib(10));
+
+fun fib(n = 0) {    
+  
+    if(n <= 1)
+      return n;      
+  
+    let _fib = 1;
+    let prevFib = 1;
+    let temp;
+  
+    for(i in 2..n) {
+      temp = _fib;
+      _fib += prevFib;
+      prevFib = temp;
+    }
+    return _fib;
+  }
+  
+  for(i in 0..40)
+    println(fib(i) + " ");

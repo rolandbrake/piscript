@@ -1,0 +1,9 @@
+fun sum(list = []) {
+    let res = 0;
+    for(l in list)
+        res += l;
+    return res;
+}
+
+
+println(sum([5,4,3,2,1]));

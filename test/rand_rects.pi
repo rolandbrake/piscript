@@ -1,0 +1,12 @@
+
+while(true) {
+    c = 0;
+    for(y in 0..128 : 16) {
+        for(x in 0..128: 16) {
+            rect(x, y, x + 16, y + 16, rand() * 32, true)                
+            c = (c + 1) % 32        
+        }    
+    }
+    draw()
+    sleep(100)
+}

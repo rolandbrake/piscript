@@ -1,0 +1,2 @@
+let nothing = nil;
+println(nothing);  // Expected output: nil

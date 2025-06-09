@@ -1,0 +1,18 @@
+// Implements the Leibniz formula for π
+// https://en.wikipedia.org/wiki/Leibniz_formula_for_%CF%80
+fun getPi(n) {
+    let q = 0;
+    for (i in 0..n) 
+      q = q + term(i);
+    return q * 4;
+}
+  
+fun term(n) {
+  let sign = 1;
+  for (i in 0..n) 
+    sign = sign * -1;
+  return sign / ((2 * n) + 1);
+}
+  
+println(getPi(800));
+  

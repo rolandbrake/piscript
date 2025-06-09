@@ -1,0 +1,27 @@
+fun emptyFunction() {}
+
+
+fun calculate(a, b) {
+    let result = a + b;
+    return result;
+}
+
+
+() -> { return 10; };
+
+
+
+(x) -> {
+    let y = x * 2;
+    println(y);
+    return y;
+};
+
+x -> x * x;
+
+(x) -> x + 1;
+
+
+(x = 3) -> x + 1;
+
+

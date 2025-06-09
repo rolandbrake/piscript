@@ -1,0 +1,284 @@
+// CHIP-8 Emulator in PiScript
+// Written by Roland Brake (https://github.com/rolandbrake)
+
+// CHIP-8 has 4KB of memory
+memory = [0] * 4096
+
+
+// Registers
+V = [0] * 16  // V0-VF
+I = 0         // Index register
+pc = 0x200    // Program counter starts at 0x200
+sp = 0        // Stack pointer
+stack = [0] * 16
+
+// Display
+width = 64
+height = 32
+display = [0] * (width * height)
+
+// Timers
+delay_timer = 0
+sound_timer = 0
+
+// keys
+keys = [0] * 16
+
+// font
+font = [
+    0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
+    0x20, 0x60, 0x20, 0x20, 0x70,  // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0,  // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0,  // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10,  // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0,  // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0,  // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40,  // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0,  // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0,  // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90,  // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0,  // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0,  // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0,  // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0,  // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80   // F
+]
+
+// Load font into memory
+for(i in 0..len(font))
+    memory[i] = font[i]
+
+// Load ROM into memory
+fun load_rom(rom) {
+    for(i in 0..len(rom))
+        memory[0x200 + i] = rom[i]
+    
+}
+// Emulate one cycle
+fun run() {
+
+    // Fetch opcode
+    opcode = memory[pc] << 8 | memory[pc + 1]
+    pc += 2
+  
+
+    // Decode and execute opcode
+    x = (opcode & 0x0F00) >> 8
+    y = (opcode & 0x00F0) >> 4
+    nnn = opcode & 0x0FFF
+    kk = opcode & 0x00FF
+    n = opcode & 0x000F    
+
+    if(opcode == 0x00E0)
+        // 00E0: Clear the display
+        display = [0] * (width * height)
+    elif(opcode == 0x00EE) {
+        // 00EE: Return from subroutine
+        sp -= 1
+        pc = stack[sp]
+    } elif ((opcode & 0xF000) == 0x1000)
+        // 1NNN: Jump to address NNN
+        pc = nnn
+    elif ((opcode & 0xF000) == 0x2000) {
+        // 2NNN: Call subroutine at NNN
+        stack[sp] = pc
+        sp += 1
+        pc = nnn
+    } elif ((opcode & 0xF000) == 0x3000) {
+        // 3XKK: Skip next instruction if VX == KK
+        if(V[x] == kk)
+            pc += 2
+    } elif ((opcode & 0xF000) == 0x4000) {
+        // 4XKK: Skip next instruction if VX != KK
+        if (V[x] != kk)
+            pc += 2
+    } elif (((opcode & 0xF00F) == 0x5000)) {
+        // 5XY0: Skip next instruction if VX == VY
+        if (V[x] == V[y])
+            pc += 2
+    } elif ((opcode & 0xF000) == 0x6000)
+        // 6XKK: Set VX = KK
+        V[x] = kk
+    elif ((opcode & 0xF000) == 0x7000)
+        // 7XKK: Set VX = VX + KK
+        V[x] = (V[x] + kk) & 0xFF
+    elif ((opcode & 0xF00F) == 0x8000)
+        // 8XY0: Set VX = VY
+        V[x] = V[y]
+    elif ((opcode & 0xF00F) == 0x8001)
+        // 8XY1: Set VX = VX OR VY
+        V[x] |= V[y]
+    elif ((opcode & 0xF00F) == 0x8002)
+        // 8XY2: Set VX = VX AND VY
+        V[x] &= V[y]
+    elif ((opcode & 0xF00F) == 0x8003)
+        // 8XY3: Set VX = VX XOR VY
+        V[x] ^= V[y]
+    elif ((opcode & 0xF00F) == 0x8004) {
+        // 8XY4: Set VX = VX + VY, set VF = carry
+        sum = V[x] + V[y]
+        V[0xF] = sum > 0xFF ? 1 : 0
+        V[x] = sum & 0xFF
+    } elif ((opcode & 0xF00F) == 0x8005) {
+        // 8XY5: Set VX = VX - VY, set VF = NOT borrow
+        V[0xF] = V[x] > V[y] ? 1 : 0
+        V[x] = (V[x] - V[y]) & 0xFF
+    } elif ((opcode & 0xF00F) == 0x8006) {
+        // 8XY6: Set VX = VX SHR 1
+        V[0xF] = V[x] & 0x1
+        // V[x] >>= 1
+        V[x] = (V[x] >> 1) & 0xFF
+    } elif ((opcode & 0xF00F) == 0x8007) {
+        // 8XY7: Set VX = VY - VX, set VF = NOT borrow
+        V[0xF] = V[y] > V[x] ? 1 : 0
+        V[x] = (V[y] - V[x]) & 0xFF
+    } elif ((opcode & 0xF00F) == 0x800E) {
+        // 8XYE: Set VX = VX SHL 1
+        V[0xF] = (V[x] & 0x80) >> 7
+        V[x] = (V[x] << 1) & 0xFF
+    } elif ((opcode & 0xF00F) == 0x9000) {
+        // 9XY0: Skip next instruction if VX != VY
+        if (V[x] != V[y])
+            pc += 2
+    } elif ((opcode & 0xF000) == 0xA000)
+        // ANNN: Set I = NNN
+        I = nnn
+    elif ((opcode & 0xF000) == 0xB000)
+        // BNNN: Jump to address NNN + V0
+        pc = nnn + V[0]
+    elif ((opcode & 0xF000) == 0xC000)
+        // CXKK: Set VX = random byte AND KK
+        V[x] = floor(rand() * 255) & kk
+    elif ((opcode & 0xF000) == 0xD000) {
+        // DXYN: Draw sprite at (VX, VY) with width 8 and height N
+        x_pos = V[x] % width
+        y_pos = V[y] % height
+        V[0xF] = 0
+        for (row in 0..n) {
+            sprite_byte = memory[I + row]
+            for(col in 0..8) {
+                if ((sprite_byte & (0x80 >> col)) != 0) {
+                    idx = (y_pos + row) * width + (x_pos + col)
+                    if (display[idx] == 1)
+                        V[0xF] = 1
+                    display[idx] ^= 1
+                }
+            }
+        }
+    } elif ((opcode & 0xF0FF) == 0xE09E) {
+        // EX9E: Skip next instruction if key VX is pressed
+        if (keys[V[x]] == 1)
+            pc += 2
+    } elif ((opcode & 0xF0FF) == 0xE0A1) {
+        // EXA1: Skip next instruction if key VX is not pressed
+        if (keys[V[x]] == 0)
+            pc += 2
+    } elif ((opcode & 0xF0FF) == 0xF007)
+        // FX07: Set VX = delay timer
+        V[x] = delay_timer
+    elif ((opcode & 0xF0FF) == 0xF00A) {
+        // FX0A: Wait for key press, store in VX
+        key_pressed = False
+        for (i in 0..len(keys)) {
+            if (keys[i] == 1) {
+                V[x] = i
+                key_pressed = True
+                break
+            }
+        }
+        if (!key_pressed)
+            pc -= 2
+    } elif ((opcode & 0xF0FF) == 0xF015)
+        // FX15: Set delay timer = VX
+        delay_timer = V[x]
+    elif ((opcode & 0xF0FF) == 0xF018)
+        // FX18: Set sound timer = VX
+        sound_timer = V[x]
+    elif ((opcode & 0xF0FF) == 0xF01E)
+        // FX1E: Set I = I + VX
+        I += V[x]
+    elif ((opcode & 0xF0FF) == 0xF029)
+        // FX29: Set I = location of sprite for digit VX
+        I = V[x] * 5
+    elif ((opcode & 0xF0FF) == 0xF033) {
+        // FX33: Store BCD representation of VX in memory locations I, I+1, I+2
+        memory[I] = V[x] // 100
+        memory[I + 1] = (V[x] / 10) % 10
+        memory[I + 2] = V[x] % 10
+    } elif ((opcode & 0xF0FF) == 0xF055)
+        // FX55: Store registers V0 through VX in memory starting at location I
+        for (i in 0..x + 1)
+            memory[I + i] = V[i]
+    elif ((opcode & 0xF0FF) == 0xF065) {
+        // FX65: Read registers V0 through VX from memory starting at location I
+        for (i in 0..x + 1)
+            V[i] = memory[I + i]
+    } else
+        printf("Unknown opcode: {0}\n", hex(opcode))
+
+}
+
+
+// Main loop
+fun loop() {
+    clear(0)
+    // let counter = 0
+    while(true) {
+        run()
+        // if(counter > 1024) {
+        //   _draw()
+        //   counter = 0
+        // }
+        _draw()
+        if(delay_timer > 0)
+            delay_timer -= 1
+        if(sound_timer > 0)
+            sound_timer -= 1
+        // counter++
+    }
+        // Render display here (not implemented in this example)
+        // Sleep to control emulation speed (not implemented in this example)
+}
+
+fun _draw() {
+  clear(0)
+  for(row in 0..height) 
+    for(col in 0..width)  {
+      let color = display[row * width + col] == 1 ? 6 : 0
+      pixel(col + 32, row + 48, color)    
+    }
+  draw()
+}
+// Load ROM and start emulation
+fun start(rom) {
+    load_rom(rom)
+    loop()
+}
+
+// Example usage
+// start([...])  // Pass your ROM data here
+
+// Maze generator ROM
+start([
+    0x60, 0x00,  // 6000
+    0x61, 0x00,  // 6100
+    0xA2, 0x22,  // A222
+    0xC2, 0x01,  // C201
+    0x32, 0x01,  // 3201
+    0xA2, 0x1E,  // A21E
+    0xD0, 0x14,  // D014
+    0x70, 0x04,  // 7004
+    0x30, 0x40,  // 3040
+    0x12, 0x04,  // 1204
+    0x60, 0x00,  // 6000
+    0x71, 0x04,  // 7104
+    0x31, 0x20,  // 3120
+    0x12, 0x04,  // 1204
+    0x12, 0x1C,  // 121C
+    0x80, 0x40,  // 8040
+    0x20, 0x10,  // 2010
+    0x20, 0x40,  // 2040
+    0x80, 0x10   // 8010
+])
+
+

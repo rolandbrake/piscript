@@ -1,0 +1,30 @@
+x = 64
+y = 64
+dx = 3
+dy = 2
+
+d = 30
+r = d / 2
+
+c = 8
+
+width = 128
+height = 128
+
+while true {
+  // Move a Circle
+  x = x + dx
+  y = y + dy
+
+  // Check Boundaries
+  if x + r > width || x - r < 0 dx = dx * -1
+  if y + r > height || y - r < 0 dy = dy * -1
+
+
+  clear(12)
+  circ(x, y, r, c, true)
+  circ(x, y, r, 0)
+  draw()  
+  sleep(100)
+  
+}

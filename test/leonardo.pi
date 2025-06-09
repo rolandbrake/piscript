@@ -1,0 +1,23 @@
+fun Leonardo(l_zero, l_one, add, amount){
+    let terms = [l_zero,l_one], new    
+    while #terms < amount {
+        new = terms[-1] + terms[-2]        
+        new += add        
+        terms = terms + new        
+    }
+    return terms
+}
+
+out = ""
+println("First 25 Leonardo numbers:")
+for term in Leonardo(1,1,1,25)
+    out += term + " "
+
+println(out)
+
+out = ""
+println("Leonardo numbers with fibonacci parameters:")
+for term in Leonardo(0,1,0,25)
+    out += term + " "
+
+println(out)

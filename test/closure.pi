@@ -1,0 +1,14 @@
+
+fun make_counter() {
+    let i = 0;
+    fun count() {
+      i = i + 1;
+      println(i);
+    }
+  
+    return count;
+  }
+  
+  let counter = make_counter();
+  counter(); // "1".
+  counter(); // "2".

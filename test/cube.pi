@@ -1,0 +1,95 @@
+// Define the 3D coordinates of the cube's vertices
+let vertices = [
+    [32, 32, 32], // Front-top-left
+    [96, 32, 32], // Front-top-right
+    [96, 96, 32], // Front-bottom-right
+    [32, 96, 32], // Front-bottom-left
+    [32, 32, -32], // Back-top-left
+    [96, 32, -32], // Back-top-right
+    [96, 96, -32], // Back-bottom-right
+    [32, 96, -32], // Back-bottom-left
+  ];
+  
+  // Define the faces of the cube
+  let faces = [
+    [0, 1, 2, 3], // Front face
+    [4, 5, 6, 7], // Back face
+    [0, 1, 5, 4], // Top face
+    [2, 3, 7, 6], // Bottom face
+    [0, 3, 7, 4], // Left face
+    [1, 2, 6, 5], // Right face
+  ];
+  
+  // Rotation angles
+  let theta_x = 0;
+  let theta_y = 0;
+  let theta_z = 0;
+  
+  // Perspective projection parameters
+  let width = 128;
+  let height = 128;
+  let fov = 150.0;
+  let viewer_distance = 200.0;
+  
+  while (true) {
+    // Increment angles for smooth rotation
+    theta_x += 0.05;
+    theta_y += 0.03;
+    theta_z += 0.02;
+  
+    let projected_vertices = [];
+  
+    for (vertex in vertices) {
+      // Step 1: Translate cube to origin (center at 0,0,0)
+      x = vertex[0] - 64;
+      y = vertex[1] - 64;
+      z = vertex[2];
+  
+      // Step 2: Rotate around X-axis
+      y1 = y * cos(theta_x) - z * sin(theta_x);
+      z1 = y * sin(theta_x) + z * cos(theta_x);
+      x1 = x; // X remains unchanged
+  
+      // Step 3: Rotate around Y-axis
+      x2 = x1 * cos(theta_y) + z1 * sin(theta_y);
+      z2 = -x1 * sin(theta_y) + z1 * cos(theta_y);
+      y2 = y1; // Y remains unchanged
+  
+      // Step 4: Rotate around Z-axis
+      x3 = x2 * cos(theta_z) - y2 * sin(theta_z);
+      y3 = x2 * sin(theta_z) + y2 * cos(theta_z);
+      z3 = z2; // Z remains unchanged
+  
+      // Step 5: Translate back to (64,64,0)
+      x3 += 64;
+      y3 += 64;
+  
+      // Step 6: Apply perspective projection
+      z_proj = z3 + viewer_distance;
+      scale = fov / (z_proj + 1);
+      proj_x = width / 2 + (x3 - 64) * scale;
+      proj_y = height / 2 + (y3 - 64) * scale;
+  
+      projected_vertices += [proj_x, proj_y];
+    }
+  
+    // Draw each face
+    for (face in faces) {
+      let face_vertices = [];
+      for (index in face) {
+        face_vertices += projected_vertices[index];
+      }
+  
+      let flat_vertices = [];
+      for (vertex in face_vertices) {
+        flat_vertices += vertex[0];
+        flat_vertices += vertex[1];
+      }
+  
+      poly(flat_vertices, 6);
+    }
+  
+    draw();
+    clear(12);
+  }
+  

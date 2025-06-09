@@ -1,0 +1,24 @@
+fun sum(list =  []) {
+    let res = 0;
+    for(l in list)
+        res += l;
+    return res;
+}
+fun money_change(amounts){
+    let denominations = [100, 50, 20, 10, 5, 1];  // Available denominations in dollars    
+    let result = {};
+    let total_amount = sum(amounts);
+    for (denomination in denominations){        
+        if(total_amount >= denomination){                 
+            let count = floor(total_amount / denomination);            
+            result[denomination] = count;            
+            total_amount -= count * denomination;
+        }
+    }
+    return result;
+}
+// Example usage:
+let amounts = [53, 27, 105];
+let denominations_needed = money_change(amounts);
+for (key in denominations_needed)
+    println(key + ", bills: " + denominations_needed[key]);

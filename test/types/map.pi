@@ -1,0 +1,2 @@
+let person = {"name": "John", "age": 30};
+println(person);  // Expected output: {"name": "John", "age": 30}

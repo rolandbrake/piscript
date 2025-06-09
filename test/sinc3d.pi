@@ -1,0 +1,37 @@
+// author: Roland Brake
+// desc:   3d sinc function
+// script: PI-script
+
+let s = 160/sqrt(3)*2/40
+let t = [0] * 255
+let a = 30, r, z
+let x1, y1, x2, y2
+clear(0)
+
+while(true) {
+
+    for(y in 10..-10:-.5) {
+        for(x in 10..-10:-.5) {
+
+
+
+            r = sqrt(x*x+y*y)            
+            if(r != 0)
+                z = 30 * sin(r)/r
+            else
+                z = 30
+
+            x2 = x * cos(a* PI/180)-y* sin(a* PI/180)
+            y2 = x * sin(a* PI/180)+y* cos(a* PI/180)
+
+            x1 = floor(64+(y2-x2)*s* sqrt(3)/2 )
+            y1 = floor( 64+z-(y2+x2)*s/2 )
+            
+            pixel(x1, 135 - y1, 6)            
+        }
+    }
+
+    a = ( a + 1 ) % 360  
+    draw()  
+    clear(0)
+}

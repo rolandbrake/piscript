@@ -1,0 +1,4 @@
+let trueVal = true;
+println(trueVal);  // Expected output: true
+let falseVal = false;
+println(falseVal);  // Expected output: false

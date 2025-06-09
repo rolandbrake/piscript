@@ -1,0 +1,203 @@
+// Initialize pipes
+fun add_pipe() {
+    let gap_y = floor(rand() * 80) + 10
+    push(pipes, {x: 128, gap_y: gap_y})
+}
+
+fun filter(list, predicate) {
+    let result = []
+    for (i in 0..len(list)) {
+        if (predicate(list[i])) {
+            push(result, list[i])
+        }
+    }
+    return result
+}
+
+// Flappy Bird game implementation
+birdspr = [[0,0,0,0,0,0,17,17,17,17,17,17,0,0,0,0],[0,0,0,0,17,17,23,23,23,17,6,6,17,0,0,0],[0,0,0,17,23,23,9,9,17,6,6,6,6,17,0,0],[0,0,17,23,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,9,9,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,17,17,17,9,9,9,9,17,13,6,6,17,0,0],[17,7,7,7,7,17,9,9,9,1,1,1,1,1,1,0],[17,23,7,7,23,17,9,9,1,8,8,8,8,8,8,1],[17,17,17,17,17,9,9,1,8,1,1,1,1,1,1,0],[0,1,25,25,25,25,25,25,1,8,8,8,8,8,1,0],[0,0,1,1,25,25,25,25,25,1,1,1,1,1,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0]]
+
+fun draw_bird() {
+    for(i in 0..len(bird))
+        for(j in 0..len(bird[0]))
+            if(birdspr[i][j] > 0)
+            pixel(j + bird.x, i + bird.y, bird[i][j]);
+}
+
+bird = {x: 40, y: 64, vy: 0}
+gravity = 0.6
+jump_strength = -5
+pipe_gap = 30
+pipe_width = 15
+pipes = []
+frame = 0
+score = 0
+game_over = false
+
+
+
+// Main game loop
+while (true) {
+    if(!game_over) {
+        clear(12)
+        
+        // Handle input
+        if (key('KEY_SPACE') || key('KEY_UP')) {
+            bird.vy = jump_strength
+        }
+
+        // Physics
+        bird.vy += gravity
+        bird.y += bird.vy
+
+        // Bird bounds
+        if (bird.y > 128 - 8) {
+            game_over = true
+        }
+
+        if (bird.y < 7) {
+          bird.y = 7
+        }
+
+        // Pipe movement and collision
+        if (frame % 60 == 0) {
+            add_pipe()
+        }
+
+        for (i in 0..len(pipes)) {
+            pipes[i].x -= 2
+
+            // Collision
+            if (pipes[i].x < bird.x + 6 && pipes[i].x + pipe_width > bird.x) {
+                if (bird.y < pipes[i].gap_y || bird.y > pipes[i].gap_y + pipe_gap) {
+                    game_over = true
+                }
+            }
+            
+            
+        }        
+
+        if(len(pipes) > 0) 
+        // Scoring        
+        if (bird.x == pipes[0].x + pipe_width - 1) 
+            score += 1
+        
+
+   
+
+        // Remove off-screen pipes
+        pipes = filter(pipes, (p) -> p.x + pipe_width > 0)
+
+        // Draw pipes
+        for (p in pipes) {
+            rect(p.x, 7, pipe_width, p.gap_y - 7, 3, true)  // Upper pipe
+            rect(p.x, p.gap_y + pipe_gap, pipe_width, 128 - (p.gap_y + pipe_gap), 3, true)  // Lower pipe
+        }
+
+        // Draw bird
+        // rect(bird.x, bird.y, 6, 6, 9, true)
+        draw_bird()
+
+        // Draw score
+        text("SCORE: " + score)
+
+        draw()
+        sleep(30)
+        frame += 1
+    } else {
+    // Game over screen
+    rect(0, 0, 128, 7, 12, true)
+    text(36, 50, "GAME OVER")
+    text(46, 64, "SCORE: " + score)
+    text(30, 80, "PRESS SPACE")
+    text(32, 90, "TO RESTART")
+    draw()
+    if(key('KEY_SPACE')) {
+        game_over = false
+        bird = {x: 40, y: 64, vy: 0}
+        pipes = []
+        score = 0
+    }
+
+  }
+}
+
+
+
+// bird = [[0,0,0,0,0,0,17,17,17,17,17,17,0,0,0,0],[0,0,0,0,17,17,23,23,23,17,6,6,17,0,0,0],[0,0,0,17,23,23,9,9,17,6,6,6,6,17,0,0],[0,0,17,23,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,9,9,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,17,17,17,9,9,9,9,17,13,6,6,17,0,0],[17,7,7,7,7,17,9,9,9,1,1,1,1,1,1,0],[17,23,7,7,23,17,9,9,1,8,8,8,8,8,8,1],[17,17,17,17,17,9,9,1,8,1,1,1,1,1,1,0],[0,1,25,25,25,25,25,25,1,8,8,8,8,8,1,0],[0,0,1,1,25,25,25,25,25,1,1,1,1,1,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0]]
+
+// fun draw_sprite(sprite) {
+//     for(i in 0..len(sprite))
+//         for(j in 0..len(sprite[0]))
+//             if(sprite[i][j] > 0)
+//             pixel(j + x, i + y, sprite[i][j]);
+// }
+
+// x = 60
+// y = 60
+// rot = 0
+// while(true) {
+//     clear()
+//     if(key('KEY_UP')) 
+//         y -= 1
+//     if(key('KEY_DOWN'))
+//         y += 1
+//     if(key('KEY_RIGHT'))
+//         x += 1
+//     if(key('KEY_LEFT'))
+//         x -= 1
+//     // rotate_sprite(bird, 30)
+//     draw_sprite(rotate_sprite(bird, rot))    
+//     draw()
+//     rot++
+// }
+
+
+// fun rad(angle_degrees) {
+//     return angle_degrees * (PI / 180)
+// }
+
+// fun rotate_sprite(sprite, angle_degrees) {
+//     // Convert angle to radians
+//     let angle_rad = rad(angle_degrees)
+
+    
+//     // Get sprite dimensions
+//     let height = len(sprite)
+//     let width = height > 0 ? len(sprite[0]) : 0
+
+//     // Calculate center
+//     let cx = (width - 1) / 2
+//     let cy = (height - 1) / 2
+    
+//     // Initialize rotated sprite (filled with zeros or another background color)
+//     let rotated = []
+
+//     for(i in 0..height)
+//         rotated += [0] * width
+    
+//     for(y in 0..height) {
+//         for( x in 0..width) {
+//             // Translate coordinates to origin
+//             let x_rel = x - cx
+//             let y_rel = y - cy
+            
+//             // Apply rotation
+//             let new_x_rel = x_rel * cos(angle_rad) - y_rel * sin(angle_rad)
+//             let new_y_rel = x_rel * sin(angle_rad) + y_rel * cos(angle_rad)
+            
+//             // Translate back to original coordinate system
+//             let new_x = round(cx + new_x_rel)
+//             let new_y = round(cy + new_y_rel)
+            
+            
+//             // Check if new coordinates are within bounds
+//             if(0 <= new_x && new_x < width && 0 <= new_y && new_y < height)                 
+//                 rotated[new_y][new_x] = sprite[y][x]
+        
+            
+//         }
+//     }
+//     return rotated
+// }
+

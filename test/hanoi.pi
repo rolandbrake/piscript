@@ -1,0 +1,13 @@
+/* Tower of Hanoi  */
+
+fun hanoi(ndisks, startPeg = 1, endPeg = 3) {
+    if(ndisks) {
+        hanoi(ndisks-1, startPeg, 6-startPeg-endPeg);
+        println("Move disk " + ndisks + " from peg " + startPeg + " to peg " + endPeg);
+        hanoi(ndisks-1, 6-startPeg-endPeg, endPeg);
+    }
+}
+
+
+ 
+hanoi(10);
