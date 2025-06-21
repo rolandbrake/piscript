@@ -15,6 +15,7 @@
 #define IS_MAP(o) IS_OBJ_TYPE(o, OBJ_MAP)
 #define IS_FUN(o) IS_OBJ_TYPE(o, OBJ_FUN)
 #define IS_RANGE(o) IS_OBJ_TYPE(o, OBJ_RANGE)
+#define IS_MODEL(o) IS_OBJ_TYPE(o, OBJ_MODEL3D)
 
 #define IS_COLLECTION(o) (IS_LIST(o) || IS_MAP(o) || IS_STRING(o))
 
@@ -25,7 +26,8 @@
 #define AS_MAP(o) ((PiMap *)AS_OBJ(o))
 #define AS_RANGE(o) ((PiRange *)AS_OBJ(o))
 #define AS_FUN(o) ((Function *)AS_OBJ(o))
-#define AS_CODE(o) ((PiCode *)AS_OBJ(o))
+#define AS_CODE(o) ((ObjCode *)AS_OBJ(o))
+#define AS_FILE(o) ((ObjFile *)AS_OBJ(o))
 
 #define AS_CSTRING(o) AS_STRING(o)->chars
 
@@ -38,6 +40,8 @@
 
 #define COL_LENGTH(o) (IS_LIST(o) ? PILIST_SIZE(o) : PISTR_SIZE(o))
 
+#define PILIST_GETAT(o, i, t) (*(t *)list_getAt(AS_CLIST(o), i))
+
 typedef enum
 {
     OBJ_STRING,
@@ -45,13 +49,17 @@ typedef enum
     OBJ_MAP,
     OBJ_RANGE,
     OBJ_FUN,
-    OBJ_CODE
+    OBJ_CODE,
+    OBJ_FILE,
+    OBJ_IMAGE,
+    OBJ_MODEL3D,
 } o_type;
 
 struct Object
 {
     o_type type;
-    bool is_marked;
+    bool is_marked; // Flag to indicate if the object is marked for garbage collection
+    bool in_gcList; // Flag to indicate if the object is in the GC list
     struct Object *next;
 };
 
@@ -108,7 +116,30 @@ typedef struct
     list_t *data;
 
     uint32_t hash;
-} PiCode;
+} ObjCode;
+
+typedef struct
+{
+    Object object;
+    FILE *fp;
+    bool closed;
+    char *mode;
+    char *filename;
+} ObjFile;
+
+typedef struct
+{
+    Object object;
+    list_t *triangles;
+} ObjModel3d;
+
+typedef struct
+{
+    Object object;
+    list_t *pixels;
+    int width;
+    int height;
+} ObjImage;
 
 uint32_t string_hash(char *chars, size_t length);
 Object *new_pistring(char *str);
@@ -117,6 +148,9 @@ PiString *copy_pistring(char *chars, int length);
 Object *new_list(list_t *items);
 
 Object *new_map(table_t *table, bool is_instance);
+
+Object *new_file(FILE *file, char *filename, char *mode);
+ObjModel3d *new_model3d(list_t *triangles);
 
 Value map_get(PiMap *map, Value key);
 void map_set(PiMap *map, Value key, Value value);

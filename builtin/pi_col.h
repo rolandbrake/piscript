@@ -51,4 +51,7 @@ Value pi_slice(vm_t *vm, int argc, Value *argv);
 // Returns the length of a list, string, or map.
 Value pi_len(vm_t *vm, int argc, Value *argv);
 
+// Returns a list of numbers in a specified range.
+Value pi_range(vm_t *vm, int argc, Value *argv);
+
 #endif // PI_COL_H

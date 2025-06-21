@@ -15,6 +15,54 @@
 
 #include "builtin/pi_builtin.h"
 
+static PiMap *define_keys(vm_t *vm)
+{
+    table_t *table = ht_create(sizeof(Value));
+    PiMap *keys_map = (PiMap *)new_map(table, true);
+
+    // Letters A-Z
+    for (char c = 'A'; c <= 'Z'; c++)
+    {
+        char keyname[2] = {c, '\0'};
+        SDL_Scancode code = SDL_SCANCODE_A + (c - 'A');
+        ht_put(table, keyname, &NEW_NUM(code));
+    }
+
+    // Digits 0-9
+    for (char c = '0'; c <= '9'; c++)
+    {
+        char keyname[2] = {c, '\0'};
+        SDL_Scancode code = SDL_SCANCODE_0 + (c - '0');
+        ht_put(table, keyname, &NEW_NUM(code));
+    }
+
+    // Special keys
+    struct
+    {
+        const char *name;
+        SDL_Scancode code;
+    } specials[] = {
+        {"SPACE", SDL_SCANCODE_SPACE},
+        {"ENTER", SDL_SCANCODE_RETURN},
+        {"ESC", SDL_SCANCODE_ESCAPE},
+        {"UP", SDL_SCANCODE_UP},
+        {"DOWN", SDL_SCANCODE_DOWN},
+        {"LEFT", SDL_SCANCODE_LEFT},
+        {"RIGHT", SDL_SCANCODE_RIGHT},
+        {"LSHIFT", SDL_SCANCODE_LSHIFT},
+        {"RSHIFT", SDL_SCANCODE_RSHIFT},
+        {"LCTRL", SDL_SCANCODE_LCTRL},
+        {"RCTRL", SDL_SCANCODE_RCTRL},
+        {"LALT", SDL_SCANCODE_LALT},
+        {"RALT", SDL_SCANCODE_RALT},
+    };
+
+    for (int i = 0; i < sizeof(specials) / sizeof(specials[0]); i++)
+        ht_put(table, specials[i].name, &NEW_NUM(specials[i].code));
+
+    return keys_map;
+}
+
 /**
  * Initializes the virtual machine by allocating memory and
  * setting initial values for the program counter, stack pointer,
@@ -51,6 +99,10 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     // Graphics constants
     ht_put(vm->globals, "WIDTH", &NEW_NUM(SCREEN_WIDTH));
     ht_put(vm->globals, "HEIGHT", &NEW_NUM(SCREEN_HEIGHT));
+
+    // Define keys
+    PiMap *keys = define_keys(vm);
+    ht_put(vm->globals, "KEYS", &NEW_OBJ(keys));
 
     // Add native functions
 
@@ -108,6 +160,13 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     ht_put(vm->globals, "text", new_native("text", pi_text));
     ht_put(vm->globals, "input", new_native("input", pi_input));
 
+    // File functions
+    ht_put(vm->globals, "open", new_native("open", pi_open));
+    ht_put(vm->globals, "read", new_native("read", pi_read));
+    ht_put(vm->globals, "write", new_native("write", pi_write));
+    ht_put(vm->globals, "seek", new_native("seek", pi_seek));
+    ht_put(vm->globals, "close", new_native("close", pi_close));
+
     // String functions
     ht_put(vm->globals, "char", new_native("char", pi_char));
     ht_put(vm->globals, "ord", new_native("ord", pi_ord));
@@ -121,6 +180,7 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     ht_put(vm->globals, "is_numeric", new_native("isNumeric", pi_isNumeric));
     ht_put(vm->globals, "is_alpha", new_native("isAlpha", pi_isAlpha));
     ht_put(vm->globals, "is_alnum", new_native("isAlnum", pi_isAlnum));
+    ht_put(vm->globals, "split", new_native("split", pi_split));
 
     // Audio functions
     ht_put(vm->globals, "sound", new_native("sound", pi_sound));
@@ -161,6 +221,7 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     ht_put(vm->globals, "copy", new_native("copy", pi_copy));
     ht_put(vm->globals, "slice", new_native("slice", pi_slice));
     ht_put(vm->globals, "len", new_native("len", pi_len));
+    ht_put(vm->globals, "range", new_native("range", pi_range));
 
     // functional programming
     ht_put(vm->globals, "map", new_native("map", _pi_map));
@@ -185,6 +246,17 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     ht_put(vm->globals, "values", new_native("values", pi_values));
     ht_put(vm->globals, "keys", new_native("keys", pi_keys));
 
+    // 3d rendering functions
+    ht_put(vm->globals, "load3d", new_native("load3d", pi_load3d));
+
+    ht_put(vm->globals, "rotate", new_native("rotate", pi_rotate));
+    ht_put(vm->globals, "translate", new_native("translate", pi_translate));
+    ht_put(vm->globals, "scale", new_native("scale", pi_scale));
+
+    ht_put(vm->globals, "project", new_native("project", pi_project));
+
+    ht_put(vm->globals, "render", new_native("render", pi_render));
+
     vm->iter_sp = -1;
     vm->frame_sp = 0;
 
@@ -202,6 +274,9 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     vm->openUpvalues = NULL;
 
+    vm->next_gc = NEXT_GC;
+    vm->obj_count = 0;
+
     return vm;
 }
 
@@ -218,13 +293,16 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
  */
 inline Object *add_obj(vm_t *vm, Object *obj)
 {
+    if (obj->in_gcList)
+        return obj; // Already in the list, skip
 
-    // printf("[DEBUG] Adding object at %p\n", (void *)obj);
-    // Add the object to the front of the list
+    // Mark as added
+    obj->in_gcList = true;
+
+    // Add to the front of the list
     obj->next = vm->objects;
     vm->objects = obj;
 
-    // Return the newly added object
     return obj;
 }
 
@@ -234,7 +312,9 @@ static inline int count_objs(vm_t *vm)
     Object *obj = vm->objects;
     while (obj)
     {
+#ifdef DEBUG
         printf("[DEBUG] Counting object at %p\n", (void *)obj);
+#endif
         count++;
         obj = obj->next;
     }
@@ -265,14 +345,6 @@ static void vm_error(vm_t *vm, const char *message)
             exit(EXIT_FAILURE);
         }
     }
-
-    // instr_t *instr = list_getAt(vm->instrs, vm->pc); // Get the instruction at the current PC
-
-    // fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR]\033[0m: %s\n", message);
-    // fprintf(stderr, "\033[90mAt line %d, column %d\033[0m\n",
-    //         instr->line, instr->column - 1);
-
-    // exit(EXIT_FAILURE);
 }
 
 /**
@@ -535,7 +607,6 @@ void run(vm_t *vm)
         case OP_LOAD_CONST:
         {
             // Read a two-byte short value from the bytecode to get the constant index
-            // index = (code[pc++] << 8) | code[pc++];
             index = (code[pc++] << 8);
             index |= code[pc++];
             // Get the constant from the constants list using the index
@@ -561,7 +632,7 @@ void run(vm_t *vm)
         case OP_LOAD_GLOBAL:
         {
             index = code[pc++];
-            char *name = read_name(vm, index);
+            char *name = string_get(vm->names, index);
             Value *_value = ht_get(vm->globals, name);
             if (_value == NULL)
             {
@@ -1327,6 +1398,8 @@ void run(vm_t *vm)
                 vm->pc = pc;
                 // Call native function if it's a built-in
                 Value result = call_func(vm, AS_FUN(callee), num_args, args);
+                if (IS_OBJ(result))
+                    add_obj(vm, AS_OBJ(result));
                 push_stack(vm, result);
             }
             else if (IS_MAP(callee))
@@ -1531,35 +1604,6 @@ void run(vm_t *vm)
             break;
         }
 
-            // case OP_PUSH_LIST:
-            // {
-            //     bool is_numeric = true;
-            //     // Read the number of elements in the list
-            //     int numElements = code[pc++] << 8;
-            //     numElements |= code[pc++];
-
-            //     // Create a new list
-            //     list_t *list = list_create(sizeof(Value));
-
-            //     // Adjust the stack pointer to the first element of the list
-            //     vm->sp -= numElements;
-
-            //     // Populate the list directly from the stack
-            //     for (int i = 0; i < numElements; i++)
-            //     {
-            //         Value element = vm->stack[vm->sp + i];
-            //         if (is_numeric && !IS_NUM(element))
-            //             is_numeric = false;
-            //         list_add(list, &element);
-            //     }
-
-            //     // Push the new list onto the stack
-            //     Object *l_obj = add_obj(vm, new_list(list));
-            //     ((PiList *)l_obj)->is_numeric = is_numeric;
-            //     push_stack(vm, NEW_OBJ(l_obj));
-            //     break;
-            // }
-
         case OP_PUSH_MAP:
         {
 
@@ -1598,7 +1642,7 @@ void run(vm_t *vm)
             // Read the number of parameters
             int numParams = code[pc++];
 
-            PiCode *body = AS_CODE(pop_stack(vm));
+            ObjCode *body = AS_CODE(pop_stack(vm));
             char *name = AS_CSTRING(pop_stack(vm));
 
             list_t *defaults = list_create(sizeof(Value));
@@ -1644,7 +1688,7 @@ void run(vm_t *vm)
                 upvalues[numUpvalues - i - 1] = upvalue;
             }
 
-            PiCode *body = AS_CODE(pop_stack(vm));
+            ObjCode *body = AS_CODE(pop_stack(vm));
             char *name = AS_CSTRING(pop_stack(vm));
 
             list_t *defaults = list_create(sizeof(Value));
@@ -1866,18 +1910,38 @@ void run(vm_t *vm)
             vm->pc = pc;
         }
 
-        if (vm->counter >= NEXT_GC)
+        if (vm->counter >= vm->next_gc)
         {
+            // printf("[GC] Counter: %d\n", vm->counter);
+
 #ifdef DEBUG
             printf("[DEBUG] SP: %d\n", vm->sp);
             printf("[GC] Running garbage collection...\n");
             printf("[GC] Before: %d objects in memory\n", count_objs(vm));
             run_gc(vm);
             printf("[GC] After: %d objects in memory\n", count_objs(vm));
+            printf("[GC] Counter: %d\n", vm->counter);
 #endif
+            int before = count_objs(vm);
             run_gc(vm);
+            int count = before - vm->obj_count;
+
             vm->counter = 0;
+
+            // Adjust next threshold adaptively
+            if (count > 256)
+                vm->next_gc /= 2; // GC did not help, try more often
+            else
+                vm->next_gc *= 2; // GC was effective, increase threshold
+            vm->obj_count = before;
+
+            // Clamp bounds (prevent very frequent or very rare GC)
+            if (vm->next_gc < 1024)
+                vm->next_gc = 1024;
+            else if (vm->next_gc > 1024 * 1024)
+                vm->next_gc = 1024 * 1024;
         }
+
         vm->pc = pc;
     }
 }

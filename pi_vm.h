@@ -10,15 +10,15 @@
 #include "pi_object.h"
 #include "screen.h"
 #include "pi_frame.h"
-// #include "pi_func.h"
+
 
 #define STACK_MAX 1024 // max stack size
 #define ITER_MAX 256   // max iterator stack size
 
 #define RUN_STEPS 1024 // max number of instructions to run
 
-#define NEXT_GC (1024 * 1024)
-// #define NEXT_GC 1024
+// #define NEXT_GC (1024 * 1024)
+#define NEXT_GC 1024
 
 typedef struct
 {
@@ -62,6 +62,10 @@ typedef struct
     int counter;
 
     list_t *instrs; // PiList of instruction metadata
+
+    int next_gc; // Next garbage collection threshold
+
+    int obj_count;
 
 } vm_t;
 

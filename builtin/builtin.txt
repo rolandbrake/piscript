@@ -177,3 +177,36 @@ error
 cursor
 mouse
 
+
+
+--------------
+File Handling:
+--------------
+open
+read
+write
+seek
+close
+
+---------------------
+3D Graphics Rendering
+---------------------
+
+load3d
+project
+rotate
+scale
+translate
+
+
+-----------------
+Builtin Constants
+-----------------
+PI
+E
+WIDTH
+HEIGHT
+KEYS
+
+
+

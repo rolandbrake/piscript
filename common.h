@@ -10,6 +10,10 @@
 #define PI 3.1415926535897932384626433832795
 #define E 2.7182818284590452353602874713527
 
+
+#define DEG_TO_RAD 0.017453292519943295769236907684886
+#define RAD_TO_DEG 57.295779513082320876798154814105
+
 #define ALLOCATE(type, count) (type *)calloc(count, sizeof(type))
 
 /* RenderState is used to store the state of the rendering process
@@ -22,7 +26,6 @@ typedef struct
     pthread_mutex_t render_mutex;
     pthread_cond_t render_cond;
 } RenderState;
-
 
 typedef uint8_t byte;
 #define INIT_CAP 16 // initial capacity must not be zero

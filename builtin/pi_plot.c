@@ -20,7 +20,7 @@
 
 Value pi_pixel(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 3 || argc > 4 ||
+    if (argc < 3 ||
         argv[0].type != VAL_NUM ||
         argv[1].type != VAL_NUM ||
         argv[2].type != VAL_NUM ||
@@ -202,9 +202,21 @@ Value pi_rect(vm_t *vm, int argc, Value *argv)
     return NEW_NIL();
 }
 
+/**
+ * Draws a polygon on the screen using a list of points and a color index.
+ *
+ * This function takes two arguments: a list of points and a color index. The color index
+ * is wrapped within 32. Optionally, a third argument can be provided to specify whether the
+ * polygon should be filled or just outlined.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments (2 or 3).
+ * @param argv The arguments: points (list), color (int), filled (bool, optional).
+ * @return A nil value indicating completion.
+ */
 Value pi_poly(vm_t *vm, int argc, Value *argv)
-{
-    if (argc < 2 || argv[0].type != VAL_OBJ && OBJ_TYPE(argv[0]) != OBJ_LIST || argv[1].type != VAL_NUM)
+{    
+    if (argc < 2 || !IS_LIST(argv[0]) || !IS_NUM(argv[1]))
         error("[poly] expects a list of points and a color index.");
 
     Screen *screen = vm->screen; // Assume vm has a Screen reference

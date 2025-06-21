@@ -10,11 +10,13 @@
 
 <p align="center">
 <img  src="./images/sinc3d.gif" alt="Piscript in action" width="200"  height="200"/>
- &nbsp;&nbsp;&nbsp;
+ &nbsp;
 <img  src="./images/cube.gif" alt="Piscript in action" width="200"  height="200" />
- &nbsp;&nbsp;&nbsp;
+ &nbsp;
 <img  src="./images/doughnut.gif" alt="Piscript in action" width="200"  height="200" />
- &nbsp;&nbsp;&nbsp;
+&nbsp;
+<img  src="./images/monkey.gif" alt="Piscript in action" width="200"  height="200" />
+ &nbsp;
 </p>
 
 ## 🚀 Features
@@ -28,6 +30,7 @@
 - Web support via Emscripten
 - Minimal graphics API (`draw()`, pixel plotting, color palette)
 - Playground-ready and embeddable in web apps
+- built-in 3D graphics engine (works with .obj files)
 
 ---
 

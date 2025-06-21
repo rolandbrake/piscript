@@ -16,5 +16,6 @@ Value pi_isDigit(vm_t *vm, int argc, Value *argv);
 Value pi_isNumeric(vm_t *vm, int argc, Value *argv);
 Value pi_isAlpha(vm_t *vm, int argc, Value *argv);
 Value pi_isAlnum(vm_t *vm, int argc, Value *argv);
+Value pi_split(vm_t *vm, int argc, Value *argv);
 
 #endif // PI_STRING_H

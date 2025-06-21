@@ -56,6 +56,9 @@ void set_pixel(Screen *screen, int x, int y, int color);
 // Draws a single pixel at (x, y) with a specified color and specified alpha
 void set_pixel_alpha(Screen *screen, int x, int y, int color, double alpha);
 
+// Draws a single pixel at (x, y) with a specified color and specified shade/brightness
+void set_pixel_shaded(Screen *screen, int x, int y, int color, float brightness);
+
 // Draws a line from (x0, y0) to (x1, y1) with a specified color
 void draw_line(Screen *screen, int x0, int y0, int x1, int y1, int color);
 

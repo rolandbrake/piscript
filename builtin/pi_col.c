@@ -829,3 +829,45 @@ Value pi_len(vm_t *vm, int argc, Value *argv)
         return NEW_NIL();
     }
 }
+
+
+Value pi_range(vm_t *vm, int argc, Value *argv)
+{
+    double start = 0;
+    double end = 0;
+    double step = 1;
+
+    if (argc == 1)
+    {
+        // range(end)
+        if (!IS_NUM(argv[0]))
+            error("[range] Expected a number as the end value.");
+        end = AS_NUM(argv[0]);
+    }
+    else if (argc == 2)
+    {
+        // range(start, end)
+        if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]))
+            error("[range] Expected numbers for start and end values.");
+
+        start = AS_NUM(argv[0]);
+        end = AS_NUM(argv[1]);
+    }
+    else if (argc == 3)
+    {
+        // range(start, end, step)
+        if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+            error("[range] Expected numbers for start, end, and step values.");
+
+        start = AS_NUM(argv[0]);
+        end = AS_NUM(argv[1]);
+        step = AS_NUM(argv[2]);
+        if (step == 0)
+            error("[range] Step cannot be zero.");
+    }
+    else
+        error("[range] Expected 1 to 3 arguments.");
+
+    Object *range_obj = new_range(start, end, step);
+    return NEW_OBJ(range_obj);
+}

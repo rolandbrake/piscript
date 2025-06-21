@@ -612,7 +612,7 @@ void pop_function(compiler_t *comp, int params)
         int uv_size = list_size(comp->current->upvalues);
         list_t *upvalues = comp->current->upvalues;
 
-        PiCode *code = (PiCode *)new_code(comp->code);
+        ObjCode *code = (ObjCode *)new_code(comp->code);
         int c_index = store_const(comp, NEW_OBJ(code));
 
         context_t *context = (context_t *)pop(comp->contexts);

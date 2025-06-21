@@ -329,6 +329,25 @@ void inline set_pixel_alpha(Screen *screen, int x, int y, int color_index, doubl
     screen->pixels[index] = (255 << 24) | (r << 16) | (g << 8) | b;
 }
 
+void set_pixel_shaded(Screen *screen, int x, int y, int color, float brightness)
+{
+    if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
+        return;
+
+    if (color < 0 || color >= PALETTE_SIZE)
+        return;
+
+    SDL_Color src = palette[color];
+
+    // Apply brightness to each RGB channel
+    Uint8 r = (Uint8)(src.r * brightness);
+    Uint8 g = (Uint8)(src.g * brightness);
+    Uint8 b = (Uint8)(src.b * brightness);
+
+    // Store pixel with full alpha (opaque)
+    screen->pixels[y * SCREEN_WIDTH + x] = (255 << 24) | (r << 16) | (g << 8) | b;
+}
+
 /**
  * Draws a line on the screen using Bresenham's line algorithm.
  *

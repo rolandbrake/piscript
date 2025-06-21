@@ -480,7 +480,6 @@ Value pi_deg(vm_t *vm, int argc, Value *argv)
         error("[deg] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
-    const double RAD_TO_DEG = 180.0 / M_PI;
 
     if (is_numeric(arg))
     {
@@ -529,8 +528,7 @@ Value pi_rad(vm_t *vm, int argc, Value *argv)
     if (argc == 0)
         error("[rad] expects a numeric value or a list of numeric values.");
 
-    Value arg = argv[0];
-    const double DEG_TO_RAD = M_PI / 180.0;
+    Value arg = argv[0];    
 
     if (is_numeric(arg))
     {

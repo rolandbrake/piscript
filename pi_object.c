@@ -79,6 +79,33 @@ Object *new_map(table_t *table, bool is_instance)
     return (Object *)map;
 }
 
+/**
+ * Creates a new ObjFile object that represents a file stream.
+ *
+ * @param file The underlying FILE * that this object wraps.
+ * @param filename The name of the file.
+ * @param mode The mode string that was used to open the file.
+ * @return The newly created ObjFile object.
+ */
+Object *new_file(FILE *file, char *filename, char *mode)
+{
+    ObjFile *f = CREATE_OBJ(ObjFile, OBJ_FILE);
+
+    f->fp = file;
+    f->filename = filename;
+    f->mode = mode;
+    f->closed = false;
+
+    return (Object *)f;
+}
+
+ObjModel3d *new_model3d(list_t *triangles)
+{
+    ObjModel3d *obj = CREATE_OBJ(ObjModel3d, OBJ_MODEL3D);
+    obj->triangles = triangles;
+    return obj;
+}
+
 Value map_get(PiMap *map, Value key)
 {
     void *item = ht_get(map->table, as_string(key));
@@ -119,7 +146,7 @@ uint32_t code_hash(uint8_t *code)
 
 Object *new_code(list_t *code)
 {
-    PiCode *c = CREATE_OBJ(PiCode, OBJ_CODE);
+    ObjCode *c = CREATE_OBJ(ObjCode, OBJ_CODE);
     c->hash = code_hash((uint8_t *)code->data);
     c->data = code;
     return (Object *)c;

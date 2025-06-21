@@ -4,6 +4,7 @@
 #include "../list.h"
 #include "pi_plot.h"
 
+
 Value pi_fps(vm_t *vm, int argc, Value *argv)
 {
     int fps = round(vm->fps);
@@ -19,7 +20,6 @@ Value _pi_type(vm_t *vm, int argc, Value *argv)
 
     return NEW_OBJ(new_pistring(type));
 }
-
 
 Value pi_error(vm_t *vm, int argc, Value *argv)
 {

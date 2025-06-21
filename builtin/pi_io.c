@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define INPUT_BUFFER_SIZE 1024
+#define BUFFER_SIZE 1024
 
 #include "pi_io.h"
 
@@ -23,7 +23,6 @@
  */
 Value pi_println(vm_t *vm, int argc, Value *argv)
 {
-
 
     char result[1024] = "";
     int offset = 0;
@@ -306,9 +305,6 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
         return NEW_BOOL(pressed);
 }
 
-
-
-
 /**
  * @brief Prompts the user for input and returns it as a string.
  *
@@ -326,8 +322,8 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
     printf("%s", prompt->chars);
     fflush(stdout);
 
-    char buffer[INPUT_BUFFER_SIZE];
-    if (!fgets(buffer, INPUT_BUFFER_SIZE, stdin))
+    char buffer[BUFFER_SIZE];
+    if (!fgets(buffer, BUFFER_SIZE, stdin))
         error("[input] Failed to read input.");
 
     // Remove trailing newline if exists
@@ -336,4 +332,192 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
         buffer[len - 1] = '\0';
 
     return NEW_OBJ(new_pistring(strdup(buffer)));
+}
+
+/**
+ * @brief Opens a file and returns a file handler.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc Number of arguments (should be 1 or 2).
+ * @param argv Arguments: [file path], [file mode]
+ * @return A file handler object.
+ */
+Value pi_open(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1 || !IS_STRING(argv[0]))
+        error("[open] expects a single string argument as a file path.");
+
+    char *mode = "r";
+    if (argc >= 2)
+    {
+        if (IS_STRING(argv[1]))
+            mode = AS_CSTRING(argv[1]);
+        else
+            error("[open] expects a string argument as a file mode.");
+    }
+
+    PiString *path = AS_STRING(argv[0]);
+    FILE *file = fopen(path->chars, mode);
+
+    if (!file)
+        error("[open] Failed to open file: %s", path->chars);
+
+    // Extract filename from path
+    const char *fullpath = path->chars;
+    const char *last = strrchr(fullpath, '/');
+#ifdef _WIN32
+    // Windows uses backslashes as path separators
+    const char *_last = strrchr(fullpath, '\\');
+    if (!last || (_last && _last > last))
+        last = _last;
+#endif
+    const char *filename = last ? last + 1 : fullpath;
+
+    // Make a copy of filename and mode, since they must be owned by ObjFile
+    char *_filename = strdup(filename);
+    char *_mode = strdup(mode);
+    ObjFile *f = (ObjFile *)new_file(file, _filename, _mode);
+
+    return NEW_OBJ(f);
+}
+
+/**
+ * @brief Reads a string from the file at the current position.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc Number of arguments (should be 1).
+ * @param argv Argument: [file handler]
+ * @return true if successful, otherwise raises an error.
+ */
+
+Value pi_read(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
+        error("[read] expects a single file handler as argument.");
+
+    ObjFile *file = AS_FILE(argv[0]);
+
+    if (file->closed)
+        error("[read] File is closed.");
+
+    size_t buffer_size = BUFFER_SIZE;
+    size_t capacity = buffer_size;
+    size_t length = 0;
+
+    char *content = malloc(capacity);
+    if (!content)
+        error("[read] Out of memory.");
+
+    while (!feof(file->fp))
+    {
+        if (length + buffer_size > capacity)
+        {
+            capacity *= 2;
+            char *new_content = realloc(content, capacity);
+            if (!new_content)
+            {
+                free(content);
+                error("[read] Out of memory during read.");
+            }
+            content = new_content;
+        }
+
+        size_t bytes = fread(content + length, 1, buffer_size, file->fp);
+        if (ferror(file->fp))
+        {
+            free(content);
+            error("[read] Failed to read file: %s", file->filename);
+        }
+        length += bytes;
+    }
+
+    content[length] = '\0';
+
+    Value result = NEW_OBJ(new_pistring(strdup(content)));
+    free(content); // assuming new_pistring makes a copy
+    return result;
+}
+
+/**
+ * @brief Writes a string to the file at the current position.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc Number of arguments (should be 2).
+ * @param argv Arguments: [file handler, string to write]
+ * @return true if successful, otherwise raises an error.
+ */
+Value pi_write(vm_t *vm, int argc, Value *argv)
+{
+
+    if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
+        error("[write] expects a file handler and a string as arguments.");
+
+    if (!IS_STRING(argv[1]))
+        error("[write] second argument must be a string.");
+
+    ObjFile *file = AS_FILE(argv[0]);
+
+    if (file->closed)
+        error("[write] File is closed.");
+
+    char *str = AS_CSTRING(argv[1]);
+
+    size_t written = fwrite(str, 1, strlen(str), file->fp);
+
+    if (written < strlen(str) || ferror(file->fp))
+        error("[write] Failed to write to file: %s", file->filename);
+
+    return NEW_BOOL(true); // or return number of bytes written if you want
+}
+
+/**
+ * @brief Sets the file position to the given number of bytes from the beginning of the file.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc Number of arguments (should be 2).
+ * @param argv Arguments: [file handler, byte position as number]
+ * @return true if successful, otherwise raises an error.
+ */
+Value pi_seek(vm_t *vm, int argc, Value *argv)
+{
+
+    if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
+        error("[seek] expects a file handler and a number as arguments.");
+
+    ObjFile *file = AS_FILE(argv[0]);
+
+    if (file->closed)
+        error("[seek] File is closed.");
+
+    if (!IS_NUM(argv[1]))
+        error("[seek] second argument must be a number.");
+
+    long pos = as_number(argv[1]);
+    if (fseek(file->fp, pos, SEEK_SET) != 0)
+        error("[seek] Failed to seek in file: %s", file->filename);
+
+    return NEW_BOOL(true);
+}
+
+/**
+ * @brief Closes the file stream and marks it as closed.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc Number of arguments (should be 1).
+ * @param argv Argument: [file handler]
+ * @return true if successful, otherwise raises an error.
+ */
+Value pi_close(vm_t *vm, int argc, Value *argv)
+{
+
+    if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
+        error("[close] expects a file handler as argument.");
+
+    ObjFile *file = AS_FILE(argv[0]);
+
+    if (fclose(file->fp) != 0)
+        error("[close] Failed to close file: %s", file->filename);
+
+    file->closed = true;
+    return NEW_BOOL(true);
 }

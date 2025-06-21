@@ -89,10 +89,12 @@ void mark_object(Object *obj)
         }
         break;
     }
+
     default:
         break;
     }
 }
+
 
 void sweep(vm_t *vm)
 {
@@ -100,29 +102,29 @@ void sweep(vm_t *vm)
     Object *obj = vm->objects;
     while (obj != NULL)
     {
-        Value val = NEW_OBJ(obj);
-        // printf("[GC] Sweeping object at %p\n", (void *)obj);
-        // print_value(val, true);
-        // printf("[GC] Freeing object of type %s\n", type_name(val));
+        Object *next = obj->next;
+
         if (!obj->is_marked)
         {
-            Object *next = obj->next;
+            // Reset the GC tracking flag
+            obj->in_gcList = false;
+
+            // Free and remove from list
             free_object(obj);
 
-            obj = NULL; // Prevent accessing freed memory
-
             if (prev != NULL)
-                prev->next = next; // Update previous object's next pointer
+                prev->next = next;
             else
-                vm->objects = next; // Update head of list if necessary
-            obj = next;
+                vm->objects = next;
         }
         else
         {
             obj->is_marked = false;
+            obj->in_gcList = true; // Still valid in GC list
             prev = obj;
-            obj = obj->next;
         }
+
+        obj = next;
     }
 }
 
@@ -136,6 +138,9 @@ void sweep(vm_t *vm)
  */
 void free_object(Object *obj)
 {
+
+    obj->in_gcList = false; // Prevent stale GC tracking
+
     switch (obj->type)
     {
     case OBJ_STRING:
@@ -168,6 +173,14 @@ void free_object(Object *obj)
         // Free the memory allocated for the function's code
         Function *function = (Function *)obj;
         free_func(function);
+        break;
+    }
+
+    case OBJ_MODEL3D:
+    {
+        // Free the memory allocated for the model's triangles
+        ObjModel3d *model = (ObjModel3d *)obj;
+        list_free(model->triangles);
         break;
     }
     default:

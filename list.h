@@ -6,11 +6,15 @@
 #include <string.h>
 #include <stdio.h>
 
+// #include "pi_value.h"
+
 typedef struct Value Value;
 
 // #define MAX_SIZE 16384
 #define MAX_SIZE 20000
 #define LIST_SIZE(l) ((l)->size)
+
+#define LIST_AT(l, i) (*(Value *)list_getAt((l), (i)))
 
 // Define the PiList structure
 typedef struct

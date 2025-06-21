@@ -291,7 +291,6 @@ Value pi_isNumeric(vm_t *vm, int argc, Value *argv)
     return NEW_BOOL(true);
 }
 
-
 /**
  * Returns true if the given string contains only alphabetic characters (A-Z, a-z).
  *
@@ -312,8 +311,10 @@ Value pi_isAlpha(vm_t *vm, int argc, Value *argv)
     if (len == 0)
         return NEW_BOOL(false);
 
-    for (int i = 0; i < len; i++) {
-        if (!isalpha((unsigned char)s[i])) {
+    for (int i = 0; i < len; i++)
+    {
+        if (!isalpha((unsigned char)s[i]))
+        {
             return NEW_BOOL(false);
         }
     }
@@ -341,11 +342,40 @@ Value pi_isAlnum(vm_t *vm, int argc, Value *argv)
     if (len == 0)
         return NEW_BOOL(false);
 
-    for (int i = 0; i < len; i++) {
-        if (!isalnum((unsigned char)s[i])) {
+    for (int i = 0; i < len; i++)
+    {
+        if (!isalnum((unsigned char)s[i]))
+        {
             return NEW_BOOL(false);
         }
     }
 
     return NEW_BOOL(true);
+}
+
+Value pi_split(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 2 || !IS_STRING(argv[0]) || !IS_STRING(argv[1]))
+        error("[split] expects two string arguments.");
+
+    const char *str = AS_CSTRING(argv[0]);
+    const char *delim = AS_CSTRING(argv[1]);
+
+    size_t len = strlen(str);
+    list_t *result = list_create(sizeof(Value));
+
+    if (len == 0)
+        return NEW_OBJ(new_list(result));
+
+    char *token = strtok((char *)str, delim);
+
+    int i = 0;
+    while (token != NULL)
+    {
+        list_add(result, &NEW_OBJ(new_pistring(token)));
+        token = strtok(NULL, delim);
+        i++;
+    }
+
+    return NEW_OBJ(new_list(result));
 }

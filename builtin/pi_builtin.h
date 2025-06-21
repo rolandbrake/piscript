@@ -13,4 +13,5 @@
 #include "pi_mat.h"    // Matrix functions
 #include "pi_type.h"   // Type functions
 #include "pi_obj.h"    // Object functions
+#include "pi_render.h" // 3D rendering functions
 #endif                 // PI_BUILTIN_H

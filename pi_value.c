@@ -189,6 +189,47 @@ int compare(Value left, Value right)
     }
 }
 
+static char *unescape_string(const char *src)
+{
+    size_t len = strlen(src);
+    char *dest = malloc(len + 1); // worst case: same length
+    char *out = dest;
+
+    for (const char *p = src; *p; ++p)
+    {
+        if (*p == '\\')
+        {
+            p++;
+            switch (*p)
+            {
+            case 'n':
+                *out++ = '\n';
+                break;
+            case 't':
+                *out++ = '\t';
+                break;
+            case '\\':
+                *out++ = '\\';
+                break;
+            case '"':
+                *out++ = '"';
+                break;
+            case 'r':
+                *out++ = '\r';
+                break;
+            default:
+                *out++ = *p;
+                break; // unknown escape → raw char
+            }
+        }
+        else
+            *out++ = *p;
+    }
+
+    *out = '\0';
+    return dest;
+}
+
 Value new_value(token_t token)
 {
     // printf("token value: %d\n", tk_double(token));
@@ -199,7 +240,16 @@ Value new_value(token_t token)
         val.type = VAL_NUM;
         val.data.number = tk_double(token);
         break;
+
     case TK_STR:
+    {
+        const char *raw = tk_string(token);
+        char *unescaped = unescape_string(raw); // <-- implement this
+        val = NEW_OBJ(new_pistring(strdup(unescaped)));
+        free(unescaped);
+        break;
+    }
+
     case TK_ID:
         val = NEW_OBJ(new_pistring(tk_string(token)));
         break;
@@ -607,6 +657,14 @@ char *type_name(Value val)
             return "function";
         case OBJ_CODE:
             return "code";
+        case OBJ_FILE:
+            return "file";
+        case OBJ_MODEL3D:
+            return "model3d";
+        case OBJ_IMAGE:
+            return "image";
+        default:
+            return "undefined";
         }
     }
 
