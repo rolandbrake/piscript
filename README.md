@@ -2,26 +2,18 @@
   <img src="images/logo.png" alt="Piscript Logo" width="200"/>
 </p>
 
+
+
 # &pi; Pi-Script
 
 **Piscript** (Pixel Script) is a lightweight, embeddable scripting language inspired by Python, built in C with a focus on simplicity, performance, and retro-style graphics. It's designed for educational and creative coding use cases, running inside a 128x128 pixel virtual environment.
 
 ---
+[VISIT THE WEBSITE](https://piscript.netlify.app/)
 
-
-<div style="display:flex;  gap: 16px; flex-wrap: nowrap; justify-content:center;align-items:center;
-padding:3rem 0">
-
-<img  src="./images/sinc3d.gif" alt="Piscript in action" width="200"  height="200" style="border-radius:20px; border: 1px solid black;"/>
-
-<img  src="./images/monkey.gif" alt="Piscript in action" width="200"  height="200" style="border-radius:20px;border: 1px solid black;"/>
-
-<img  src="./images/doughnut.gif" alt="Piscript in action" width="200"  height="200" style="border-radius:20px;border: 1px solid black;"/>
-
-
-</div>
-
-
+<p align="center">
+<img src= "./images/examples.gif" alt="Piscript in action" />
+</p>
 ## 🚀 Features
 
 - Simple, Python-like syntax
