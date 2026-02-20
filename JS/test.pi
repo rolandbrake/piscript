@@ -1,0 +1,7 @@
+fun f() {
+  if (x) {
+    print("block");
+  } elif   (y){ print("inline");}
+else  {print("else"); }
+}
+
