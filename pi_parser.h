@@ -4,6 +4,14 @@
 #include <stdbool.h>
 #include "pi_token.h"
 #include "pi_compiler.h"
+
+// Defines the parsing mode, which can affect how source code is interpreted.
+typedef enum
+{
+    MODE_FILE, // Default mode for parsing full script files.
+    MODE_REPL  // Mode for parsing single expressions in a REPL environment.
+} ParserMode;
+
 /**
  * Parser state structure.
  */
@@ -24,6 +32,8 @@ typedef struct
 
     bool is_return;
 
+    ParserMode mode; // The current parsing mode (file or REPL).
+
 } parser_t;
 
 /**
@@ -37,7 +47,7 @@ typedef struct
 
 } assign_t;
 
-parser_t *init_parser(compiler_t *comp, token_t *tokens);
+parser_t *init_parser(compiler_t *comp, token_t *tokens, ParserMode mode);
 void parse(parser_t *parser);
 void free_parser(parser_t *parser);
 

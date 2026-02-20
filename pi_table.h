@@ -24,7 +24,7 @@ typedef struct
     size_t i_size;  // Size of each value type
     ht_item *items; // Array of items
 
-    list_t *_keys;
+    char **_keys;
 
     int _last;
 } table_t;
@@ -34,9 +34,11 @@ table_t *ht_create(size_t i_size);
 void *ht_get(table_t *table, const char *key);
 bool ht_set(table_t *table, const char *key, const void *value);
 bool ht_put(table_t *table, const char *key, const void *value);
+// bool ht_put(table_t *table, const char *key, const void *value);
 bool ht_expand(table_t *table);
 int ht_length(table_t *table);
-list_t *ht_keys(table_t *table);
+int ht_last(table_t *table);
+char **ht_keys(table_t *table);
 void ht_free(table_t *table);
 
 typedef struct

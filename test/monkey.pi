@@ -1,0 +1,15 @@
+obj = load3d("../objs/monkey.obj");
+
+
+angle = 0
+color = 8
+while true {
+  clear(12)
+  text(2,2,"FPS: " + fps(), 6);
+  p_obj = proj3d(rot3d(obj, 0, angle * 1.2, 0), 20, 12)  
+  rend3d(p_obj, color, true)
+  
+  draw()
+  angle = angle + 1
+  sleep(40)  
+}

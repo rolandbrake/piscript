@@ -53,51 +53,106 @@ float dot(vec3d a, vec3d b)
 Value pi_load3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_STRING(argv[0]))
-        error("[load3d] expects a file path string.");
+        vm_error(vm,"[load3d] expects at least 1 argument: file path");
 
     const char *filename = AS_CSTRING(argv[0]);
     FILE *file = fopen(filename, "r");
     if (!file)
-        error("[load3d] can't open file: %s", filename);
+        vm_errorf(vm,"[load3d] can't open file: %s", filename);
 
-    // Temporary list to store raw vertex data.
+    ObjImage *texture = NULL;
+    if (argc >= 2)
+    {
+        if (!IS_OBJ(argv[1]) || ((Object *)AS_OBJ(argv[1]))->type != OBJ_IMAGE)
+            vm_error(vm,"[load3d] second argument must be an image object");
+        texture = (ObjImage *)AS_OBJ(argv[1]);
+    }
+
     list_t *vertices = list_create(sizeof(vec3d));
+    list_t *uvs = list_create(sizeof(vec2d));
+    list_t *tris = list_create(sizeof(triangle));
 
-    // Final list to store triangles with color.
-    list_t *triangles = list_create(sizeof(triangle));
+    bool has_texture = false;
 
-    // Reads the file line by line and parses the vertices and triangles.
     char line[256];
+    short color = -1;
     while (fgets(line, sizeof(line), file))
     {
         if (line[0] == '#' || line[0] == 's')
+        {
+            // Handle custom color metadata: # color r g b
+            if (strncmp(line, "# color", 7) == 0)
+            {
+                int r, g, b;
+                if (sscanf(line, "# color %d %d %d", &r, &g, &b) == 3)
+                    color = (short)find_paletteColor(r, g, b);
+            }
             continue;
+        }
 
-        if (line[0] == 'v')
+        if (strncmp(line, "v ", 2) == 0)
         {
             vec3d v;
             sscanf(line, "v %f %f %f", &v.x, &v.y, &v.z);
             list_add(vertices, &v);
         }
-        else if (line[0] == 'f')
+        else if (strncmp(line, "vt ", 3) == 0)
         {
-            int a, b, c;
-            sscanf(line, "f %d %d %d", &a, &b, &c);
+            vec2d uv;
+            sscanf(line, "vt %f %f", &uv.u, &uv.v);
+            list_add(uvs, &uv);
+            has_texture = true;
+        }
+        else if (strncmp(line, "f ", 2) == 0)
+        {
+            triangle t = {0};
+            if (has_texture)
+            {
+                int vi[3], ti[3];
+                int matches = sscanf(line, "f %d/%d %d/%d %d/%d",
+                                     &vi[0], &ti[0], &vi[1], &ti[1], &vi[2], &ti[2]);
+                if (matches < 6)
+                    vm_error(vm,"[load3d] face line must be in format: f v1/vt1 v2/vt2 v3/vt3");
 
-            triangle t;
-            t.v[0] = ((vec3d *)vertices->data)[a - 1];
-            t.v[1] = ((vec3d *)vertices->data)[b - 1];
-            t.v[2] = ((vec3d *)vertices->data)[c - 1];
-            t.color = 0; // default color, can be set later
+                for (int i = 0; i < 3; i++)
+                {
+                    t.v[i] = *(vec3d *)list_getAt(vertices, vi[i] - 1);
+                    t.t[i] = *(vec2d *)list_getAt(uvs, ti[i] - 1);
+                }
+            }
+            else
+            {
+                int vi[3];
+                int matches = sscanf(line, "f %d %d %d", &vi[0], &vi[1], &vi[2]);
+                if (matches < 3)
+                    vm_error(vm,"[load3d] face line must be in format: f v1 v2 v3");
 
-            list_add(triangles, &t);
+                for (int i = 0; i < 3; i++)
+                {
+                    t.v[i] = *(vec3d *)list_getAt(vertices, vi[i] - 1);
+                    t.t[i] = (vec2d){0, 0};
+                }
+            }
+
+            t.color = color;
+            t.brightness = 1.0f;
+            list_add(tris, &t);
         }
     }
 
     fclose(file);
-    free(vertices); // no longer needed after triangulation
 
-    return NEW_OBJ(new_model3d(triangles));
+    // Copy triangles into contiguous array for model
+    triangle *data = malloc(sizeof(triangle) * tris->size);
+    memcpy(data, tris->data, sizeof(triangle) * tris->size);
+
+    ObjModel3d *model = new_model3d(data, tris->size, texture);
+
+    list_free(vertices);
+    list_free(uvs);
+    list_free(tris);
+
+    return NEW_OBJ(model);
 }
 
 /**
@@ -109,13 +164,13 @@ Value pi_load3d(vm_t *vm, int argc, Value *argv)
  * @param rz: The rotation angle in radians around the z-axis.
  * @return A new 3D model object with the rotated vertices and same color as the input model.
  */
-Value pi_rotate(vm_t *vm, int argc, Value *argv)
+Value pi_rotate3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 4 || !IS_OBJ(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]) || !IS_NUM(argv[3]))
-        error("[rotate] expects model, rx, ry, rz");
+        vm_error(vm,"[rotate] expects model, rx, ry, rz");
 
     if (!IS_MODEL(argv[0]))
-        error("[rotate] First argument must be a 3D model");
+        vm_error(vm,"[rotate] First argument must be a 3D model");
 
     ObjModel3d *model = (ObjModel3d *)AS_OBJ(argv[0]);
 
@@ -129,16 +184,15 @@ Value pi_rotate(vm_t *vm, int argc, Value *argv)
     float sy = sinf(ry), cy = cosf(ry);
     float sz = sinf(rz), cz = cosf(rz);
 
-    // Create new model object
-    ObjModel3d *rotated = new_model3d(list_create(sizeof(triangle)));
+    // Allocate new triangle array
+    int count = model->count;
+    triangle *rotated_tris = malloc(sizeof(triangle) * count);
 
-    // Iterate over each triangle in the model
-    for (int i = 0; i < model->triangles->size; i++)
+    for (int i = 0; i < count; i++)
     {
-        triangle t = *(triangle *)list_getAt(model->triangles, i);
+        triangle t = model->triangles[i];
         triangle r;
 
-        // Iterate over each vertex in the triangle
         for (int j = 0; j < 3; j++)
         {
             vec3d p = t.v[j];
@@ -159,12 +213,16 @@ Value pi_rotate(vm_t *vm, int argc, Value *argv)
             float z3 = z2;
 
             r.v[j] = (vec3d){x3, y3, z3};
+            r.t[j] = t.t[j]; // Preserve UV coordinates
         }
 
-        r.color = t.color; // keep original color
-
-        list_add(rotated->triangles, &r);
+        r.color = t.color;
+        r.brightness = t.brightness;
+        rotated_tris[i] = r;
     }
+
+    // Create new model with rotated triangles and original texture
+    ObjModel3d *rotated = new_model3d(rotated_tris, count, model->texture);
 
     return NEW_OBJ(rotated);
 }
@@ -178,35 +236,43 @@ Value pi_rotate(vm_t *vm, int argc, Value *argv)
  * @param tz: The translation offset in the z-axis.
  * @return A new 3D model object with the translated vertices and same color as the input model.
  */
-Value pi_translate(vm_t *vm, int argc, Value *argv)
+Value pi_translate3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 4 || !IS_OBJ(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]) || !IS_NUM(argv[3]))
-        error("[translate] expects model, tx, ty, tz");
+        vm_error(vm,"[translate] expects model, tx, ty, tz");
 
     if (!IS_MODEL(argv[0]))
-        error("[translate] First argument must be a 3D model");
+        vm_error(vm,"[translate] First argument must be a 3D model");
 
     ObjModel3d *in = (ObjModel3d *)AS_OBJ(argv[0]);
     float tx = AS_NUM(argv[1]);
     float ty = AS_NUM(argv[2]);
     float tz = AS_NUM(argv[3]);
 
-    ObjModel3d *out = new_model3d(list_create(sizeof(triangle)));
-    out->triangles = list_create(sizeof(triangle));
+    int count = in->count;
+    triangle *translated = malloc(sizeof(triangle) * count);
+    if (!translated)
+        vm_error(vm,"[translate] out of memory");
 
-    for (int i = 0; i < in->triangles->size; i++)
+    for (int i = 0; i < count; i++)
     {
-        triangle tri = *(triangle *)list_getAt(in->triangles, i);
+        triangle tri = in->triangles[i];
+        triangle t;
+
         for (int j = 0; j < 3; j++)
         {
-            // Translate each vertex of the triangle
-            tri.v[j].x += tx;
-            tri.v[j].y += ty;
-            tri.v[j].z += tz;
+            vec3d p = tri.v[j];
+            t.v[j] = (vec3d){p.x + tx, p.y + ty, p.z + tz};
+            t.t[j] = tri.t[j]; // Copy UV coords
         }
-        list_add(out->triangles, &tri);
+
+        t.color = tri.color;
+        t.brightness = tri.brightness;
+
+        translated[i] = t;
     }
 
+    ObjModel3d *out = new_model3d(translated, count, in->texture);
     return NEW_OBJ(out);
 }
 
@@ -219,13 +285,13 @@ Value pi_translate(vm_t *vm, int argc, Value *argv)
  * @param sz: The scale factor in the z-axis.
  * @return A new 3D model object with the scaled vertices and same color as the input model.
  */
-Value pi_scale(vm_t *vm, int argc, Value *argv)
+Value pi_scale3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 4 || !IS_OBJ(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]) || !IS_NUM(argv[3]))
-        error("[scale] expects model, sx, sy, sz");
+        vm_error(vm,"[scale] expects model, sx, sy, sz");
 
     if (!IS_MODEL(argv[0]))
-        error("[scale] First argument must be a 3D model");
+        vm_error(vm,"[scale] First argument must be a 3D model");
 
     ObjModel3d *in = (ObjModel3d *)AS_OBJ(argv[0]);
 
@@ -233,22 +299,29 @@ Value pi_scale(vm_t *vm, int argc, Value *argv)
     float sy = AS_NUM(argv[2]);
     float sz = AS_NUM(argv[3]);
 
-    // Create new model object with scaled vertices
-    ObjModel3d *out = new_model3d(list_create(sizeof(triangle)));
-    out->triangles = list_create(sizeof(triangle));
+    int count = in->count;
+    triangle *scaled = malloc(sizeof(triangle) * count);
+    if (!scaled)
+        vm_error(vm,"[scale] out of memory");
 
-    for (int i = 0; i < in->triangles->size; i++)
+    for (int i = 0; i < count; i++)
     {
-        triangle tri = *(triangle *)list_getAt(in->triangles, i);
+        triangle tri = in->triangles[i];
+        triangle t;
+
         for (int j = 0; j < 3; j++)
         {
-            tri.v[j].x *= sx;
-            tri.v[j].y *= sy;
-            tri.v[j].z *= sz;
+            vec3d p = tri.v[j];
+            t.v[j] = (vec3d){p.x * sx, p.y * sy, p.z * sz};
+            t.t[j] = tri.t[j]; // Preserve UV coordinates
         }
-        list_add(out->triangles, &tri);
+
+        t.color = tri.color;
+        t.brightness = tri.brightness;
+        scaled[i] = t;
     }
 
+    ObjModel3d *out = new_model3d(scaled, count, in->texture);
     return NEW_OBJ(out);
 }
 
@@ -259,10 +332,10 @@ Value pi_scale(vm_t *vm, int argc, Value *argv)
  * @param cameraZ: The Z position of the camera (positive for eye level)
  * @return A new 3D model object with the projected vertices and same color as the input model.
  */
-Value pi_project(vm_t *vm, int argc, Value *argv)
+Value pi_project3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 3 || !IS_MODEL(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]))
-        error("[project3d] expects a 3D model object and two numbers (fov, cameraZ)");
+        vm_error(vm,"[project3d] expects a 3D model object and two numbers (fov, cameraZ)");
 
     ObjModel3d *model = (ObjModel3d *)AS_OBJ(argv[0]);
     float fov = AS_NUM(argv[1]);
@@ -282,19 +355,20 @@ Value pi_project(vm_t *vm, int argc, Value *argv)
     m[2][3] = 1.0f;
     m[3][3] = 0.0f;
 
-    vec3d lightDir = {0.0f, 0.0f, -1.0f}; // From camera forward
+    vec3d lightDir = {0.0f, 0.0f, -1.0f};
 
-    list_t *_tris = list_create(sizeof(triangle));
+    int count = model->count;
+    triangle *projected_tris = malloc(sizeof(triangle) * count);
+    if (!projected_tris)
+        vm_error(vm,"[project3d] out of memory");
 
-    for (int i = 0; i < model->triangles->size; i++)
+    for (int i = 0; i < count; i++)
     {
-        triangle t = *(triangle *)list_getAt(model->triangles, i);
+        triangle t = model->triangles[i];
         triangle projected;
 
-        // Calculate brightness BEFORE projection using normal
+        // Compute surface normal and brightness
         vec3d normal = norm(t);
-
-        // Compute light intensity
         float intensity = dot(normal, lightDir);
         float brightness = intensity * 0.5f + 0.6f;
 
@@ -305,13 +379,12 @@ Value pi_project(vm_t *vm, int argc, Value *argv)
 
         projected.brightness = brightness;
 
-        // Project each vertex
         for (int j = 0; j < 3; j++)
         {
             vec3d in = t.v[j];
             float px = in.x;
             float py = in.y;
-            float pz = in.z - cameraZ; // camera Z offset
+            float pz = in.z - cameraZ;
             float pw = 1.0f;
 
             float tx = px * m[0][0] + py * m[1][0] + pz * m[2][0] + pw * m[3][0];
@@ -326,18 +399,21 @@ Value pi_project(vm_t *vm, int argc, Value *argv)
                 tz /= tw;
             }
 
-            // Map to screen (128×128)
+            // Convert to screen space (128×128)
             projected.v[j].x = (tx + 1.0f) * 64.0f;
             projected.v[j].y = (ty + 1.0f) * 64.0f;
             projected.v[j].z = tz;
+
+            // Preserve UV coordinates
+            projected.t[j] = t.t[j];
         }
 
-        projected.color = t.color; // preserve color if needed
-        list_add(_tris, &projected);
+        projected.color = t.color;
+        projected_tris[i] = projected;
     }
 
-    ObjModel3d *_model = new_model3d(_tris);
-    return NEW_OBJ(_model);
+    ObjModel3d *out = new_model3d(projected_tris, count, model->texture);
+    return NEW_OBJ(out);
 }
 
 /**
@@ -466,6 +542,101 @@ void draw_fillTriangle(Screen *screen, float x0, float y0, float x1, float y1, f
 }
 
 /**
+ * Linear interpolation between two values `a` and `b` using the parameter `t` to
+ * compute the weighted average.
+ *
+ * @param a The first value.
+ * @param b The second value.
+ * @param t The interpolation parameter. Must be in the range [0, 1].
+ * @return The interpolated value.
+ */
+float lerp(float a, float b, float t)
+{
+    return a + t * (b - a);
+}
+
+/**
+ * Clamps the given value to the specified range [min, max].
+ *
+ * @param val The value to clamp.
+ * @param min The minimum value of the range.
+ * @param max The maximum value of the range.
+ * @return The clamped value.
+ */
+int clamp(int val, int min, int max)
+{
+    return val < min ? min : (val > max ? max : val);
+}
+
+/**
+ * Draws a textured triangle on the screen.
+ *
+ * @param screen The screen to draw on.
+ * @param p0 The first vertex of the triangle.
+ * @param t0 The texture coordinates of the first vertex.
+ * @param p1 The second vertex of the triangle.
+ * @param t1 The texture coordinates of the second vertex.
+ * @param p2 The third vertex of the triangle.
+ * @param t2 The texture coordinates of the third vertex.
+ * @param texture The texture to use.
+ * @param brightness The brightness of the triangle (0.0 to 1.0).
+ */
+void draw_texturedTriangle(
+    Screen *screen,
+    vec3d p0, vec2d t0,
+    vec3d p1, vec2d t1,
+    vec3d p2, vec2d t2,
+    ObjImage *texture,
+    float brightness)
+{
+    // Compute bounding box of the triangle
+    float minX = fminf(fminf(p0.x, p1.x), p2.x);
+    float maxX = fmaxf(fmaxf(p0.x, p1.x), p2.x);
+    float minY = fminf(fminf(p0.y, p1.y), p2.y);
+    float maxY = fmaxf(fmaxf(p0.y, p1.y), p2.y);
+
+    int x0 = clamp((int)floorf(minX), 0, SCREEN_WIDTH - 1);
+    int x1 = clamp((int)ceilf(maxX), 0, SCREEN_WIDTH - 1);
+    int y0 = clamp((int)floorf(minY), 0, SCREEN_HEIGHT - 1);
+    int y1 = clamp((int)ceilf(maxY), 0, SCREEN_HEIGHT - 1);
+
+    // Precompute edge functions
+    float denom = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+    if (fabsf(denom) < 1e-6f)
+        return; // Degenerate triangle
+
+    for (int y = y0; y <= y1; y++)
+    {
+        for (int x = x0; x <= x1; x++)
+        {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+
+            // Barycentric weights
+            float w0 = ((p1.y - p2.y) * (px - p2.x) + (p2.x - p1.x) * (py - p2.y)) / denom;
+            float w1 = ((p2.y - p0.y) * (px - p2.x) + (p0.x - p2.x) * (py - p2.y)) / denom;
+            float w2 = 1.0f - w0 - w1;
+
+            // Inside triangle check
+            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
+                continue;
+
+            // Interpolate texture coordinates
+            float u = w0 * t0.u + w1 * t1.u + w2 * t2.u;
+            float v = w0 * t0.v + w1 * t1.v + w2 * t2.v;
+
+            // Clamp UV to valid range
+            int tx = clamp((int)(u * texture->width), 0, texture->width - 1);
+            int ty = clamp((int)(v * texture->height), 0, texture->height - 1);
+
+            uint8_t color_index = texture->pixels[ty * texture->width + tx];
+
+            set_pixel_shaded(screen, x, y, color_index, brightness);
+        }
+    }
+}
+
+/**
  * Calculates the average Z-coordinate of the vertices of a triangle.
  *
  * @param t The triangle to calculate the average Z-coordinate for.
@@ -489,10 +660,12 @@ int compare_triangles(const void *a, const void *b)
 {
     const triangle *t1 = (const triangle *)a;
     const triangle *t2 = (const triangle *)b;
-    float z1 = average(t1);
-    float z2 = average(t2);
-    // Sort in reverse: far (larger Z) first
-    return (z1 < z2) ? 1 : (z1 > z2 ? -1 : 0);
+
+    float z1 = (t1->v[0].z + t1->v[1].z + t1->v[2].z) / 3.0f;
+    float z2 = (t2->v[0].z + t2->v[1].z + t2->v[2].z) / 3.0f;
+
+    return (z1 < z2) ? 1 : (z1 > z2) ? -1
+                                     : 0; // Descending order
 }
 
 // --- Lighting-enhanced pi_render() ---
@@ -509,46 +682,72 @@ int compare_triangles(const void *a, const void *b)
  * @param argv The arguments: model (3D model), color (int, optional), filled (bool, optional).
  * @return A nil value indicating completion.
  */
-Value pi_render(vm_t *vm, int argc, Value *argv)
+Value pi_render3d(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_MODEL(argv[0]))
-        error("[render] expects a 3D model");
+        vm_error(vm,"[render] expects a 3D model");
 
     ObjModel3d *model = (ObjModel3d *)AS_OBJ(argv[0]);
 
-    int color = 6; // default to white
+    int color = 6; // Default color
     if (argc > 1 && IS_NUM(argv[1]))
-        color = ((int)round(AS_NUM(argv[1])) % 32);
+        color = ((int)round(AS_NUM(argv[1]))) % 32;
 
     bool filled = false;
     if (argc > 2)
         filled = as_bool(argv[2]);
 
-    // Sort triangles back-to-front (painter's algorithm)
-    qsort(model->triangles->data, model->triangles->size, sizeof(triangle), compare_triangles);
+    // Sort triangles by depth (back-to-front)
+    qsort(model->triangles, model->count, sizeof(triangle), compare_triangles);
 
-    for (int i = 0; i < model->triangles->size; i++)
+    for (int i = 0; i < model->count; i++)
     {
-        triangle t = *(triangle *)list_getAt(model->triangles, i);
+        triangle t = model->triangles[i];
 
-        t.color = color;
-
-        // Skip rendering if the triangle is not visible
+        // Skip invisible triangles
         if (!is_triangleVisible(t))
             continue;
 
+        // Apply solid color if no texture
+        if (!model->texture && t.color == -1)
+            t.color = color;
+
         if (filled)
-            draw_fillTriangle(vm->screen,
-                              t.v[0].x, t.v[0].y,
-                              t.v[1].x, t.v[1].y,
-                              t.v[2].x, t.v[2].y,
-                              t.color, t.brightness);
+        {
+
+            if (model->texture)
+            {
+                // Textured triangle fill (with UVs and texture reference)
+                draw_texturedTriangle(
+                    vm->screen,
+                    t.v[0], t.t[0],
+                    t.v[1], t.t[1],
+                    t.v[2], t.t[2],
+                    model->texture,
+                    t.brightness);
+            }
+            else
+            {
+                // Solid fill triangle
+                draw_fillTriangle(
+                    vm->screen,
+                    t.v[0].x, t.v[0].y,
+                    t.v[1].x, t.v[1].y,
+                    t.v[2].x, t.v[2].y,
+                    t.color,
+                    t.brightness);
+            }
+        }
         else
-            draw_triangle(vm->screen,
-                          t.v[0].x, t.v[0].y,
-                          t.v[1].x, t.v[1].y,
-                          t.v[2].x, t.v[2].y,
-                          t.color);
+        {
+            // Wireframe render
+            draw_triangle(
+                vm->screen,
+                t.v[0].x, t.v[0].y,
+                t.v[1].x, t.v[1].y,
+                t.v[2].x, t.v[2].y,
+                t.color);
+        }
     }
 
     return NEW_NIL();

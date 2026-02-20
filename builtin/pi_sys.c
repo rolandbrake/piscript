@@ -14,7 +14,7 @@ Value pi_fps(vm_t *vm, int argc, Value *argv)
 Value _pi_type(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[type] expects at least one argument.");
+        vm_error(vm,"[type] expects at least one argument.");
 
     char *type = type_name(argv[0]);
 
@@ -24,7 +24,7 @@ Value _pi_type(vm_t *vm, int argc, Value *argv)
 Value pi_error(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[error] expects at least one argument.");
+        vm_error(vm,"[error] expects at least one argument.");
 
     const char *str = as_string(argv[0]);
     printf("Error: %s\n", str);
@@ -51,7 +51,7 @@ Value pi_cursor(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc == 0)
-        error("[cursor] expects at least one argument.");
+        vm_error(vm,"[cursor] expects at least one argument.");
 
     int x = as_number(argv[0]);
     int y = as_number(argv[1]);

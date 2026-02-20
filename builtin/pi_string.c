@@ -16,7 +16,7 @@
 Value pi_char(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !is_numeric(argv[0]))
-        error("[char] expects a single numeric argument.");
+        vm_error(vm,"[char] expects a single numeric argument.");
 
     char *result = (char *)malloc(2);
     result[0] = (char)as_number(argv[0]);
@@ -32,12 +32,12 @@ Value pi_char(vm_t *vm, int argc, Value *argv)
 Value pi_ord(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[ord] expects a non-empty string as argument.");
+        vm_error(vm,"[ord] expects a non-empty string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
 
     if (str->length == 0)
-        error("[ord] cannot operate on an empty string.");
+        vm_error(vm,"[ord] cannot operate on an empty string.");
 
     unsigned char ch = str->chars[0];
     return NEW_NUM((double)ch);
@@ -50,7 +50,7 @@ Value pi_ord(vm_t *vm, int argc, Value *argv)
 Value pi_trim(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[trim] expects a string argument.");
+        vm_error(vm,"[trim] expects a string argument.");
 
     PiString *str = AS_STRING(argv[0]);
     char *s = str->chars;
@@ -79,14 +79,14 @@ Value pi_trim(vm_t *vm, int argc, Value *argv)
 Value pi_upper(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[upper] expects a string argument.");
+        vm_error(vm,"[upper] expects a string argument.");
 
     PiString *str = AS_STRING(argv[0]);
     int len = str->length;
 
     char *upper_str = malloc(len + 1);
     if (!upper_str)
-        error("[upper] Memory allocation failed.");
+        vm_error(vm,"[upper] Memory allocation failed.");
 
     for (int i = 0; i < len; i++)
         upper_str[i] = toupper((unsigned char)str->chars[i]);
@@ -104,14 +104,14 @@ Value pi_upper(vm_t *vm, int argc, Value *argv)
 Value pi_lower(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[lower] expects a string argument.");
+        vm_error(vm,"[lower] expects a string argument.");
 
     PiString *str = AS_STRING(argv[0]);
     int len = str->length;
 
     char *lower_str = malloc(len + 1);
     if (!lower_str)
-        error("[lower] Memory allocation failed.");
+        vm_error(vm,"[lower] Memory allocation failed.");
 
     for (int i = 0; i < len; i++)
         lower_str[i] = tolower((unsigned char)str->chars[i]);
@@ -129,7 +129,7 @@ Value pi_lower(vm_t *vm, int argc, Value *argv)
 Value pi_replace(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 3 || !IS_STRING(argv[0]) || !IS_STRING(argv[1]) || !IS_STRING(argv[2]))
-        error("[replace] expects three string arguments: (str, old, new).");
+        vm_error(vm,"[replace] expects three string arguments: (str, old, new).");
 
     PiString *source = AS_STRING(argv[0]);
     PiString *old_sub = AS_STRING(argv[1]);
@@ -140,13 +140,13 @@ Value pi_replace(vm_t *vm, int argc, Value *argv)
     const char *new_str = new_sub->chars;
 
     if (old_sub->length == 0)
-        error("[replace] 'old' string must not be empty.");
+        vm_error(vm,"[replace] 'old' string must not be empty.");
 
     // Estimate maximum length needed
     size_t new_len_estimate = source->length * 2 + 1;
     char *result = malloc(new_len_estimate);
     if (!result)
-        error("[replace] Memory allocation failed.");
+        vm_error(vm,"[replace] Memory allocation failed.");
 
     size_t src_index = 0, res_index = 0;
     while (src[src_index])
@@ -178,7 +178,7 @@ Value pi_replace(vm_t *vm, int argc, Value *argv)
 Value pi_isUpper(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_upper] expects a string as argument.");
+        vm_error(vm,"[is_upper] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -203,7 +203,7 @@ Value pi_isUpper(vm_t *vm, int argc, Value *argv)
 Value pi_isLower(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_lower] expects a string as argument.");
+        vm_error(vm,"[is_lower] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -228,7 +228,7 @@ Value pi_isLower(vm_t *vm, int argc, Value *argv)
 Value pi_isDigit(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_digit] expects a string as argument.");
+        vm_error(vm,"[is_digit] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -257,7 +257,7 @@ Value pi_isDigit(vm_t *vm, int argc, Value *argv)
 Value pi_isNumeric(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_numeric] expects a string as argument.");
+        vm_error(vm,"[is_numeric] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -302,7 +302,7 @@ Value pi_isNumeric(vm_t *vm, int argc, Value *argv)
 Value pi_isAlpha(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_alpha] expects a string as argument.");
+        vm_error(vm,"[is_alpha] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -333,7 +333,7 @@ Value pi_isAlpha(vm_t *vm, int argc, Value *argv)
 Value pi_isAlnum(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[is_alnum] expects a string as argument.");
+        vm_error(vm,"[is_alnum] expects a string as argument.");
 
     PiString *str = AS_STRING(argv[0]);
     const char *s = str->chars;
@@ -356,7 +356,7 @@ Value pi_isAlnum(vm_t *vm, int argc, Value *argv)
 Value pi_split(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2 || !IS_STRING(argv[0]) || !IS_STRING(argv[1]))
-        error("[split] expects two string arguments.");
+        vm_error(vm,"[split] expects two string arguments.");
 
     const char *str = AS_CSTRING(argv[0]);
     const char *delim = AS_CSTRING(argv[1]);

@@ -12,6 +12,7 @@
 #include "pi_value.h"
 #include "common.h"
 #include "list.h"
+#include "pi_table.h"
 
 // Represents a local variable in the current scope
 typedef struct
@@ -45,18 +46,22 @@ typedef struct
 // Compiler structure that maintains the current state of compilation
 typedef struct
 {
-    list_t *code;       // PiList of bytecode instructions
-    list_t *constants;  // PiList of constant values
-    list_t *names;      // PiList of variable names
+    list_t *code;      // PiList of bytecode instructions
+    list_t *constants; // PiList of constant values
+
+    list_t *names;         // PiList of variable names
+    list_t *builtin_names; // PiList of built-in names
+
     stack_t *locals;    // Stack of local variables
     stack_t *contexts;  // Stack of active compilation contexts
     context_t *current; // Pointer to the current active context
     stack_t *loops;     // Stack of active loops
-    list_t *instrs;     // PiList of instruction metadata
+    table_t *instrs;    // Table to store instruction metadata
     stack_t *objects;   // Stack of objects being allocated
 
     bool is_lookUp;  // Flag for lookup operations
     bool is_upvalue; // Flag indicating if a variable is an upvalue
+    bool is_repl; // Flag indicating if the compiler is in REPL mode
 
     int current_line; // Current line number in the source code
     int current_col;  // Current column number in the source code
@@ -77,8 +82,14 @@ typedef struct
     char *descr; // Description of the instruction
     int line;    // Line number in the source code
     int column;  // Column number in the source code
-    
-    int offset;  // Offset of the instruction in the bytecode
+    int offset;  // Bytecode offset of the instruction
+
+    char *fun_name; // Name of the function this instruction belongs to (NULL for global)
+    OpCode opcode;  // Actual opcode value
+
+    int num_operands;  // How many operands this instruction has
+    uint8_t *operands; // Dynamically allocated array of operands
+
 } instr_t;
 
 // Function to initialize a new compiler instance
@@ -140,6 +151,7 @@ void pop_scope(compiler_t *comp);
 void push_loop(compiler_t *comp, int address, bool is_for);
 void pop_loop(compiler_t *comp, int address);
 bool is_forLoop(compiler_t *comp);
+bool in_loop(compiler_t *comp);
 int loop_depth(compiler_t *comp);
 
 // Functions for handling function definitions
@@ -154,11 +166,21 @@ int get_continue(compiler_t *comp);
 void add_code(compiler_t *comp, byte _byte);
 int code_size(compiler_t *comp);
 
+
+
+
+// Error handling functions
+void p_error(const char *message, int line, int column);
+void p_errorf(int line, int column, const char *format, ...);
+
 // Debugging and memory management functions
 void dis(compiler_t *comp);
 void free_compiler(compiler_t *comp);
 
 // Prints the list of currently active local variables (for debugging)
 void print_locals(compiler_t *comp);
+
+// Resets the compiler to its initial state for reuse
+void reset_compiler(compiler_t *comp);
 
 #endif

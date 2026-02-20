@@ -19,11 +19,16 @@ char *string_get(list_t *list, int index)
 
 void free_strings(list_t *list)
 {
-    for (int i = 0; i < LIST_SIZE(list); i++)
+
+    for (int i = LIST_SIZE(list) - 1; i >= 0; i--)
     {
         String *str = (String *)list_getAt(list, i);
-        free(str->data);
-        free(str);
+        printf("Freeing string: %s\n", str->data);
+        if (str)
+        {
+            free(str->data); // Safe even if str->data is NULL
+            free(str);
+        }
     }
 }
 

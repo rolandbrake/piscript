@@ -5,12 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-// #include "pi_value.h"
+#include <stdbool.h>
 
 typedef struct Value Value;
 
-// #define MAX_SIZE 16384
 #define MAX_SIZE 20000
 #define LIST_SIZE(l) ((l)->size)
 
@@ -55,6 +53,11 @@ void *list_remove(list_t *list, int index);
 void list_expand(list_t *list, int new_cap);
 
 list_t *list_map(list_t *list, Value *(*func)(Value *));
+
+bool list_isEmpty(list_t *list);
+
+void list_clear(list_t *list);
+void list_print(list_t *list);
 
 // free the memory used by the PiList
 void list_free(list_t *list);

@@ -16,7 +16,7 @@
 Value _pi_map(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 2 || !IS_LIST(argv[0]) || !IS_FUN(argv[1]))
-        error("map(fn, list): expects a function and a list");
+        vm_error(vm,"map(fn, list): expects a function and a list");
 
     PiList *input = AS_LIST(argv[0]);
     Function *fn = AS_FUN(argv[1]);
@@ -62,7 +62,7 @@ Value _pi_map(vm_t *vm, int argc, Value *argv)
 Value pi_filter(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 2 || !IS_LIST(argv[0]) || !IS_FUN(argv[1]))
-        error("filter(fn, list): expects a function and a list");
+        vm_error(vm,"filter(fn, list): expects a function and a list");
 
     PiList *input = AS_LIST(argv[0]);
     Function *fn = AS_FUN(argv[1]);
@@ -100,7 +100,7 @@ Value pi_filter(vm_t *vm, int argc, Value *argv)
 Value pi_reduce(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2 || !IS_LIST(argv[0]) || !IS_FUN(argv[1]))
-        error("reduce(fn, list, [initial]): expects a function, a list, and optional initial value");
+        vm_error(vm,"reduce(fn, list, [initial]): expects a function, a list, and optional initial value");
 
     PiList *input = AS_LIST(argv[0]);
     Function *fn = AS_FUN(argv[1]);    
@@ -131,7 +131,7 @@ Value pi_reduce(vm_t *vm, int argc, Value *argv)
 Value pi_find(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 2 || !IS_FUN(argv[1]))
-        error("[find] expects two arguments: a function and a collection.");
+        vm_error(vm,"[find] expects two arguments: a function and a collection.");
 
     Value collection = argv[0];
     Function *fn = AS_FUN(argv[1]);
@@ -161,7 +161,7 @@ Value pi_find(vm_t *vm, int argc, Value *argv)
         }
     }
     else
-        error("[find] Second argument must be a list or a string.");
+        vm_error(vm,"[find] Second argument must be a list or a string.");
 
     return NEW_NUM(-1); // Not found
 }

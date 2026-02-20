@@ -221,20 +221,14 @@ fun run() {
 
 // Main loop
 fun loop() {
-    clear(0)
-    // let counter = 0
+    clear(0)    
     while(true) {
         run()
-        // if(counter > 1024) {
-        //   _draw()
-        //   counter = 0
-        // }
         _draw()
         if(delay_timer > 0)
             delay_timer -= 1
         if(sound_timer > 0)
-            sound_timer -= 1
-        // counter++
+            sound_timer -= 1        
     }
         // Render display here (not implemented in this example)
         // Sleep to control emulation speed (not implemented in this example)
@@ -280,5 +274,3 @@ start([
     0x20, 0x40,  // 2040
     0x80, 0x10   // 8010
 ])
-
-

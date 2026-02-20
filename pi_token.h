@@ -65,7 +65,7 @@ typedef enum
     TK_PLUS,
     TK_DIV,
     TK_MULT,
-    TK_DOT_PROD,
+    TK_DOT_PROD, // Dot product operator [.*]
     TK_MOD,
     TK_BITOR,
     TK_BITAND,
@@ -162,6 +162,7 @@ typedef struct
     int openAt;
     int closeAt;
     bool is_negative; // Flag indicating whether the current token is a negative number.
+    bool skip; // Flag indicating whether the current token should be skipped.
 } token_t;
 
 static const char *token_names[] = {

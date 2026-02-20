@@ -134,9 +134,9 @@ int compare(Value left, Value right)
             break;
 
         default:
-            error("Unsupported type coercion for comparison");
+            return ERROR_COMPARE;
         }
-        error("Unsupported type coercion for comparison");
+        return ERROR_COMPARE;
     }
 
     // If types match, compare normally
@@ -182,13 +182,23 @@ int compare(Value left, Value right)
                                                              : 0;
         }
         else
-            error("Unsupported object type for comparison");
+            return ERROR_COMPARE;
 
     default:
-        error("Unsupported type for comparison");
+        return ERROR_COMPARE;
     }
 }
 
+/**
+ * @brief Escapes special characters in a string.
+ *
+ * Takes a string with special characters escaped using C-style escape
+ * sequences and returns a new string with the escape sequences converted
+ * into their corresponding special characters.
+ *
+ * @param src The string to unescape.
+ * @return A new string with the escape sequences converted.
+ */
 static char *unescape_string(const char *src)
 {
     size_t len = strlen(src);
@@ -203,23 +213,29 @@ static char *unescape_string(const char *src)
             switch (*p)
             {
             case 'n':
+                // Newline character
                 *out++ = '\n';
                 break;
             case 't':
+                // Tab character
                 *out++ = '\t';
                 break;
             case '\\':
+                // Backslash character
                 *out++ = '\\';
                 break;
             case '"':
+                // Double quote character
                 *out++ = '"';
                 break;
             case 'r':
+                // Carriage return character
                 *out++ = '\r';
                 break;
             default:
+                // Unknown escape sequence, treat as raw character
                 *out++ = *p;
-                break; // unknown escape → raw char
+                break;
             }
         }
         else
@@ -230,60 +246,89 @@ static char *unescape_string(const char *src)
     return dest;
 }
 
+/**
+ * @brief Creates a new Value from a given token.
+ *
+ * This function converts a token into a Pi Value based on its type.
+ * It supports various token types such as numbers, strings,
+ * identifiers, booleans, and nil.
+ *
+ * @param token The token to convert.
+ * @return A Value representing the token.
+ */
 Value new_value(token_t token)
 {
-    // printf("token value: %d\n", tk_double(token));
-    Value val;
+    Value val; // The value to be returned
+
     switch (token.type)
     {
     case TK_NUM:
+        // Convert numeric token to a number value
         val.type = VAL_NUM;
         val.data.number = tk_double(token);
         break;
 
     case TK_STR:
     {
+        // Convert string token to a string object
         const char *raw = tk_string(token);
-        char *unescaped = unescape_string(raw); // <-- implement this
+        char *unescaped = unescape_string(raw); // Function to unescape special characters
         val = NEW_OBJ(new_pistring(strdup(unescaped)));
-        free(unescaped);
+        free(unescaped); // Free the temporary unescaped string
         break;
     }
 
     case TK_ID:
+        // Convert identifier token to a string object
         val = NEW_OBJ(new_pistring(tk_string(token)));
         break;
+
     case TK_TRUE:
     case TK_FALSE:
+        // Convert boolean token to a boolean value
         val.type = VAL_BOOL;
         val.data.boolean = tk_bool(token);
         break;
+
     case TK_NIL:
+        // Convert nil token to a nil value
         val.type = VAL_NIL;
         break;
+
     default:
-        // Handle unexpected token type
-        // TODO: Add error handling for unexpected token types
-        fprintf(stderr, "Unexpected token value: %s\n", tk_string(token));
-        exit(EXIT_FAILURE);
+        // Handle unexpected token types
+        error("Unexpected token value: %s", tk_string(token));
     }
 
     return val;
 }
 
+/**
+ * @brief Converts a value to a number
+ *
+ * This function attempts to convert a given Pi value to a number.
+ * Conversion is based on the type of the value.
+ *
+ * @param val The value to convert.
+ * @return A number representation of the value.
+ */
 double as_number(Value val)
 {
     switch (val.type)
     {
     case VAL_NUM:
+        // Numbers are already numbers
         return val.data.number;
     case VAL_BOOL:
+        // Boolean values can be converted to 0 or 1
         return val.data.boolean ? 1.0 : 0.0;
     case VAL_NIL:
+        // Nil values are equivalent to 0
         return 0.0;
     case VAL_OBJ:
         if (AS_OBJ(val)->type == OBJ_STRING)
         {
+            // Attempt to parse the string as a number
             char *endptr;
             PiString *str = AS_STRING(val);
             double result = strtod(str->chars, &endptr);
@@ -303,45 +348,68 @@ double as_number(Value val)
     return 0.0;
 }
 
+/**
+ * @brief Converts a value to a boolean
+ *
+ * This function attempts to convert a given Pi value to a boolean.
+ * Conversion is based on the type of the value.
+ *
+ * @param val The value to convert.
+ * @return A boolean representation of the value.
+ */
 bool as_bool(Value val)
 {
     switch (val.type)
     {
     case VAL_BOOL:
+        // Directly return the boolean value
         return val.data.boolean;
     case VAL_NUM:
+        // Numbers are true if non-zero
         return val.data.number != 0.0;
     case VAL_NIL:
+        // Nil values are false
         return false;
     case VAL_OBJ:
         switch (AS_OBJ(val)->type)
         {
         case OBJ_STRING:
-            // A string is considered true if it is non-empty
+            // Strings are true if non-empty
             return AS_STRING(val)->length > 0;
-
         case OBJ_LIST:
-            // A list is considered true if it has items
+            // Lists are true if they have items
             return LIST_SIZE(AS_LIST(val)->items) > 0;
-
         case OBJ_MAP:
-            // A map is considered true if it has key-value pairs
+            // Maps are true if they have key-value pairs
             return ht_length(AS_MAP(val)->table) > 0;
-
         case OBJ_RANGE:
-            // A range is considered true if it has start and end values
+            // Ranges are true if start and end are different
             return AS_RANGE(val)->start != AS_RANGE(val)->end;
-
         default:
-            // Other object types could default to true or false based on your language's semantics
+            // Other object types default to true
             return true;
         }
     default:
-        fprintf(stderr, "Expected a boolean, but got %s\n", type_name(val));
-        exit(EXIT_FAILURE);
+        // Error if value cannot be converted
+        error("Expected a boolean, but got %s", type_name(val));
     }
 }
 
+/**
+ * @brief Converts a value to a string
+ *
+ * The function converts a given Pi value to a string.
+ * For numerical values, it converts them to a string using the `%g` format specifier.
+ * For boolean values, it returns the string "true" or "false".
+ * For nil values, it returns the string "nil".
+ * For list and map values, it recursively converts the elements to strings and concatenates them.
+ * For functions, it returns a string in the format `<function name: pointer>`.
+ * For range values, it returns a string in the format `<start>..=<end>`.
+ * For code values, it returns an empty string.
+ *
+ * @param val The Pi value to be converted
+ * @return A string representation of the value
+ */
 char *as_string(Value val)
 {
     switch (val.type)
@@ -359,7 +427,7 @@ char *as_string(Value val)
         return num;
     }
     case VAL_BOOL:
-        return val.data.boolean ? "true" : "false";
+        return val.data.boolean ? strdup("true") : strdup("false");
     case VAL_NIL:
         return strdup("nil");
     case VAL_OBJ:
@@ -401,11 +469,51 @@ char *as_string(Value val)
             return result;
         }
 
+            // case OBJ_MAP:
+            // {
+            //     PiMap *map = AS_MAP(val);
+            //     list_t *keys = map->table->_keys;
+            //     int size = list_size(keys);
+            //     if (size == 0)
+            //         return strdup("{}");
+
+            //     size_t buffer_size = 2; // Start with "{}"
+            //     char *result = strdup("{");
+
+            //     for (int i = 0; i < size; i++)
+            //     {
+            //         if (i > 0)
+            //         {
+            //             buffer_size += 2;
+            //             result = realloc(result, buffer_size);
+            //             strcat(result, ", ");
+            //         }
+
+            //         char *key = string_get(keys, i);
+            //         char *value = as_string(*(Value *)ht_get(map->table, key));
+
+            //         buffer_size += strlen(key) + strlen(": ") + strlen(value);
+            //         result = realloc(result, buffer_size);
+            //         strcat(result, key);
+            //         strcat(result, ": ");
+            //         strcat(result, value);
+
+            //         free(value);
+            //     }
+
+            //     buffer_size++;
+            //     result = realloc(result, buffer_size);
+            //     strcat(result, "}");
+
+            //     return result;
+            // }
+
         case OBJ_MAP:
         {
             PiMap *map = AS_MAP(val);
-            list_t *keys = map->table->_keys;
-            int size = list_size(keys);
+            char **keys = map->table->_keys;
+            int size = ht_length(map->table);
+
             if (size == 0)
                 return strdup("{}");
 
@@ -414,6 +522,10 @@ char *as_string(Value val)
 
             for (int i = 0; i < size; i++)
             {
+                char *key = keys[i];
+                char *value = as_string(*(Value *)ht_get(map->table, key));
+
+                // Add comma and space if not the first entry
                 if (i > 0)
                 {
                     buffer_size += 2;
@@ -421,10 +533,7 @@ char *as_string(Value val)
                     strcat(result, ", ");
                 }
 
-                char *key = string_get(keys, i);
-                char *value = as_string(*(Value *)ht_get(map->table, key));
-
-                buffer_size += strlen(key) + strlen(": ") + strlen(value);
+                buffer_size += strlen(key) + 2 + strlen(value) + 1; // key + ": " + value + null
                 result = realloc(result, buffer_size);
                 strcat(result, key);
                 strcat(result, ": ");
@@ -433,12 +542,13 @@ char *as_string(Value val)
                 free(value);
             }
 
-            buffer_size++;
+            buffer_size += 2;
             result = realloc(result, buffer_size);
             strcat(result, "}");
 
             return result;
         }
+
         case OBJ_FUN:
         {
             Function *fun = AS_FUN(val);
@@ -453,39 +563,54 @@ char *as_string(Value val)
         }
     }
     default:
-        break;
+        return NULL;
     }
 
-    fprintf(stderr, "Cannot cast value to string\n");
-    exit(EXIT_FAILURE);
+    return NULL;
 }
 
+/**
+ * @brief Converts a Value to a list_t pointer if the Value is a list.
+ * @param val The Value to convert
+ * @return A pointer to the list_t structure if the Value is a list, else NULL
+ */
 list_t *as_list(Value val)
 {
     if (val.type == VAL_OBJ && OBJ_TYPE(val) == OBJ_LIST)
         return AS_LIST(val)->items;
-    fprintf(stderr, "Expected a list, but got %s\n", type_name(val));
-    exit(EXIT_FAILURE);
+
+    error("Expected a list, but got %s", type_name(val));
 }
+/**
+ * @brief Checks if a Value is numeric.
+ *
+ * This function determines if the given Value represents a numeric type.
+ * It considers numbers, booleans, and nil values as numeric. For string
+ * objects, it attempts to parse the string as a number.
+ *
+ * @param val The Value to check for numeric type.
+ * @return True if the Value is numeric, otherwise false.
+ */
 bool is_numeric(Value val)
 {
-
+    // Directly numeric types
     if (val.type == VAL_NUM || val.type == VAL_BOOL || val.type == VAL_NIL)
-        // If the value is already a number, boolean, or nil, it is considered numeric
         return true;
 
+    // Check if the Value is a string object
     if (val.type == VAL_OBJ && OBJ_TYPE(val) == OBJ_STRING)
     {
-        // Try parsing the string as a number
         char *str_value = AS_STRING(val)->chars;
         char *end_ptr;
-        strtod(str_value, &end_ptr); // Convert the string to a double
+        // Attempt to convert the string to a double
+        strtod(str_value, &end_ptr);
 
-        // If the conversion succeeds and consumes the whole string, it's numeric
+        // Check if the conversion consumed the entire string
         return *end_ptr == '\0';
     }
 
-    return false; // All other types are not numeric
+    // Non-numeric for all other types
+    return false;
 }
 
 Value copy_value(Value val)
@@ -550,15 +675,13 @@ Value copy_value(Value val)
             break;
 
         default:
-            fprintf(stderr, "Unsupported object type for copy\n");
-            exit(EXIT_FAILURE);
+            error("Unsupported object type for copy");
         }
         break;
     }
 
     default:
-        fprintf(stderr, "Cannot copy value of type %s\n", type_name(val));
-        exit(EXIT_FAILURE);
+        error("Unsupported object type for copy");
     }
 
     return copy;
@@ -624,7 +747,7 @@ void print_value(Value val, bool is_root)
         }
         break;
     default:
-        printf("Unknown value type: %s", type_name(val));
+        error("Unknown value type: %s", type_name(val));
     }
     if (is_root)
         printf("\n");

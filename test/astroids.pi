@@ -1,0 +1,179 @@
+
+PI = 3.14159
+
+ship = {
+  x: WIDTH / 2,
+  y: HEIGHT / 2,
+  angle: 0,
+  dx: 0,
+  dy: 0
+}
+
+bullets = []
+asteroids = []
+
+score = 0
+game_over = false
+
+fun wrap(val, max) {
+  if val < 0 return val + max
+  if val >= max return val - max
+  return val
+}
+
+fun spawnAsteroid() {
+  let a = {
+    x: rand(0, WIDTH),
+    y: rand(0, HEIGHT),
+    dx: rand(-10, 10) / 10,
+    dy: rand(-10, 10) / 10,
+    size: rand(8, 16)
+  }
+  asteroids  += a
+}
+
+for i in 0..4 spawnAsteroid()
+
+fun drawShip() {
+  let x = ship.x
+  let y = ship.y
+  let a = ship.angle
+
+  let x1 = x + cos(a) * 6
+  let y1 = y + sin(a) * 6
+  let x2 = x + cos(a + 2.5) * 6
+  let y2 = y + sin(a + 2.5) * 6
+  let x3 = x + cos(a - 2.5) * 6
+  let y3 = y + sin(a - 2.5) * 6
+
+  line(x1, y1, x2, y2, 15)
+  line(x2, y2, x3, y3, 15)
+  line(x3, y3, x1, y1, 15)
+}
+
+fun drawAsteroids() {
+  for a in asteroids {      
+    circ(a.x, a.y, a.size, 8)
+  }
+}
+
+fun drawBullets() {
+  for b in bullets {
+    rect(b.x, b.y, 1, 1, 15)
+  }
+}
+
+fun fireBullet() {
+  let b = {
+    x: ship.x,
+    y: ship.y,
+    dx: cos(ship.angle) * 3,
+    dy: sin(ship.angle) * 3
+  }
+  bullets += b
+}
+
+fun distance(x1, y1, x2, y2) {
+  let dx = x1 - x2
+  let dy = y1 - y2
+  return sqrt(dx * dx + dy * dy)
+}
+
+while true {
+  clear()
+
+  // Input
+  if key("KEY_LEFT")
+    ship.angle -= 0.1
+  if key("KEY_RIGHT")
+    ship.angle += 0.1
+  if key("KEY_UP") {
+    ship.dx += cos(ship.angle) * 0.1
+    ship.dy += sin(ship.angle) * 0.1
+  }
+  if key("KEY_SPACE"){            
+      fireBullet()
+  }
+
+  // Move ship
+  ship.x += ship.dx
+  ship.y += ship.dy
+  ship.x = wrap(ship.x, WIDTH)
+  ship.y = wrap(ship.y, HEIGHT)
+
+  // Move bullets
+  for b in bullets {
+    b.x += b.dx
+    b.y += b.dy
+    b.x = wrap(b.x, WIDTH)
+    b.y = wrap(b.y, HEIGHT)
+  }
+
+  // Move asteroids
+  for a in asteroids {
+    a.x += a.dx
+    a.y += a.dy
+    a.x = wrap(a.x, WIDTH)
+    a.y = wrap(a.y, HEIGHT)
+  }
+
+  // Bullet-asteroid collision
+  let newAsteroids = []
+  let newBullets = []
+  for b in bullets {
+    let hit = false
+    for i in 0..len(asteroids) {
+      let a = asteroids[i]
+      if distance(b.x, b.y, a.x, a.y) < a.size {
+        score += 10
+        if a.size > 6 {
+          // split into 2
+          for j in 0..1 {
+            newAsteroids += {
+              x: a.x, y: a.y,
+              dx: rand(-10, 10) / 10,
+              dy: rand(-10, 10) / 10,
+              size: a.size / 2
+            }
+          }
+        }
+        asteroids[i] = null
+        hit = true
+        break
+      }
+    }
+    if !hit newBullets += b
+  }
+
+  // Filter removed
+  asteroids = filter(asteroids, a -> a != null)
+
+  for(a in newAsteroids) 
+    asteroids += a
+  
+  bullets = newBullets
+
+  // Asteroid-ship collision
+  for a in asteroids {
+    if distance(ship.x, ship.y, a.x, a.y) < a.size {
+      game_over = true
+      break
+    }
+  }
+
+  // Draw
+  drawShip()
+  drawAsteroids()
+  drawBullets()
+  text(2, 2, "SCORE " + score)
+
+  if game_over {
+    text(44, 60, "GAME OVER", 6)
+    draw()
+    sleep(1000)
+    break
+  }
+
+  draw()
+  sleep(16)
+}

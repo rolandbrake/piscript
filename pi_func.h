@@ -10,15 +10,16 @@
 
 typedef Value (*native_func)(vm_t *vm, int argc, Value *argv);
 
-typedef struct
+typedef struct Function
 {
     Object object; // Base object
 
     char *name;     // Function name
-    list_t *params; // PiList of parameters
-    list_t *body;   // Bytecode instructions
+    list_t *params; // PiList of parameters    
+    ObjCode *body;
 
     UpValue **upvalues; // PiList of upvalues used in the function body
+    int upvalue_count;  // Number of upvalues
     Object *instance;   // Instance for bound methods
 
     bool is_native;     // Flag to check if it's a native function
@@ -26,7 +27,8 @@ typedef struct
     native_func native; // Pointer to the native function (NULL for bytecode)
 } Function;
 
-Object *new_func(char *name, list_t *body, list_t *params, UpValue **upvalues, Object *instance);
+// Object *new_func(char *name, list_t *body, list_t *params, UpValue **upvalues, Object *instance);
+Object *new_func(char *name, ObjCode *body, list_t *params, UpValue **upvalues, Object *instance);
 Value *new_native(const char *name, native_func func);
 Value call_func(vm_t *vm, Function *function, size_t argc, Value *argv);
 Value call_funcv(vm_t *vm, Function *function, size_t argc, ...);

@@ -1,9 +1,10 @@
 ---------------------------
 Audio Processing Functions:
 ---------------------------
-
+audio
 sound
-music
+play
+stop
 
 ----------------------------------
 Collection Manipulation Functions:
@@ -193,11 +194,24 @@ close
 ---------------------
 
 load3d
-project
-rotate
-scale
-translate
+proj3d
+rot3d
+scale3d
+tran3d
 
+
+------------------
+IMAGE Manipulation
+------------------
+image
+crop
+resize
+flip
+rend2d
+scale2d
+tran2d
+rot2d
+copy2d
 
 -----------------
 Builtin Constants

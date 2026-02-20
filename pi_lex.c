@@ -181,11 +181,6 @@ void scan_token()
             add_token(TK_DECR);
         else if (match('>'))
             add_token(TK_RARROW);
-        // else if (is_digit(peek(0)))
-        // {
-        //     scanner->is_negative = true;
-        //     break;
-        // }
         else
             add_token(TK_MINUS);
         break;

@@ -1,122 +1,191 @@
-shipx = 63
-shipy = 63
-ship = 1
 
-speed = 2
-delay = 0
+PLAYER_WIDTH = 10
+PLAYER_HEIGHT = 5
+PLAYER_Y = HEIGHT - 10
 
-bullets = []
-Bullet = {
-    constructor(x, y) {
-        this.x = x
-        this.y = y
-    }
+ENEMY_ROWS = 4
+ENEMY_COLS = 8
+ENEMY_WIDTH = 8
+ENEMY_HEIGHT = 6
+ENEMY_SPACING = 12
+
+BULLET_WIDTH = 1
+BULLET_HEIGHT = 4
+
+player = {
+  x: WIDTH / 2 - PLAYER_WIDTH / 2
 }
 
-Enemy = {
-    constructor(x, y) {
-        this.x = x
-        this.y = y
-        this.sprite = 11
-    }
-}
+playerBullets = []
+enemyBullets = []
 
 enemies = []
 
-starx = []
-stary = []
-for(i in 0..100) {
-    starx += rand() * 128
-    stary += rand() * 128
-}
+enemyDir = 1
+enemyStep = 1
+enemyTimer = 0
+enemyDelay = 20
 
-fun drawStars() {
-    for(i in 0..len(stary))
-        if(i < 25)
-            pixel(starx[i], stary[i], 6)
-        else
-            pixel(starx[i], stary[i], 1)
-
-    for(i in 0..len(stary)) {
-        if(i < 25)
-            stary[i] = stary[i] + 0.75
-        else
-            stary[i] = stary[i] + 0.25
-        if(stary[i] > 128)
-            stary[i] = 0
-    }
-}
-
-enemy = 11
-
-flame = 4
 score = 0
+game_over = false
 
-// --- NEW: Target FPS and frame time calculation ---
-targetFPS = 30  // Desired FPS (e.g., 30, 60, etc.)
-frameTime = 1000 / targetFPS  // Desired time per frame (ms)
-
-while(true) {
-    frameStart = time()  // Get current time (ms)
-
-    clear(0)
-    
-    prevx = shipx
-    drawStars()
-
-    for(i in 0..len(bullets)) {
-        sprite(0, bullets[i].x, bullets[i].y)        
-        bullets[i].y = bullets[i].y - 2        
-        if(bullets[i].y < 0) {
-            remove(bullets, i)
-        }        
+// Initialize enemies
+fun spawnEnemies() {
+  for i in 0..ENEMY_ROWS {
+    for j in 0..ENEMY_COLS {
+      enemies += {
+        x: j * ENEMY_SPACING + 10,
+        y: i * 10 + 10,
+        alive: true
+      }
     }
+  }
+}
 
-    if (key('KEY_SPACE', true))     
-        bullets += Bullet(shipx, shipy - 4)
+spawnEnemies()
 
+fun drawPlayer() {
+  rect(player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT, 15, true)
+}
 
-    if (key('KEY_UP') && shipy > 10)
-        shipy = shipy - speed
-    if (key('KEY_DOWN') && shipy < 128 - 8)
-        shipy = shipy + speed
-    if (key('KEY_LEFT') && shipx > 0) {
-        shipx = shipx - speed
-        ship = 3
+fun drawEnemies() {
+  for e in enemies {
+    if e.alive
+      rect(e.x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT, 10, true)
+  }
+}
+
+fun drawBullets() {
+  for b in playerBullets
+    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, 7, true)
+  for b in enemyBullets
+    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, 2, true)
+}
+
+fun moveEnemies() {
+  let shouldDescend = false
+
+  for e in enemies {
+    if e.alive {
+      e.x += enemyDir * enemyStep
+      if e.x <= 0 || e.x + ENEMY_WIDTH >= WIDTH
+        shouldDescend = true
     }
-    if (key('KEY_RIGHT') && shipx < 128 - 8) {
-        shipx = shipx + speed
-        ship = 2
+  }
+
+  if shouldDescend {
+    enemyDir = -enemyDir
+    for e in enemies {
+      if e.alive
+        e.y += 6
+        if e.y + ENEMY_HEIGHT >= PLAYER_Y
+          game_over = true
     }
+  }
+}
 
-    if(prevx == shipx)
-        ship = 1
-    
-    
-    sprite(round(enemy), 50, 50)
-    sprite(ship, shipx, shipy)   
-    sprite(flame, shipx + 2, shipy + 8)
+fun shootPlayerBullet() {
+  if len(playerBullets) < 1 {
+    playerBullets += {
+      x: player.x + PLAYER_WIDTH / 2,
+      y: PLAYER_Y - 5
+    }
+    let s = tone(880, 60, 0)  // player shoot sound
+    play(s)
+  }
+}
 
 
-    text(4, 4, score, 6);
-      
-    delay++
-    flame++
-    enemy += 0.1    
-    if(flame > 8)
-        flame = 4
+let f =  e -> e.alive
+fun shootEnemyBullet() {
+  let shooters = filter(enemies, f)
+  if len(shooters) > 0 {
+    let e = shooters[rand(0, len(shooters)-1)]
+    enemyBullets += {
+      x: e.x + ENEMY_WIDTH / 2,
+      y: e.y + ENEMY_HEIGHT
+    }
+    let s = tone(440, 60, 1)  // enemy shoot sound
+    play(s)
+  }
+}
 
-    if(enemy > 12)
-        enemy = 11
 
+while true {
+  clear()
+
+  // Controls
+  if key("KEY_LEFT") && player.x > 0
+    player.x -= 2
+  if key("KEY_RIGHT") && player.x + PLAYER_WIDTH < WIDTH
+    player.x += 2
+  if key("KEY_SPACE")
+    shootPlayerBullet()
+
+  // Enemy movement
+  enemyTimer += 1
+  if enemyTimer >= enemyDelay {
+    moveEnemies()
+    if rand(0, 100) < 20
+      shootEnemyBullet()
+    enemyTimer = 0
+  }
+
+  // Move player bullets
+  let newPlayerBullets = []
+  for b in playerBullets {
+    b.y -= 3
+    if b.y > 0
+      newPlayerBullets += b
+  }
+  playerBullets = newPlayerBullets
+
+  // Move enemy bullets
+  let newEnemyBullets = []
+  for b in enemyBullets {
+    b.y += 2
+    if b.y < HEIGHT
+      newEnemyBullets += b
+  }
+  enemyBullets = newEnemyBullets
+
+  // Bullet hits enemy
+  for b in playerBullets {
+    for e in enemies {
+      if e.alive && b.x >= e.x && b.x <= e.x + ENEMY_WIDTH &&
+         b.y >= e.y && b.y <= e.y + ENEMY_HEIGHT {
+        e.alive = false
+        b.y = -1000  // mark bullet for removal
+        score += 10
+        let s = tone(660, 100, 0)  // enemy hit sound
+        play(s)
+      }
+    }
+  }
+
+  // Bullet hits player
+  for b in enemyBullets {
+    if b.x >= player.x && b.x <= player.x + PLAYER_WIDTH &&
+       b.y >= PLAYER_Y && b.y <= PLAYER_Y + PLAYER_HEIGHT {
+      game_over = true
+      let s = tone(110, 300, 1)  // player death sound
+      play(s)
+    }
+  }
+
+  // Draw everything
+  drawPlayer()
+  drawEnemies()
+  drawBullets()
+  text(2, 2, "Score: " + score)
+
+  if game_over {
+    text(40, 60, "GAME OVER", 6)
     draw()
+    sleep(1000)
+    break
+  }
 
-    // --- NEW: Frame rate control ---
-    frameEnd = time()  // Get time after rendering (ms)
-    frameDuration = frameEnd - frameStart  // Actual time taken (ms)
-    sleepTime = frameTime - frameDuration  // Time left to sleep
-
-    if (sleepTime > 0)
-        sleep(sleepTime)  // Sleep to maintain target FPS
-    // (If frame took too long, skip sleep to catch up)
+  draw()
+  sleep(16)
 }

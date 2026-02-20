@@ -9,13 +9,9 @@ speed = 8
 score = 0
 food_color = 1
 
-// Main game loop
-while (!game_over) {      
-    // Clear screen with dark background
+while (!game_over) {
     clear(12)
-        
     
-    // Handle input (no diagonal movement)
     if (key('KEY_UP') && dir.y != 1) {
         dir = {x: 0, y: -1}
     }
@@ -32,59 +28,55 @@ while (!game_over) {
     let nextX = (snake[0].x + dir.x * speed + 128) % 128
     let nextY = snake[0].y + dir.y * speed
 
-    // If moving upward into UI zone, wrap to bottom
-    if ( nextY < 7) 
+    if (nextY < 7) 
         nextY = 128 - s
-    elif(nextY > 128 - s) 
+    elif (nextY > 128 - s) 
         nextY = 7
     else 
         nextY = (nextY + 128) % 128
-    
 
     let head = {x: nextX, y: nextY}
 
-    
     // Check collision with self
     for (i in 0..len(snake)) {
-        if (head.x == snake[i].x && head.y == snake[i].y) 
-            game_over = true    
+        if (head.x == snake[i].x && head.y == snake[i].y) {
+            game_over = true
+            // ❗ Death sound (buzz)
+            let s = tone(110, 200, 1)  // square wave, low pitch
+            play(s);
+        }
     }
-              
+
     // Check if snake ate food
     let ate_food = false
-    if (abs((head.x + 4) - food.x) < s  && abs((head.y + 4) - food.y) < s) {        
+    if (abs((head.x + 4) - food.x) < s && abs((head.y + 4) - food.y) < s) {
         score += 10
         food = {x: floor(rand() * 120) + 7, y: floor(rand() * 120) + 7}
         food_color = floor(rand() * 16)
-        if(food_color == 12) food_color = 1
+        if (food_color == 12) food_color = 1
         ate_food = true
+
+        // ✅ Eat food sound (happy blip)        
+        let s = tone(660, 100, 0)  // sine wave, short high tone
+        play(s);
     }
-    
-    // Add new head
-    unshift(snake, head) 
-    
-    // Only remove tail if didn't eat food
+
+    unshift(snake, head)
+
     if (!ate_food) {
         pop(snake)
     }
-        
- 
-    // Draw snake (head is different color)
+
     for (i in 0..len(snake)) {        
-        let color = i % 2 == 0 ? 6 : 8  // Head: yellow, body: green        
-        rect(snake[i].x , snake[i].y, s , s , color, true)  // Fixed: was using snake[0] for all segments
+        let color = i % 2 == 0 ? 6 : 8
+        rect(snake[i].x, snake[i].y, s, s, color, true)
     }
 
-    // Draw food
     circ(food.x, food.y, r, food_color, true)
-
     text("SCORE: " + score)
 
-    // Draw to screen and wait
     draw()
-    //sleep(200 - min(90, score))  // Speed increases with score
     sleep(100)
-    
 }
 
 // Game over screen
@@ -92,33 +84,3 @@ rect(0, 0, 128, 7, 12, true)
 text(36, 56, "GAME OVER")
 text(36, 72, "SCORE: " + score)
 draw()
-
-
-// Minimized version of the game
-// s=[{x:64,y:64}];d={x:1,y:0};f={x:rand()*127,y:rand()*120+7};z=8;r=4;p=8;c=0;fc=1;go=0
-// while(!go){
-//   clear(12)
-//   if(key(82)&&d.y!=1)d={x:0,y:-1}
-//   if(key(81)&&d.y!=-1)d={x:0,y:1}
-//   if(key(80)&&d.x!=1)d={x:-1,y:0}
-//   if(key(79)&&d.x!=-1)d={x:1,y:0}
-//   x=(s[0].x+d.x*p+128)%128
-//   y=s[0].y+d.y*p
-//   y=y<7?128-z:y>128-z?7:(y+128)%128
-//   h={x:x,y:y}
-//   for(i in 0..len(s))if(h.x==s[i].x&&h.y==s[i].y)go=1
-//   t=0
-//   if(abs((h.x+4)-f.x)<z&&abs((h.y+4)-f.y)<z)
-//     {c+=10;f={x:rand()*120+7,y:rand()*120+7};fc=rand()*16%16;if(fc==12)fc=1;t=1}
-//   unshift(s,h)
-//   if(!t)pop(s)
-//   for(i in 0..len(s))
-//     rect(s[i].x,s[i].y,z,z,i%2==0?6:8,1)
-//   circ(f.x,f.y,r,fc,1)
-//   text("SCORE: "+c)
-//   draw();sleep(100)}
-// rect(0,0,128,7,12,1);text(36,56,"GAME OVER");text(36,72,"SCORE: " + c);draw()
-
-// one liner version of the game
-// s=[{x:64,y:64}];d={x:1,y:0};f={x:rand()*127,y:rand()*120+7};z=8;r=4;p=8;c=0;fc=1;go=0;while(!go){clear(12);if(key(82)&&d.y!=1)d={x:0,y:-1};if(key(81)&&d.y!=-1)d={x:0,y:1};if(key(80)&&d.x!=1)d={x:-1,y:0};if(key(79)&&d.x!=-1)d={x:1,y:0};x=(s[0].x+d.x*p+128)%128;y=s[0].y+d.y*p;y=y<7?128-z:y>128-z?7:(y+128)%128;h={x:x,y:y};for(i in 0..len(s))if(h.x==s[i].x&&h.y==s[i].y)go=1;t=0;if(abs((h.x+4)-f.x)<z&&abs((h.y+4)-f.y)<z){c+=10;f={x:rand()*120+7,y:rand()*120+7};fc=rand()*16%16;if(fc==12)fc=1;t=1;}unshift(s,h);if(!t)pop(s);for(i in 0..len(s))rect(s[i].x,s[i].y,z,z,i%2==0?6:8,1);circ(f.x,f.y,r,fc,1);text("SCORE: "+c);draw();sleep(100);}rect(0,0,128,7,12,1);text(36,56,"GAME OVER");text(36,72,"SCORE: "+c);draw();
-

@@ -4,16 +4,31 @@
 #include "pi_col.h"
 #include "../list.h"
 
+/**
+ * @brief Compares two values and returns a negative, zero, or positive value.
+ *
+ * This function compares two values and returns a negative value if the first
+ * value is less than the second, zero if they are equal, and a positive value if
+ * the first value is greater than the second.
+ *
+ * @param a The first value to compare.
+ * @param b The second value to compare.
+ * @return A negative value if the first value is less than the second, zero if
+ *         they are equal, and a positive value if the first value is greater
+ *         than the second.
+ */
 static int _compare(const void *a, const void *b)
 {
     const Value *va = (const Value *)a;
     const Value *vb = (const Value *)b;
 
+    // Compare two numbers
     if (IS_NUM(*va) && IS_NUM(*vb))
     {
         double diff = AS_NUM(*va) - AS_NUM(*vb);
         return (diff < 0) ? -1 : (diff > 0);
     }
+    // Compare two strings
     else if (IS_STRING(*va) && IS_STRING(*vb))
         return strcmp(AS_CSTRING(*va), AS_CSTRING(*vb));
 
@@ -37,7 +52,7 @@ static int _compare(const void *a, const void *b)
 Value pi_pop(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[pop] expects at least one argument.");
+        vm_error(vm, "[pop] expects at least one argument.");
 
     Value arg = argv[0];
 
@@ -45,7 +60,7 @@ Value pi_pop(vm_t *vm, int argc, Value *argv)
     {
         list_t *list = AS_CLIST(arg);
         if (list->size == 0)
-            error("[pop] Cannot pop from an empty list.");
+            vm_error(vm, "[pop] Cannot pop from an empty list.");
         return *(Value *)list_pop(list);
     }
     else if (IS_STRING(arg))
@@ -54,7 +69,7 @@ Value pi_pop(vm_t *vm, int argc, Value *argv)
         PiString *str = ((PiString *)AS_OBJ(arg));
         int len = str->length;
         if (len == 0)
-            error("[pop] Cannot pop from an empty string.");
+            vm_error(vm, "[pop] Cannot pop from an empty string.");
 
         // Return the last character as a new string
         char ch[2] = {str->chars[len - 1], '\0'};
@@ -66,7 +81,7 @@ Value pi_pop(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(new_pistring(strdup(ch)));
     }
     else
-        error("[pop] Argument must be a list or a string.");
+        vm_error(vm, "[pop] Argument must be a list or a string.");
 
     return NEW_NIL();
 }
@@ -87,7 +102,7 @@ Value pi_pop(vm_t *vm, int argc, Value *argv)
 Value pi_push(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[push] expects at least two arguments.");
+        vm_error(vm, "[push] expects at least two arguments.");
 
     Value target = argv[0];
 
@@ -106,11 +121,11 @@ Value pi_push(vm_t *vm, int argc, Value *argv)
         for (int i = 1; i < argc; i++)
         {
             if (!IS_STRING(argv[i]))
-                error("[push] When pushing to a string, all values must be strings.");
+                vm_error(vm, "[push] When pushing to a string, all values must be strings.");
 
             PiString *_arg = (PiString *)AS_OBJ(argv[i]);
             if (_arg->length != 1)
-                error("[push] Only single-character strings can be pushed to a string.");
+                vm_error(vm, "[push] Only single-character strings can be pushed to a string.");
 
             // Append the character
             char ch = _arg->chars[0];
@@ -123,7 +138,7 @@ Value pi_push(vm_t *vm, int argc, Value *argv)
         return NEW_NUM(str->length);
     }
     else
-        error("[push] First argument must be a list or a string.");
+        vm_error(vm, "[push] First argument must be a list or a string.");
 
     return NEW_NIL();
 }
@@ -144,7 +159,7 @@ Value pi_push(vm_t *vm, int argc, Value *argv)
 Value pi_peek(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[peek] expects at least one argument.");
+        vm_error(vm, "[peek] expects at least one argument.");
 
     Value arg = argv[0];
 
@@ -152,7 +167,7 @@ Value pi_peek(vm_t *vm, int argc, Value *argv)
     {
         list_t *list = AS_CLIST(arg);
         if (list->size == 0)
-            error("[peek] Cannot peek from an empty list.");
+            vm_error(vm, "[peek] Cannot peek from an empty list.");
         return *(Value *)list_getAt(list, list->size - 1);
     }
     else if (IS_STRING(arg))
@@ -160,14 +175,14 @@ Value pi_peek(vm_t *vm, int argc, Value *argv)
         PiString *str = (PiString *)AS_OBJ(arg);
         int len = str->length;
         if (len == 0)
-            error("[peek] Cannot peek from an empty string.");
+            vm_error(vm, "[peek] Cannot peek from an empty string.");
 
         // Return the last character as a one-character string
         char ch[2] = {str->chars[len - 1], '\0'};
         return NEW_OBJ(new_pistring(strdup(ch)));
     }
     else
-        error("[peek] Argument must be a list or a string.");
+        vm_error(vm, "[peek] Argument must be a list or a string.");
 
     return NEW_NIL();
 }
@@ -186,7 +201,7 @@ Value pi_peek(vm_t *vm, int argc, Value *argv)
 Value pi_empty(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[empty] expects at least one argument.");
+        vm_error(vm, "[empty] expects at least one argument.");
 
     Value arg = argv[0];
 
@@ -206,7 +221,7 @@ Value pi_empty(vm_t *vm, int argc, Value *argv)
         return NEW_BOOL(map->table->size == 0);
     }
     else
-        error("[empty] Argument must be a list, string, or map.");
+        vm_error(vm, "[empty] Argument must be a list, string, or map.");
 
     return NEW_NIL();
 }
@@ -226,12 +241,12 @@ Value pi_empty(vm_t *vm, int argc, Value *argv)
 Value pi_sort(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[sort] expects one argument.");
+        vm_error(vm, "[sort] expects one argument.");
 
     Value arg = argv[0];
 
     if (!IS_LIST(arg))
-        error("[sort] Argument must be a list.");
+        vm_error(vm, "[sort] Argument must be a list.");
 
     list_t *list = AS_CLIST(arg);
 
@@ -241,13 +256,13 @@ Value pi_sort(vm_t *vm, int argc, Value *argv)
     Value first = (*(Value *)list_getAt(list, 0));
 
     if (!IS_STRING(first) && !IS_NUM(first))
-        error("[sort] List elements must all be numbers or strings.");
+        vm_error(vm, "[sort] List elements must all be numbers or strings.");
 
     for (int i = 1; i < list->size; i++)
     {
         Value item = (*(Value *)list_getAt(list, i));
         if (item.type != first.type)
-            error("[sort] List elements must all be of the same type.");
+            vm_error(vm, "[sort] List elements must all be of the same type.");
     }
 
     // Comparator for qsort
@@ -271,7 +286,7 @@ Value pi_sort(vm_t *vm, int argc, Value *argv)
 Value pi_insert(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 3)
-        error("[insert] expects 3 arguments at least: collection, index, value.");
+        vm_error(vm, "[insert] expects 3 arguments at least: collection, index, value.");
 
     Value collection = argv[0];
     Value _index = argv[1];
@@ -283,7 +298,7 @@ Value pi_insert(vm_t *vm, int argc, Value *argv)
     {
         list_t *list = AS_CLIST(collection);
         if (index < 0 || index > list->size)
-            error("[insert] Index out of bounds for list.");
+            vm_error(vm, "[insert] Index out of bounds for list.");
 
         list_addAt(list, index, &value);
         return collection;
@@ -318,7 +333,7 @@ Value pi_insert(vm_t *vm, int argc, Value *argv)
         return collection;
     }
 
-    error("[insert] First argument must be a list or string.");
+    vm_error(vm, "[insert] First argument must be a list or string.");
     return NEW_NIL(); // unreachable
 }
 
@@ -336,7 +351,7 @@ Value pi_insert(vm_t *vm, int argc, Value *argv)
 Value pi_remove(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[remove] expects two arguments at least: collection and index.");
+        vm_error(vm, "[remove] expects two arguments at least: collection and index.");
 
     Value collection = argv[0];
     Value _index = argv[1];
@@ -372,7 +387,7 @@ Value pi_remove(vm_t *vm, int argc, Value *argv)
         return removed_val;
     }
 
-    error("[remove] First argument must be a list or string.");
+    vm_error(vm, "[remove] First argument must be a list or string.");
 
     return NEW_NIL();
 }
@@ -391,7 +406,7 @@ Value pi_remove(vm_t *vm, int argc, Value *argv)
 Value pi_unshift(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[unshift] expects at least two arguments: collection and values.");
+        vm_error(vm, "[unshift] expects at least two arguments: collection and values.");
 
     Value target = argv[0];
 
@@ -414,7 +429,7 @@ Value pi_unshift(vm_t *vm, int argc, Value *argv)
         for (int i = argc - 1; i >= 1; i--)
         {
             if (!IS_STRING(argv[i]))
-                error("[unshift] All values must be strings when prepending to a string.");
+                vm_error(vm, "[unshift] All values must be strings when prepending to a string.");
             total_len += AS_STRING(argv[i])->length;
         }
 
@@ -442,7 +457,7 @@ Value pi_unshift(vm_t *vm, int argc, Value *argv)
         return NEW_NUM(str->length);
     }
     else
-        error("[unshift] First argument must be a list or a string.");
+        vm_error(vm, "[unshift] First argument must be a list or a string.");
 
     return NEW_NIL(); // Unreachable
 }
@@ -461,7 +476,7 @@ Value pi_unshift(vm_t *vm, int argc, Value *argv)
 Value pi_append(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[append] expects at least two arguments: collection and values.");
+        vm_error(vm, "[append] expects at least two arguments: collection and values.");
 
     Value target = argv[0];
 
@@ -483,7 +498,7 @@ Value pi_append(vm_t *vm, int argc, Value *argv)
         for (int i = 1; i < argc; i++)
         {
             if (!IS_STRING(argv[i]))
-                error("[append] All values must be strings when appending to a string.");
+                vm_error(vm, "[append] All values must be strings when appending to a string.");
             total_len += AS_STRING(argv[i])->length;
         }
 
@@ -509,7 +524,7 @@ Value pi_append(vm_t *vm, int argc, Value *argv)
         return NEW_NUM(str->length);
     }
     else
-        error("[append] First argument must be a list or a string.");
+        vm_error(vm, "[append] First argument must be a list or a string.");
 
     return NEW_NIL(); // Unreachable
 }
@@ -529,7 +544,7 @@ Value pi_append(vm_t *vm, int argc, Value *argv)
 Value pi_contains(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[contains] expects two arguments at least: a collection and a value.");
+        vm_error(vm, "[contains] expects two arguments at least: a collection and a value.");
 
     Value collection = argv[0];
     Value target = argv[1];
@@ -547,7 +562,7 @@ Value pi_contains(vm_t *vm, int argc, Value *argv)
     else if (IS_STRING(collection))
     {
         if (!IS_STRING(target))
-            error("[contains] When searching a string, the value must also be a string.");
+            vm_error(vm, "[contains] When searching a string, the value must also be a string.");
 
         PiString *str = AS_STRING(collection);
         PiString *substr = AS_STRING(target);
@@ -567,7 +582,7 @@ Value pi_contains(vm_t *vm, int argc, Value *argv)
         return NEW_BOOL(map_has(map, target));
     }
     else
-        error("[contains] First argument must be a list, string, or map.");
+        vm_error(vm, "[contains] First argument must be a list, string, or map.");
 
     return NEW_BOOL(false);
 }
@@ -585,7 +600,7 @@ Value pi_contains(vm_t *vm, int argc, Value *argv)
 Value pi_indexOf(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 2)
-        error("[index_of] expects at least two arguments: a collection and a value.");
+        vm_error(vm, "[index_of] expects at least two arguments: a collection and a value.");
 
     Value collection = argv[0];
     Value target = argv[1];
@@ -603,7 +618,7 @@ Value pi_indexOf(vm_t *vm, int argc, Value *argv)
     else if (IS_STRING(collection))
     {
         if (!IS_STRING(target))
-            error("[index_of] When searching a string, the target must also be a string.");
+            vm_error(vm, "[index_of] When searching a string, the target must also be a string.");
 
         PiString *str = AS_STRING(collection);
         PiString *substr = AS_STRING(target);
@@ -616,7 +631,7 @@ Value pi_indexOf(vm_t *vm, int argc, Value *argv)
                 return NEW_NUM(i);
     }
     else
-        error("[index_of] First argument must be a list or a string.");
+        vm_error(vm, "[index_of] First argument must be a list or a string.");
 
     return NEW_NUM(-1); // Not found
 }
@@ -632,7 +647,7 @@ Value pi_indexOf(vm_t *vm, int argc, Value *argv)
 Value pi_reverse(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
-        error("[reverse] expects one argument at least: a list or a string.");
+        vm_error(vm, "[reverse] expects one argument at least: a list or a string.");
 
     Value input = argv[0];
 
@@ -667,7 +682,7 @@ Value pi_reverse(vm_t *vm, int argc, Value *argv)
     }
     else
     {
-        error("[reverse] argument must be a list or a string.");
+        vm_error(vm, "[reverse] argument must be a list or a string.");
     }
 
     return NEW_NIL();
@@ -684,10 +699,10 @@ Value pi_reverse(vm_t *vm, int argc, Value *argv)
 Value pi_shuffle(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
-        error("[shuffle] expects one argument at least: a list.");
+        vm_error(vm, "[shuffle] expects one argument at least: a list.");
 
     if (!IS_LIST(argv[0]))
-        error("[shuffle] argument must be a list.");
+        vm_error(vm, "[shuffle] argument must be a list.");
 
     PiList *list = AS_LIST(argv[0]);
     int size = list->items->size;
@@ -724,7 +739,7 @@ Value pi_shuffle(vm_t *vm, int argc, Value *argv)
 Value pi_copy(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
-        error("[copy] expects one argument at least!.");
+        vm_error(vm, "[copy] expects one argument at least!.");
 
     Value input = argv[0];
 
@@ -751,31 +766,31 @@ Value pi_copy(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(result);
     }
 
-    error("[copy] only works with lists or strings.");
+    vm_error(vm, "[copy] only works with lists or strings.");
     return NEW_NIL();
 }
 
 Value pi_slice(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 3)
-        error("[slice] expects 3 arguments at least: collection, start, end.");
+        vm_error(vm, "[slice] expects 3 arguments at least: collection, start, end.");
 
     Value collection = argv[0];
     Value start = argv[1];
     Value end = argv[2];
 
     if (!IS_LIST(collection) && !IS_STRING(collection))
-        error("[slice] first argument must be a list or a string.");
+        vm_error(vm, "[slice] first argument must be a list or a string.");
 
     if (!IS_NUM(start) || !IS_NUM(end))
-        error("[slice] second and third arguments must be numbers.");
+        vm_error(vm, "[slice] second and third arguments must be numbers.");
 
     int len = COL_LENGTH(collection);
     int start_index = get_index(as_number(start), len);
     int end_index = get_index(as_number(end), len);
 
     if (start_index > end_index)
-        error("[slice] start index must be less than or equal to end index.");
+        vm_error(vm, "[slice] start index must be less than or equal to end index.");
 
     if (IS_LIST(collection))
     {
@@ -807,7 +822,7 @@ Value pi_slice(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(new_pistring(sliced_chars));
     }
 
-    error("[slice] only works with lists or strings.");
+    vm_error(vm, "[slice] only works with lists or strings.");
 
     return NEW_NIL(); // unreachable
 }
@@ -815,7 +830,7 @@ Value pi_slice(vm_t *vm, int argc, Value *argv)
 Value pi_len(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[len] expects at least one argument.");
+        vm_error(vm, "[len] expects at least one argument.");
 
     switch (OBJ_TYPE(argv[0]))
     {
@@ -830,7 +845,6 @@ Value pi_len(vm_t *vm, int argc, Value *argv)
     }
 }
 
-
 Value pi_range(vm_t *vm, int argc, Value *argv)
 {
     double start = 0;
@@ -841,14 +855,14 @@ Value pi_range(vm_t *vm, int argc, Value *argv)
     {
         // range(end)
         if (!IS_NUM(argv[0]))
-            error("[range] Expected a number as the end value.");
+            vm_error(vm, "[range] Expected a number as the end value.");
         end = AS_NUM(argv[0]);
     }
     else if (argc == 2)
     {
         // range(start, end)
         if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]))
-            error("[range] Expected numbers for start and end values.");
+            vm_error(vm, "[range] Expected numbers for start and end values.");
 
         start = AS_NUM(argv[0]);
         end = AS_NUM(argv[1]);
@@ -857,16 +871,16 @@ Value pi_range(vm_t *vm, int argc, Value *argv)
     {
         // range(start, end, step)
         if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]) || !IS_NUM(argv[2]))
-            error("[range] Expected numbers for start, end, and step values.");
+            vm_error(vm, "[range] Expected numbers for start, end, and step values.");
 
         start = AS_NUM(argv[0]);
         end = AS_NUM(argv[1]);
         step = AS_NUM(argv[2]);
         if (step == 0)
-            error("[range] Step cannot be zero.");
+            vm_error(vm, "[range] Step cannot be zero.");
     }
     else
-        error("[range] Expected 1 to 3 arguments.");
+        vm_error(vm, "[range] Expected 1 to 3 arguments.");
 
     Object *range_obj = new_range(start, end, step);
     return NEW_OBJ(range_obj);

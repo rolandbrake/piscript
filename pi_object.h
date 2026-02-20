@@ -2,9 +2,13 @@
 #define PI_OBJECT_H
 
 #include <stdint.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 #include "pi_value.h"
 #include "list.h"
 #include "pi_table.h"
+#include "common.h"
+#include "audio.h"
 
 #define OBJ_TYPE(o) (AS_OBJ(o)->type)
 #define IS_OBJ_TYPE(o, _type) (IS_OBJ(o) && AS_OBJ(o)->type == _type)
@@ -16,6 +20,7 @@
 #define IS_FUN(o) IS_OBJ_TYPE(o, OBJ_FUN)
 #define IS_RANGE(o) IS_OBJ_TYPE(o, OBJ_RANGE)
 #define IS_MODEL(o) IS_OBJ_TYPE(o, OBJ_MODEL3D)
+#define IS_IMAGE(o) IS_OBJ_TYPE(o, OBJ_IMAGE)
 
 #define IS_COLLECTION(o) (IS_LIST(o) || IS_MAP(o) || IS_STRING(o))
 
@@ -28,6 +33,7 @@
 #define AS_FUN(o) ((Function *)AS_OBJ(o))
 #define AS_CODE(o) ((ObjCode *)AS_OBJ(o))
 #define AS_FILE(o) ((ObjFile *)AS_OBJ(o))
+#define AS_IMAGE(o) ((ObjImage *)AS_OBJ(o))
 
 #define AS_CSTRING(o) AS_STRING(o)->chars
 
@@ -53,13 +59,24 @@ typedef enum
     OBJ_FILE,
     OBJ_IMAGE,
     OBJ_MODEL3D,
+    OBJ_SOUND
 } o_type;
+
+typedef enum
+{
+    GC_WHITE, // Unmarked, potentially unreachable
+    GC_GRAY,  // Marked but children not yet processed
+    GC_BLACK  // Marked and all children processed
+} GCColor;
 
 struct Object
 {
     o_type type;
     bool is_marked; // Flag to indicate if the object is marked for garbage collection
     bool in_gcList; // Flag to indicate if the object is in the GC list
+
+    GCColor gc_color;
+
     struct Object *next;
 };
 
@@ -129,17 +146,31 @@ typedef struct
 
 typedef struct
 {
+    Object object;   // Required for GC/type tagging
+    int width;       // Width of the image (should be 128 usually)
+    int height;      // Height of the image (should be 128 usually)
+    uint8_t *pixels; // A flat array of width*height values (0–31)
+    uint8_t *alpha;  // A flat array of width*height values (0–255)
+} ObjImage;
+
+typedef struct
+{
     Object object;
-    list_t *triangles;
+    triangle *triangles;
+    int count;         // Number of triangles
+    ObjImage *texture; // Optional texture
 } ObjModel3d;
 
 typedef struct
 {
     Object object;
-    list_t *pixels;
-    int width;
-    int height;
-} ObjImage;
+    Mix_Chunk *chunk;
+    int channel;
+    bool loaded;
+    bool looping;
+    bool is_cart; // Flag to indicate if the sound was loaded from the cartridge
+    Sound data;   // Sound data from the cartridge if is_cart is true
+} ObjSound;
 
 uint32_t string_hash(char *chars, size_t length);
 Object *new_pistring(char *str);
@@ -150,7 +181,9 @@ Object *new_list(list_t *items);
 Object *new_map(table_t *table, bool is_instance);
 
 Object *new_file(FILE *file, char *filename, char *mode);
-ObjModel3d *new_model3d(list_t *triangles);
+ObjModel3d *new_model3d(triangle *triangles, int count, ObjImage *texture);
+ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha);
+ObjSound *new_sound(Mix_Chunk *chunk);
 
 Value map_get(PiMap *map, Value key);
 void map_set(PiMap *map, Value key, Value value);
@@ -169,5 +202,7 @@ Value iter_next(Object *col);
 bool is_iterable(Object *obj);
 int get_index(int index, int length);
 Value get_slice(Object *sequence, double start, double end, double step);
+
+void free_sound(ObjSound *sound);
 
 #endif

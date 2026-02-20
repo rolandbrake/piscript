@@ -10,12 +10,13 @@ void mark_constants(vm_t *vm);
 void mark_value(Value val);
 void mark_object(Object *obj);
 void mark_roots(vm_t *vm);
-// void mark_globals(vm_t *vm);
+void mark_globals(vm_t *vm);
+void mark_iters(vm_t *vm);
 
 void sweep(vm_t *vm);
 
 void free_object(Object *obj);
-void free_value(vm_t *vm, Value *val);
+void free_value(Value *val);
 
 void run_gc(vm_t *vm);
 

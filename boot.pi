@@ -1,0 +1,1 @@
+a=4;b=16;c=0;while(c<=128){clear();for(d in 0..128:b){rect(d,0,d+b,c,a,true);a++;d=d+b;}draw();c+=2;a=4;}

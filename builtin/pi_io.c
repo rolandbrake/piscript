@@ -35,7 +35,7 @@ Value pi_println(vm_t *vm, int argc, Value *argv)
 
         int len = strlen(str);
         if (offset + len >= 1024)
-            error("[println] Output string is too long.");
+            vm_error(vm,"[println] Output string is too long.");
 
         strcat(result, str);
         offset += len;
@@ -64,7 +64,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc == 0)
-        error("[print] expects at least one argument.");
+        vm_error(vm,"[print] expects at least one argument.");
 
     for (int i = 0; i < argc; i++)
         print_value(argv[i], false);
@@ -88,7 +88,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
 Value pi_printf(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_STRING(argv[0]))
-        error("[printf] expects a format string as the first argument.");
+        vm_error(vm,"[printf] expects a format string as the first argument.");
 
     const char *format = AS_CSTRING(argv[0]);
     char result[1024] = "";
@@ -99,7 +99,7 @@ Value pi_printf(vm_t *vm, int argc, Value *argv)
         {
             int index = *(p + 1) - '0';
             if (index + 1 >= argc)
-                error("[printf] argument index out of range.");
+                vm_error(vm,"[printf] argument index out of range.");
 
             strcat(result, as_string(argv[index + 1]));
             p += 2; // Skip over the "{n}" part
@@ -157,7 +157,7 @@ Value pi_text(vm_t *vm, int argc, Value *argv)
     if (argc >= 4 && IS_NUM(argv[3]))
         color = AS_NUM(argv[3]);
     // else
-    //     error("[text] expects either 3 arguments (x, y, string) or 1 string argument.");
+    //     vm_error(vm,"[text] expects either 3 arguments (x, y, string) or 1 string argument.");
 
     screen_print(vm->screen, text, x, y, color);
     return NEW_NIL();
@@ -259,7 +259,7 @@ static SDL_Scancode get_keyCode(const char *keyname)
 Value pi_key(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
-        error("[key] expects at least one argument (string or number)");
+        vm_error(vm,"[key] expects at least one argument (string or number)");
 
     bool once = false;
 
@@ -273,12 +273,12 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
         const char *keyname = as_string(argv[0]);
         scancode = get_keyCode(keyname);
         if (scancode == SDL_SCANCODE_UNKNOWN)
-            error("[key] Unknown key name: %s", keyname);
+            vm_errorf(vm,"[key] Unknown key name: %s", keyname);
     }
     else if (IS_NUM(argv[0]))
         scancode = (SDL_Scancode)as_number(argv[0]);
     else
-        error("[key] Argument must be string or number");
+        vm_error(vm,"[key] Argument must be string or number");
 
     SDL_PumpEvents();
     const Uint8 *keystate = SDL_GetKeyboardState(NULL);
@@ -294,10 +294,9 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
             prev_pressed = true;
             return NEW_BOOL(true);
         }
-        else if (!pressed)
-        {
+        else if (!pressed)        
             prev_pressed = false;
-        }
+        
         return NEW_BOOL(false);
     }
     else
@@ -316,7 +315,7 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
 Value pi_input(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1 || !IS_STRING(argv[0]))
-        error("[input] expects a single string argument as a prompt.");
+        vm_error(vm,"[input] expects a single string argument as a prompt.");
 
     PiString *prompt = AS_STRING(argv[0]);
     printf("%s", prompt->chars);
@@ -324,7 +323,7 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
 
     char buffer[BUFFER_SIZE];
     if (!fgets(buffer, BUFFER_SIZE, stdin))
-        error("[input] Failed to read input.");
+        vm_error(vm,"[input] Failed to read input.");
 
     // Remove trailing newline if exists
     size_t len = strlen(buffer);
@@ -345,7 +344,7 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
 Value pi_open(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_STRING(argv[0]))
-        error("[open] expects a single string argument as a file path.");
+        vm_error(vm,"[open] expects a single string argument as a file path.");
 
     char *mode = "r";
     if (argc >= 2)
@@ -353,14 +352,14 @@ Value pi_open(vm_t *vm, int argc, Value *argv)
         if (IS_STRING(argv[1]))
             mode = AS_CSTRING(argv[1]);
         else
-            error("[open] expects a string argument as a file mode.");
+            vm_error(vm,"[open] expects a string argument as a file mode.");
     }
 
     PiString *path = AS_STRING(argv[0]);
     FILE *file = fopen(path->chars, mode);
 
     if (!file)
-        error("[open] Failed to open file: %s", path->chars);
+        vm_errorf(vm,"[open] Failed to open file: %s", path->chars);
 
     // Extract filename from path
     const char *fullpath = path->chars;
@@ -393,12 +392,12 @@ Value pi_open(vm_t *vm, int argc, Value *argv)
 Value pi_read(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        error("[read] expects a single file handler as argument.");
+        vm_error(vm,"[read] expects a single file handler as argument.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        error("[read] File is closed.");
+        vm_error(vm,"[read] File is closed.");
 
     size_t buffer_size = BUFFER_SIZE;
     size_t capacity = buffer_size;
@@ -406,7 +405,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
 
     char *content = malloc(capacity);
     if (!content)
-        error("[read] Out of memory.");
+        vm_error(vm,"[read] Out of memory.");
 
     while (!feof(file->fp))
     {
@@ -417,7 +416,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
             if (!new_content)
             {
                 free(content);
-                error("[read] Out of memory during read.");
+                vm_error(vm,"[read] Out of memory during read.");
             }
             content = new_content;
         }
@@ -426,7 +425,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
         if (ferror(file->fp))
         {
             free(content);
-            error("[read] Failed to read file: %s", file->filename);
+            vm_errorf(vm,"[read] Failed to read file: %s", file->filename);
         }
         length += bytes;
     }
@@ -450,22 +449,22 @@ Value pi_write(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        error("[write] expects a file handler and a string as arguments.");
+        vm_error(vm,"[write] expects a file handler and a string as arguments.");
 
     if (!IS_STRING(argv[1]))
-        error("[write] second argument must be a string.");
+        vm_error(vm,"[write] second argument must be a string.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        error("[write] File is closed.");
+        vm_error(vm,"[write] File is closed.");
 
     char *str = AS_CSTRING(argv[1]);
 
     size_t written = fwrite(str, 1, strlen(str), file->fp);
 
     if (written < strlen(str) || ferror(file->fp))
-        error("[write] Failed to write to file: %s", file->filename);
+        vm_errorf(vm,"[write] Failed to write to file: %s", file->filename);
 
     return NEW_BOOL(true); // or return number of bytes written if you want
 }
@@ -482,19 +481,19 @@ Value pi_seek(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        error("[seek] expects a file handler and a number as arguments.");
+        vm_error(vm,"[seek] expects a file handler and a number as arguments.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        error("[seek] File is closed.");
+        vm_error(vm,"[seek] File is closed.");
 
     if (!IS_NUM(argv[1]))
-        error("[seek] second argument must be a number.");
+        vm_error(vm,"[seek] second argument must be a number.");
 
     long pos = as_number(argv[1]);
     if (fseek(file->fp, pos, SEEK_SET) != 0)
-        error("[seek] Failed to seek in file: %s", file->filename);
+        vm_errorf(vm,"[seek] Failed to seek in file: %s", file->filename);
 
     return NEW_BOOL(true);
 }
@@ -511,13 +510,15 @@ Value pi_close(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        error("[close] expects a file handler as argument.");
+        vm_error(vm,"[close] expects a file handler as argument.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (fclose(file->fp) != 0)
-        error("[close] Failed to close file: %s", file->filename);
+        vm_errorf(vm,"[close] Failed to close file: %s", file->filename);
 
     file->closed = true;
     return NEW_BOOL(true);
 }
+
+

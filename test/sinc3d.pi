@@ -1,7 +1,3 @@
-// author: Roland Brake
-// desc:   3d sinc function
-// script: PI-script
-
 let s = 160/sqrt(3)*2/40
 let t = [0] * 255
 let a = 30, r, z
@@ -27,7 +23,7 @@ while(true) {
             x1 = floor(64+(y2-x2)*s* sqrt(3)/2 )
             y1 = floor( 64+z-(y2+x2)*s/2 )
             
-            pixel(x1, 135 - y1, 6)            
+            pixel(x1, 135 - y1, 11)            
         }
     }
 

@@ -4,7 +4,7 @@
 Value pi_clone(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_MAP(argv[0]))
-        error("[clone] expects a map as the first argument.");
+        vm_error(vm, "[clone] expects a map as the first argument.");
 
     PiMap *original = AS_MAP(argv[0]);
 
@@ -17,10 +17,14 @@ Value pi_clone(vm_t *vm, int argc, Value *argv)
     map->proto = original;
 
     // Copy each key-value pair into the new map
-    list_t *keys = ht_keys(original->table);
-    for (int i = 0; i < keys->size; i++)
+    char **keys = ht_keys(original->table);
+
+    int size = ht_length(original->table);
+
+    for (int i = 0; i < size; i++)
     {
-        char *key = string_get(keys, i);
+        // char *key = string_get(keys, i);
+        char *key = keys[i];
         Value *value = (Value *)ht_get(original->table, key);
         if (value)
             ht_put(map->table, key, value);
@@ -32,16 +36,18 @@ Value pi_clone(vm_t *vm, int argc, Value *argv)
 Value pi_values(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_MAP(argv[0]))
-        error("[values] expects a map as the first argument.");
+        vm_error(vm, "[values] expects a map as the first argument.");
 
     PiMap *map = AS_MAP(argv[0]);
-    list_t *keys = ht_keys(map->table);
+    char **keys = ht_keys(map->table);
+    int size = ht_length(map->table);
 
     list_t *list = list_create(sizeof(Value));
 
-    for (int i = 0; i < keys->size; i++)
+    for (int i = 0; i < size; i++)
     {
-        char *key = string_get(keys, i);
+        // char *key = string_get(keys, i);
+        char *key = keys[i];
         Value *val = ht_get(map->table, key);
         if (val)
             list_add(list, val); // Copy value to the list
@@ -53,16 +59,19 @@ Value pi_values(vm_t *vm, int argc, Value *argv)
 Value pi_keys(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_MAP(argv[0]))
-        error("[keys] expects a map as the first argument.");
+        vm_error(vm, "[keys] expects a map as the first argument.");
 
     PiMap *map = AS_MAP(argv[0]);
-    list_t *keys = ht_keys(map->table);
+
+    char **keys = ht_keys(map->table);
+    int size = ht_length(map->table);
 
     list_t *list = list_create(sizeof(Value));
 
-    for (int i = 0; i < keys->size; i++)
+    for (int i = 0; i < size; i++)
     {
-        char *key = string_get(keys, i);
+        // char *key = string_get(keys, i);
+        char *key = keys[i];
         list_add(list, &NEW_OBJ(new_pistring(key)));
     }
 

@@ -70,6 +70,7 @@ static PiMap *define_keys(vm_t *vm)
  */
 vm_t *init_vm(compiler_t *comp, Screen *screen)
 {
+
     // Allocate memory for the virtual machine instance
     vm_t *vm = (vm_t *)malloc(sizeof(vm_t));
 
@@ -90,172 +91,11 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     vm->objects = NULL;
 
-    // Initialize global constants
+    for (int i = 0; i < BUILTIN_CONST_COUNT; i++)
+        ht_put(vm->globals, builtin_constants[i].name, &builtin_constants[i].value);
 
-    // Math constants
-    ht_put(vm->globals, "PI", &NEW_NUM(PI));
-    ht_put(vm->globals, "E", &NEW_NUM(E));
-
-    // Graphics constants
-    ht_put(vm->globals, "WIDTH", &NEW_NUM(SCREEN_WIDTH));
-    ht_put(vm->globals, "HEIGHT", &NEW_NUM(SCREEN_HEIGHT));
-
-    // Define keys
-    PiMap *keys = define_keys(vm);
-    ht_put(vm->globals, "KEYS", &NEW_OBJ(keys));
-
-    // Add native functions
-
-    // Math functions
-    ht_put(vm->globals, "floor", new_native("floor", pi_floor));
-    ht_put(vm->globals, "ceil", new_native("ceil", pi_ceil));
-    ht_put(vm->globals, "round", new_native("round", pi_round));
-    ht_put(vm->globals, "rand", new_native("rand", pi_rand));
-    ht_put(vm->globals, "rand_n", new_native("rand_n", pi_rand_n));
-    ht_put(vm->globals, "rand_i", new_native("rand_i", pi_rand_i));
-    ht_put(vm->globals, "sqrt", new_native("sqrt", pi_sqrt));
-    ht_put(vm->globals, "sin", new_native("sin", pi_sin));
-    ht_put(vm->globals, "cos", new_native("cos", pi_cos));
-    ht_put(vm->globals, "tan", new_native("tan", pi_tan));
-    ht_put(vm->globals, "asin", new_native("asin", pi_asin));
-    ht_put(vm->globals, "acos", new_native("acos", pi_acos));
-    ht_put(vm->globals, "atan", new_native("atan", pi_atan));
-    ht_put(vm->globals, "deg", new_native("deg", pi_deg));
-    ht_put(vm->globals, "rad", new_native("rad", pi_rad));
-    ht_put(vm->globals, "sum", new_native("sum", pi_sum));
-    ht_put(vm->globals, "exp", new_native("exp", pi_exp));
-    ht_put(vm->globals, "log2", new_native("log2", pi_log2));
-    ht_put(vm->globals, "log10", new_native("log10", pi_log10));
-    ht_put(vm->globals, "pow", new_native("pow", pi_pow));
-    ht_put(vm->globals, "abs", new_native("abs", pi_abs));
-    ht_put(vm->globals, "mean", new_native("mean", pi_mean));
-    ht_put(vm->globals, "avg", new_native("avg", pi_avg));
-    ht_put(vm->globals, "var", new_native("var", pi_var));
-    ht_put(vm->globals, "dev", new_native("dev", pi_dev));
-    ht_put(vm->globals, "median", new_native("median", pi_median));
-    ht_put(vm->globals, "mode", new_native("mode", pi_mode));
-    ht_put(vm->globals, "max", new_native("max", pi_max));
-    ht_put(vm->globals, "min", new_native("min", pi_min));
-
-    // Graphics functions
-    ht_put(vm->globals, "pixel", new_native("pixel", pi_pixel));
-    ht_put(vm->globals, "line", new_native("line", pi_line));
-    ht_put(vm->globals, "draw", new_native("draw", pi_draw));
-    ht_put(vm->globals, "clear", new_native("clear", pi_clear));
-    ht_put(vm->globals, "circ", new_native("circ", pi_circ));
-    ht_put(vm->globals, "rect", new_native("rect", pi_rect));
-    ht_put(vm->globals, "poly", new_native("poly", pi_poly));
-    ht_put(vm->globals, "sprite", new_native("sprite", pi_sprite));
-    ht_put(vm->globals, "color", new_native("color", pi_color));
-
-    // time functions
-    ht_put(vm->globals, "sleep", new_native("sleep", pi_sleep));
-    ht_put(vm->globals, "time", new_native("time", _pi_time));
-
-    // IO functions
-    ht_put(vm->globals, "println", new_native("println", pi_println));
-    ht_put(vm->globals, "print", new_native("print", pi_print));
-    ht_put(vm->globals, "printf", new_native("printf", pi_printf));
-    ht_put(vm->globals, "key", new_native("key", pi_key));
-    ht_put(vm->globals, "text", new_native("text", pi_text));
-    ht_put(vm->globals, "input", new_native("input", pi_input));
-
-    // File functions
-    ht_put(vm->globals, "open", new_native("open", pi_open));
-    ht_put(vm->globals, "read", new_native("read", pi_read));
-    ht_put(vm->globals, "write", new_native("write", pi_write));
-    ht_put(vm->globals, "seek", new_native("seek", pi_seek));
-    ht_put(vm->globals, "close", new_native("close", pi_close));
-
-    // String functions
-    ht_put(vm->globals, "char", new_native("char", pi_char));
-    ht_put(vm->globals, "ord", new_native("ord", pi_ord));
-    ht_put(vm->globals, "trim", new_native("trim", pi_trim));
-    ht_put(vm->globals, "upper", new_native("upper", pi_upper));
-    ht_put(vm->globals, "lower", new_native("lower", pi_lower));
-    ht_put(vm->globals, "replace", new_native("replace", pi_replace));
-    ht_put(vm->globals, "is_upper", new_native("isUpper", pi_isUpper));
-    ht_put(vm->globals, "is_lower", new_native("isLower", pi_isLower));
-    ht_put(vm->globals, "is_digit", new_native("isDigit", pi_isDigit));
-    ht_put(vm->globals, "is_numeric", new_native("isNumeric", pi_isNumeric));
-    ht_put(vm->globals, "is_alpha", new_native("isAlpha", pi_isAlpha));
-    ht_put(vm->globals, "is_alnum", new_native("isAlnum", pi_isAlnum));
-    ht_put(vm->globals, "split", new_native("split", pi_split));
-
-    // Audio functions
-    ht_put(vm->globals, "sound", new_native("sound", pi_sound));
-    ht_put(vm->globals, "music", new_native("music", pi_music));
-
-    // System functions
-    ht_put(vm->globals, "fps", new_native("fps", pi_fps));
-    ht_put(vm->globals, "error", new_native("error", pi_error));
-    ht_put(vm->globals, "zen", new_native("zen", pi_zen));
-    ht_put(vm->globals, "cursor", new_native("cursor", pi_cursor));
-    ht_put(vm->globals, "mouse", new_native("mouse", pi_mouse));
-
-    // type functions
-    ht_put(vm->globals, "type", new_native("type", _pi_type));
-    ht_put(vm->globals, "is_num", new_native("is_num", pi_isNum));
-    ht_put(vm->globals, "is_str", new_native("is_str", pi_isStr));
-    ht_put(vm->globals, "is_bool", new_native("is_bool", pi_isBool));
-    ht_put(vm->globals, "is_list", new_native("is_list", pi_isList));
-    ht_put(vm->globals, "is_map", new_native("is_map", pi_isMap));
-    ht_put(vm->globals, "as_num", new_native("as_num", pi_asNum));
-    ht_put(vm->globals, "as_str", new_native("as_str", pi_asStr));
-    ht_put(vm->globals, "as_bool", new_native("as_bool", pi_asBool));
-
-    // collection manipulation functions
-    ht_put(vm->globals, "push", new_native("push", pi_push));
-    ht_put(vm->globals, "pop", new_native("pop", pi_pop));
-    ht_put(vm->globals, "peek", new_native("peek", pi_peek));
-    ht_put(vm->globals, "empty", new_native("empty", pi_empty));
-    ht_put(vm->globals, "sort", new_native("sort", pi_sort));
-    ht_put(vm->globals, "insert", new_native("insert", pi_insert));
-    ht_put(vm->globals, "unshift", new_native("unshift", pi_unshift));
-    ht_put(vm->globals, "remove", new_native("remove", pi_remove));
-    ht_put(vm->globals, "append", new_native("append", pi_append));
-    ht_put(vm->globals, "contains", new_native("contains", pi_contains));
-    ht_put(vm->globals, "index_of", new_native("index_of", pi_indexOf));
-    ht_put(vm->globals, "reverse", new_native("reverse", pi_reverse));
-    ht_put(vm->globals, "shuffle", new_native("shuffle", pi_shuffle));
-    ht_put(vm->globals, "copy", new_native("copy", pi_copy));
-    ht_put(vm->globals, "slice", new_native("slice", pi_slice));
-    ht_put(vm->globals, "len", new_native("len", pi_len));
-    ht_put(vm->globals, "range", new_native("range", pi_range));
-
-    // functional programming
-    ht_put(vm->globals, "map", new_native("map", _pi_map));
-    ht_put(vm->globals, "filter", new_native("filter", pi_filter));
-    ht_put(vm->globals, "reduce", new_native("reduce", pi_reduce));
-    ht_put(vm->globals, "find", new_native("find", pi_find));
-
-    // matrix manipulation functions
-    ht_put(vm->globals, "size", new_native("size", pi_size));
-
-    ht_put(vm->globals, "mult", new_native("mult", pi_mult));
-    ht_put(vm->globals, "dot", new_native("dot", pi_dot));
-    ht_put(vm->globals, "cross", new_native("cross", pi_cross));
-
-    ht_put(vm->globals, "eye", new_native("eye", pi_eye));
-    ht_put(vm->globals, "zeros", new_native("zeros", pi_zeros));
-    ht_put(vm->globals, "ones", new_native("ones", pi_ones));
-    ht_put(vm->globals, "is_mat", new_native("is_mat", pi_isMat));
-
-    // object manipulation functions
-    ht_put(vm->globals, "clone", new_native("clone", pi_clone));
-    ht_put(vm->globals, "values", new_native("values", pi_values));
-    ht_put(vm->globals, "keys", new_native("keys", pi_keys));
-
-    // 3d rendering functions
-    ht_put(vm->globals, "load3d", new_native("load3d", pi_load3d));
-
-    ht_put(vm->globals, "rotate", new_native("rotate", pi_rotate));
-    ht_put(vm->globals, "translate", new_native("translate", pi_translate));
-    ht_put(vm->globals, "scale", new_native("scale", pi_scale));
-
-    ht_put(vm->globals, "project", new_native("project", pi_project));
-
-    ht_put(vm->globals, "render", new_native("render", pi_render));
+    for (int i = 0; i < BUILTIN_FUNC_COUNT; i++)
+        ht_put(vm->globals, builtin_functions[i].name, new_native(builtin_functions[i].name, builtin_functions[i].func));
 
     vm->iter_sp = -1;
     vm->frame_sp = 0;
@@ -274,10 +114,59 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     vm->openUpvalues = NULL;
 
+    vm->function = NULL;
+
     vm->next_gc = NEXT_GC;
     vm->obj_count = 0;
 
+    vm->gc_stack = NULL;
+
+    vm->cart = NULL;
+
     return vm;
+}
+
+/**
+ * Resets an existing virtual machine to run new code.
+ *
+ * This function reinitializes the VM's execution state (PC, stack, etc.)
+ * and loads new bytecode from a compiler. It intentionally preserves the
+ * global variables table, allowing state to persist between script runs.
+ *
+ * @param vm The virtual machine instance to reset.
+ * @param comp The compiler containing the new code to load.
+ */
+void vm_reset(vm_t *vm, compiler_t *comp)
+{
+    // Reset program counter, stack pointer, and base pointer to 0
+    vm->pc = 0;
+    vm->sp = 0;
+    vm->bp = 0;
+    vm->ip = 0;
+
+    // Set the code, constants, and names from the compiler to the VM
+    vm->code = comp->code;
+    vm->constants = comp->constants;
+    vm->names = comp->names;
+    vm->instrs = comp->instrs;
+
+    // Note: vm->globals is NOT reset. This is intentional to allow
+    // persistence of global state between script executions in the shell.
+
+    vm->iter_sp = -1;
+    vm->frame_sp = 0;
+
+    vm->running = true;
+
+    // Reset GC stats to trigger collection sooner if needed
+    vm->counter = 0;
+    vm->next_gc = NEXT_GC;
+
+    vm->openUpvalues = NULL;
+    vm->function = NULL;
+
+    // Mark new constants from the new compiler for GC
+    mark_constants(vm);
 }
 
 /**
@@ -299,6 +188,8 @@ inline Object *add_obj(vm_t *vm, Object *obj)
     // Mark as added
     obj->in_gcList = true;
 
+    obj->gc_color = GC_WHITE; // New objects start as white
+
     // Add to the front of the list
     obj->next = vm->objects;
     vm->objects = obj;
@@ -306,6 +197,16 @@ inline Object *add_obj(vm_t *vm, Object *obj)
     return obj;
 }
 
+/**
+ * Counts the number of objects in the virtual machine's object list.
+ *
+ * This function iterates over the linked list of objects and returns the
+ * total count of objects in the list. It is used for debugging purposes
+ * to track the number of objects in use.
+ *
+ * @param vm The virtual machine instance.
+ * @return The number of objects in the object list.
+ */
 static inline int count_objs(vm_t *vm)
 {
     int count = 0;
@@ -313,6 +214,7 @@ static inline int count_objs(vm_t *vm)
     while (obj)
     {
 #ifdef DEBUG
+        // Print debugging information about the object
         printf("[DEBUG] Counting object at %p\n", (void *)obj);
 #endif
         count++;
@@ -325,26 +227,89 @@ static inline int count_objs(vm_t *vm)
  * Reports a virtual machine error with a specified message.
  *
  * This function outputs an error message to the standard error stream,
- * indicating a critical error in the virtual machine operation. The
- * program will terminate immediately after displaying the error message.
+ * indicating a critical error in the virtual machine operation. It attempts
+ * to provide context by displaying the line number and function name where
+ * the error occurred, if available. The program will terminate immediately
+ * after displaying the error message.
  *
+ * @param vm The virtual machine instance containing execution information.
  * @param message The error message to be displayed.
  */
 
-static void vm_error(vm_t *vm, const char *message)
+void vm_error(vm_t *vm, const char *message)
 {
+    instr_t *instr = NULL;
+    char *name = "<global>";
 
-    for (int i = 0; i < list_size(vm->instrs); i++)
+    if (vm->frame_sp > 0)
     {
-        instr_t *instr = list_getAt(vm->instrs, i);
-        if (instr->offset == vm->pc)
-        {
-            fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR]\033[0m: %s\n", message);
-            fprintf(stderr, "\033[90mAt line %d, column %d\033[0m\n",
-                    instr->line, instr->column - 1);
-            exit(EXIT_FAILURE);
-        }
+        Frame *top = vm->frames[vm->frame_sp - 1];
+        name = top->function->name;
     }
+
+    list_t *instrs = ht_get(vm->instrs, name);
+    int size = instrs ? list_size(instrs) : 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        instr_t *cur = (instr_t *)list_getAt(instrs, i);
+
+        if (cur->offset > vm->pc)
+            break;
+        instr = cur;
+    }
+
+    if (global_errorHandler)
+    {
+        char buffer[1024];
+        if (instr && instr->fun_name)
+            snprintf(buffer, sizeof(buffer), "%s (in function '%s')", message, instr->fun_name);
+        else
+            snprintf(buffer, sizeof(buffer), "%s", message);
+
+        global_errorHandler(buffer, instr ? instr->line : -1, 0);
+        return;
+    }
+
+    if (instr)
+    {
+        fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR] at line %d", instr->line);
+        if (instr->fun_name)
+            fprintf(stderr, " in function '%s'", instr->fun_name);
+        fprintf(stderr, ":\033[0m %s\n\n", message);
+    }
+    else
+        fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR] at unknown location:\033[0m %s\n\n", message);
+
+    exit(EXIT_FAILURE);
+}
+
+/**
+ * Reports a virtual machine error with a formatted message.
+ *
+ * This function constructs a formatted error message using a variable
+ * argument list and passes it to the vm_error function for reporting.
+ *
+ * @param vm The virtual machine instance containing execution information.
+ * @param fmt The format string for the error message.
+ * @param ... The variable arguments to be formatted into the message.
+ */
+void vm_errorf(vm_t *vm, const char *fmt, ...)
+{
+    char buffer[1024]; // Buffer to hold the formatted error message
+    va_list args;
+
+    // Initialize the variable argument list
+    va_start(args, fmt);
+
+    // Format the error message into the buffer
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+    // Clean up the variable argument list
+    va_end(args);
+
+    // Report the formatted error message
+    vm_error(vm, buffer);
 }
 
 /**
@@ -410,6 +375,16 @@ static bool stack_isEmpty(vm_t *vm)
     return vm->sp == vm->bp;
 }
 
+/**
+ * Pushes a frame onto the stack.
+ *
+ * This function increments the frame stack pointer and assigns the
+ * given frame to the frame stack at the new index. If the frame
+ * stack is full, it will raise an error.
+ *
+ * @param vm The virtual machine instance.
+ * @param frame The frame to push onto the stack.
+ */
 void push_frame(vm_t *vm, Frame *frame)
 {
     if (vm->frame_sp >= STACK_MAX)
@@ -418,12 +393,21 @@ void push_frame(vm_t *vm, Frame *frame)
     vm->frames[vm->frame_sp++] = frame;
 }
 
+/**
+ * Pops a frame from the stack.
+ *
+ * This function retrieves the top element from the stack and decrements the
+ * frame stack pointer. If the stack is empty, it will raise an error.
+ *
+ * @return A Frame object representing the popped frame.
+ */
 Frame *pop_frame(vm_t *vm)
 {
     if (vm->frame_sp <= 0)
         vm_error(vm, "Stack underflow: Attempted to pop from an empty stack");
 
-    return vm->frames[--vm->frame_sp];
+    Frame *frame = vm->frames[--vm->frame_sp];
+    return frame;
 }
 
 /**
@@ -490,7 +474,6 @@ static UpValue *capture_upvalue(vm_t *vm, int index)
         vm->openUpvalues = _upvalue;
     else
         prev->next = _upvalue;
-
     return _upvalue;
 }
 
@@ -517,57 +500,92 @@ static void remove_upvalue(vm_t *vm, int index)
     }
 }
 
-static Value bind(Function *function, Object *instance)
+/**
+ * Bind a function to an instance. The function is returned as a new function
+ * with the first argument set to the instance.
+ *
+ * @param function The function to bind.
+ * @param instance The instance to bind to.
+ * @return A new function bound to the given instance.
+ */
+static Value bind(vm_t *vm, Function *function, Object *instance)
 {
+    // Copy the function object to keep the original intact
     Object *fn = new_func(function->name, function->body,
                           function->params, NULL, instance);
+
+    // Set the is_method flag to true
     ((Function *)fn)->is_method = true;
+    add_obj(vm, fn); // Critical - adds to GC tracking
+
+    // Return the new function
     return NEW_OBJ(fn);
 }
 
+/**
+ * Constructs a new object instance from a given prototype map.
+ *
+ * This function creates a new map instance, setting the original map as its
+ * prototype and copying over its key-value pairs. If a key holds a function,
+ * it is bound to the new instance. The constructor function is called if it exists.
+ *
+ * @param vm The virtual machine instance.
+ * @param map The prototype map from which to construct the object.
+ * @param argc The number of arguments provided for the constructor.
+ * @param argv The arguments to pass to the constructor.
+ * @return A new object instance.
+ */
 static Object *construct(vm_t *vm, PiMap *map, size_t argc, Value *argv)
 {
-
+    // Create a new table for the instance
     table_t *table = ht_create(sizeof(Value));
-    list_t *keys = ht_keys(map->table);
+    char **keys = ht_keys(map->table);
+    int size = ht_length(map->table);
 
+    // Create a new map instance and set its prototype
     Object *instance = new_map(table, true);
+
     ((PiMap *)instance)->proto = map;
 
-    for (size_t i = 0; i < keys->size; i++)
+    // Iterate over the keys in the prototype map
+    for (size_t i = 0; i < size; i++)
     {
-        char *key = string_get(keys, i);
-        if (strcmp(key, "constructor") != 0)
+
+        char *key = keys[i];
+        if (strcmp(key, "constructor") != 0) // Skip the constructor key
         {
             Value value = *(Value *)ht_get(map->table, key);
             if (IS_FUN(value))
             {
-                Value fn = bind(AS_FUN(value), instance);
+                // Bind function to the new instance
+                Value fn = bind(vm, AS_FUN(value), instance);
                 ht_put(table, key, &fn);
             }
             else
+                // Copy non-function values directly
                 ht_put(table, key, ht_get(map->table, key));
         }
     }
 
-    vm->stack[vm->sp] = NEW_OBJ(instance);
+    // Push the new instance onto the VM stack
+    // vm->stack[vm->sp] = NEW_OBJ(instance);
 
-    // Prepare arguments with 'this' as the first argument
+    // Prepare arguments with 'this' as the first argument for the constructor
     Value *fargs = (Value *)malloc(sizeof(Value) * (argc + 1));
     fargs[0] = NEW_OBJ(instance); // 'this' reference
     memcpy(fargs + 1, argv, sizeof(Value) * argc);
 
     // Invoke the constructor if it exists
     void *item = ht_get(map->table, "constructor");
-
     Value constructor = item ? *(Value *)item : NEW_NIL();
 
     if (IS_FUN(constructor))
     {
-        AS_FUN(constructor)->is_method = false;
+        AS_FUN(constructor)->is_method = false; // Ensure it's not a method
         instance = AS_OBJ(call_func(vm, AS_FUN(constructor), argc + 1, fargs));
     }
 
+    // Free the allocated arguments array
     free(fargs);
     return instance;
 }
@@ -600,6 +618,8 @@ void run(vm_t *vm)
         vm->counter++;
 
         vm->ip++; // Advance instruction index
+
+        // printf("OP: %d, PC: %d, IP: %d\n", op, pc, vm->ip);
 
         // Cast the opcode to the OpCode enum
         switch ((OpCode)op)
@@ -662,7 +682,6 @@ void run(vm_t *vm)
         {
             remove_upvalue(vm, vm->sp - 1);
             Value value = pop_stack(vm);
-
             break;
         }
         case OP_POP_N:
@@ -742,8 +761,7 @@ void run(vm_t *vm)
                 result = (cmp <= 0);
                 break;
             default:
-                fprintf(stderr, "Unknown opcode: [%d]\n", op);
-                exit(EXIT_FAILURE);
+                vm_errorf(vm, "Unknown opcode: [%d]", op);
             }
             push_stack(vm, NEW_BOOL(result));
 
@@ -775,10 +793,7 @@ void run(vm_t *vm)
                     size_t len = strlen(l_str) + strlen(r_str) + 1;
                     char *res = (char *)malloc(len);
                     if (!res)
-                    {
-                        fprintf(stderr, "Memory allocation failed.\n");
-                        exit(EXIT_FAILURE);
-                    }
+                        vm_error(vm, "Memory allocation failed.");
 
                     strcpy(res, l_str);
                     strcat(res, r_str);
@@ -844,13 +859,6 @@ void run(vm_t *vm)
                     push_stack(vm, left);
                     break;
                 }
-                // if (IS_LIST(left))
-                // {
-                //     PiList *list = AS_LIST(left);
-                //     list_add(list->items, &right);
-                //     push_stack(vm, left);
-                //     break;
-                // }
                 if (IS_NAN(left) || IS_NAN(right))
                 {
                     push_stack(vm, NEW_NUM(NAN));
@@ -1023,16 +1031,11 @@ void run(vm_t *vm)
                         free(result); // Clean up temporary string buffer
                     }
                     else
-                    {
-                        fprintf(stderr, "Unsupported operand types for binary operator [*].\n");
-                        exit(EXIT_FAILURE);
-                    }
+                        vm_error(vm, "Unsupported operand types for binary operator [*].");
                 }
                 else
-                {
-                    fprintf(stderr, "Unsupported operand types for binary operator [*].\n");
-                    exit(EXIT_FAILURE);
-                }
+                    vm_error(vm, "Unsupported operand types for binary operator [*].");
+
                 break;
             }
             case 3: // "/"
@@ -1583,14 +1586,10 @@ void run(vm_t *vm)
                         }
                     }
                     else
-                    {
                         is_matrix = false;
-                    }
                 }
                 else
-                {
                     is_matrix = false;
-                }
             }
 
             Object *l_obj = add_obj(vm, new_list(list));
@@ -1621,10 +1620,10 @@ void run(vm_t *vm)
             {
                 Value value = vm->stack[i];
 
+                char *key = AS_CSTRING(vm->stack[i + 1]);
                 if (IS_FUN(value))
                     AS_FUN(value)->is_method = true;
 
-                char *key = AS_CSTRING(vm->stack[i + 1]);
                 ht_put(table, key, &value);
             }
 
@@ -1658,7 +1657,7 @@ void run(vm_t *vm)
             }
 
             // Create a new function object
-            Object *function = new_func(name, body->data, defaults, NULL, NULL);
+            Object *function = new_func(name, body, defaults, NULL, NULL);
 
             // Push the new function onto the stack
             push_stack(vm, NEW_OBJ(add_obj(vm, function)));
@@ -1680,6 +1679,7 @@ void run(vm_t *vm)
                 bool is_local = as_bool(pop_stack(vm));
                 int index = as_number(pop_stack(vm));
                 UpValue *upvalue;
+
                 if (is_local)
                     upvalue = capture_upvalue(vm, vm->bp + index);
                 else
@@ -1702,7 +1702,9 @@ void run(vm_t *vm)
                 Value param = vm->stack[vm->sp + i];
                 list_add(defaults, &param);
             }
-            Object *fun_obj = new_func(name, body->data, defaults, upvalues, NULL);
+
+            Object *fun_obj = new_func(name, body, defaults, upvalues, NULL);
+
             // Push the new closure onto the stack
             push_stack(vm, NEW_OBJ(add_obj(vm, fun_obj)));
 
@@ -1875,7 +1877,7 @@ void run(vm_t *vm)
 
             vm->code = frame->code;
 
-            free(frame);
+            free_frame(frame);
 
             push_stack(vm, retval);
 
@@ -1903,16 +1905,23 @@ void run(vm_t *vm)
 
         // Add more cases for other opcodes as needed
         default:
-        {
-            printf("Unknown opcode: [%d]\n", op);
-            exit(EXIT_FAILURE);
-        }
+            vm_errorf(vm, "Unknown opcode: [%d]\n", op);
+
             vm->pc = pc;
         }
 
+#ifdef __EMSCRIPTEN__
+// For Emscripten, use a much larger GC threshold or manual GC
+#define EMSCRIPTEN_GC_THRESHOLD (1024 * 1024 * 10) // 10MB worth of objects
+        if (vm->counter >= EMSCRIPTEN_GC_THRESHOLD)
+        {
+            run_gc(vm);
+            vm->counter = 0;
+        }
+#else
         if (vm->counter >= vm->next_gc)
         {
-            // printf("[GC] Counter: %d\n", vm->counter);
+
 
 #ifdef DEBUG
             printf("[DEBUG] SP: %d\n", vm->sp);
@@ -1929,7 +1938,7 @@ void run(vm_t *vm)
             vm->counter = 0;
 
             // Adjust next threshold adaptively
-            if (count > 256)
+            if (count > 128)
                 vm->next_gc /= 2; // GC did not help, try more often
             else
                 vm->next_gc *= 2; // GC was effective, increase threshold
@@ -1941,16 +1950,34 @@ void run(vm_t *vm)
             else if (vm->next_gc > 1024 * 1024)
                 vm->next_gc = 1024 * 1024;
         }
-
+#endif
         vm->pc = pc;
     }
 }
 
+/**
+ * Frees the memory allocated for a virtual machine instance.
+ *
+ * This function is used to clean up the memory allocated to the virtual
+ * machine structure. It first frees the memory allocated to the global
+ * hash table and then frees the virtual machine structure itself.
+ *
+ * @param vm The virtual machine instance to be deallocated.
+ */
 void free_vm(vm_t *vm)
 {
+    audio_stopAll();
 
+    if (vm->cart)
+    {
+        cart_free(vm->cart);
+    }
+    // Free the memory allocated for the global hash table
     ht_free(vm->globals);
 
+    // Free the memory allocated for the mutex
     pthread_mutex_destroy(&vm->lock);
+
+    // Free the virtual machine structure itself
     free(vm);
 }

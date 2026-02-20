@@ -1,0 +1,95 @@
+PADDLE_WIDTH = 4
+PADDLE_HEIGHT = 20
+BALL_SIZE = 3
+SPEED = 2
+
+playerY = HEIGHT / 2 - PADDLE_HEIGHT / 2
+aiY = HEIGHT / 2 - PADDLE_HEIGHT / 2
+
+ballX = WIDTH / 2
+ballY = HEIGHT / 2
+ballDX = SPEED
+ballDY = SPEED
+
+playerScore = 0
+aiScore = 0
+
+fun drawPaddle(x, y) {
+  rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT, 7, true)
+}
+
+fun drawBall() {
+  circ(ballX, ballY, BALL_SIZE, 8, true)
+}
+
+fun resetBall() {
+  ballX = WIDTH / 2
+  ballY = HEIGHT / 2
+  ballDX = -ballDX
+  ballDY = rand(0, 1) == 0 ? -SPEED : SPEED
+}
+
+while true {
+  clear()
+  rect(4, 4, WIDTH - 8, HEIGHT - 8, 6)
+  line(64, 4, 64, 123, 6)
+
+  // Move player
+  if key("KEY_UP") && playerY > 10
+    playerY -= SPEED
+  if key("KEY_DOWN") && playerY + PADDLE_HEIGHT < HEIGHT - 10
+    playerY += SPEED
+
+  if aiY + PADDLE_HEIGHT/2 < ballY
+  aiY += SPEED
+  else if aiY + PADDLE_HEIGHT/2 > ballY
+    aiY -= SPEED
+
+  // Clamp AI paddle within top and bottom borders (4..HEIGHT-4)
+  if aiY < 10
+    aiY = 10
+  if aiY + PADDLE_HEIGHT > HEIGHT - 10
+    aiY = HEIGHT - 10 - PADDLE_HEIGHT
+
+  // Ball movement
+  ballX += ballDX
+  ballY += ballDY
+
+  // Bounce off top/bottom
+  if ballY <= 0 || ballY + BALL_SIZE >= HEIGHT
+    ballDY = -ballDY
+
+  // Player paddle collision
+  if ballX <= 5 && ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_HEIGHT {
+    ballDX = -ballDX
+     play(tone(700, 50, 0))  // player paddle hit
+  }
+
+  // AI paddle collision
+  if ballX + BALL_SIZE >= WIDTH - 5 && ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_HEIGHT {
+    ballDX = -ballDX
+     play(tone(600, 50, 0))  // AI paddle hit
+  }
+
+  // Score check
+  if ballX < 0 {
+    aiScore += 1
+    play(tone(300, 100, 1))  // AI score sound
+    resetBall()
+  }
+  if ballX > WIDTH {
+    playerScore += 1
+    play(tone(900, 100, 0))  // player score sound
+    resetBall()
+  }
+
+  // Draw everything
+  drawBall()  
+  drawPaddle(6, playerY)
+  drawPaddle(WIDTH - 10, aiY)  
+  text(30, 8, playerScore, 6)
+  text(90, 8, aiScore, 6)
+
+  draw()
+  sleep(30)
+}

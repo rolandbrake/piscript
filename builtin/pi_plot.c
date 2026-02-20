@@ -25,9 +25,7 @@ Value pi_pixel(vm_t *vm, int argc, Value *argv)
         argv[1].type != VAL_NUM ||
         argv[2].type != VAL_NUM ||
         (argc == 4 && argv[3].type != VAL_NUM))
-    {
-        error("[pixel] expects 3 or 4 numeric arguments: x, y, color [, alpha].");
-    }
+        vm_error(vm, "[pixel] expects 3 or 4 numeric arguments: x, y, color [, alpha].");
 
     int x = (int)round(AS_NUM(argv[0]));
     int y = (int)round(AS_NUM(argv[1]));
@@ -39,8 +37,7 @@ Value pi_pixel(vm_t *vm, int argc, Value *argv)
     if (alpha > 1.0f)
         alpha = 1.0f;
 
-    Screen *screen = vm->screen;
-    set_pixel_alpha(screen, x, y, color, alpha);
+    set_pixel_alpha(vm->screen, x, y, color, alpha);
     return NEW_NIL();
 }
 
@@ -64,7 +61,7 @@ Value pi_line(vm_t *vm, int argc, Value *argv)
         argv[1].type != VAL_NUM ||
         argv[2].type != VAL_NUM ||
         argv[3].type != VAL_NUM)
-        error("[line] expects four numeric arguments at least.");
+        vm_error(vm, "[line] expects four numeric arguments at least.");
 
     int x1 = (int)round(AS_NUM(argv[0]));
     int y1 = (int)round(AS_NUM(argv[1]));
@@ -139,7 +136,7 @@ Value pi_circ(vm_t *vm, int argc, Value *argv)
         argv[1].type != VAL_NUM ||
         argv[2].type != VAL_NUM ||
         argv[3].type != VAL_NUM)
-        error("[circ] expects four numeric arguments at least.");
+        vm_error(vm, "[circ] expects four numeric arguments at least.");
 
     int x = (int)round(AS_NUM(argv[0]));
     int y = (int)round(AS_NUM(argv[1]));
@@ -159,7 +156,6 @@ Value pi_circ(vm_t *vm, int argc, Value *argv)
     return NEW_NIL();
 }
 
-/*************  ✨ Windsurf Command ⭐  *************/
 /**
  * Draws a rectangle on the screen.
  *
@@ -182,7 +178,7 @@ Value pi_rect(vm_t *vm, int argc, Value *argv)
         argv[2].type != VAL_NUM ||
         argv[3].type != VAL_NUM ||
         argv[4].type != VAL_NUM)
-        error("[rect] expects five numeric arguments.");
+        vm_error(vm, "[rect] expects five numeric arguments.");
 
     bool filled = false;
     if (argc > 5)
@@ -215,9 +211,9 @@ Value pi_rect(vm_t *vm, int argc, Value *argv)
  * @return A nil value indicating completion.
  */
 Value pi_poly(vm_t *vm, int argc, Value *argv)
-{    
+{
     if (argc < 2 || !IS_LIST(argv[0]) || !IS_NUM(argv[1]))
-        error("[poly] expects a list of points and a color index.");
+        vm_error(vm, "[poly] expects a list of points and a color index.");
 
     Screen *screen = vm->screen; // Assume vm has a Screen reference
     list_t *points = AS_LIST(argv[0])->items;
@@ -236,64 +232,95 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
     return NEW_NIL();
 }
 
+/**
+ * Draws a sprite on the screen using a 2D list of color values or a sprite index.
+ *
+ * This function takes at least one argument: a 2D list of color values or a sprite index.
+ * The color values are expected to be numeric. If the first argument is a 2D list of color values,
+ * it is interpreted as a sprite with dimensions equal to the size of the list. The color values
+ * are copied into the sprite and then drawn on the screen at the specified position (x, y).
+ * If the first argument is a numeric sprite index, it is interpreted as a reference to a sprite
+ * in the screen's sprite list. The sprite is drawn on the screen at the specified position (x, y).
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments (at least 1).
+ * @param argv The arguments: sprite (2D list of color values or sprite index), x, y.
+ * @return A nil value indicating completion.
+ */
 Value pi_sprite(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 1)
-        error("[sprite] expects at least one argument.");
+    if (argc < 3 || !IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+        vm_error(vm, "[sprite] expects at least three arguments: id, x, y.");
 
     Screen *screen = vm->screen;
-    int sprite_count = screen->sprite_count;
-    Sprite *sprites = screen->sprites;
-
     int x = (int)AS_NUM(argv[1]);
     int y = (int)AS_NUM(argv[2]);
 
-    // Check if the first argument is a 2D list of color values
-    if (IS_LIST(argv[0]))
+    // Case 1: The first argument is a numeric index into the cartridge's sprite sheet.
+    if (IS_NUM(argv[0]))
     {
-        list_t *colors = AS_LIST(argv[0])->items;
-
-        // Get the dimensions of the sprite
-        int width = list_size(list_getAt(colors, 0)),
-            height = list_size(colors);
-
-        // Copy the color values into the sprite
-        int index = 0;
-        for (int i = 0; i < list_size(colors); i++)
+        if (vm->cart == NULL || vm->cart->sprites == NULL)
         {
-            Value value = *(Value *)list_getAt(colors, i);
-            list_t *row = AS_LIST(value)->items;
-            for (int j = 0; j < list_size(row); j++)
-            {
-                Value color = *(Value *)list_getAt(row, j);
-                if (IS_NUM(color))
-                    error("[sprite] expected a numeric color value.");
-                if (AS_NUM(color) != 0)
-                    set_pixel(screen, j + x, i + y, AS_NUM(color));
-            }
+            vm_error(vm, "[sprite] no cartridge with sprites is loaded to get index from.");
+            return NEW_NIL();
         }
-    }
-    // Check if the first argument is an index of a sprite
-    else if (IS_NUM(argv[0]))
-    {
+
         int index = (int)AS_NUM(argv[0]);
+        if (index < 0 || index >= vm->cart->spr_count)
+        {
+            vm_error(vm, "[sprite] sprite index out of bounds.");
+            return NEW_NIL();
+        }
 
-        if (index < 0 || index >= sprite_count)
-            error("[sprite] invalid sprite index.");
-
-        Sprite *sprite = &sprites[index];
+        Sprite *sprite = &vm->cart->sprites[index];
 
         // Draw the sprite on the screen
         for (int i = 0; i < sprite->height; i++)
+        {
             for (int j = 0; j < sprite->width; j++)
             {
                 uint8_t color = sprite->pixels[i * sprite->width + j];
+                // Assuming color 0 is transparent
                 if (color != 0)
+                {
                     set_pixel(screen, j + x, i + y, color);
+                }
             }
+        }
+    }
+    // Case 2: The first argument is a 2D list of color values for a dynamic sprite.
+    else if (IS_LIST(argv[0]))
+    {
+        list_t *rows = AS_LIST(argv[0])->items;
+        if (list_size(rows) == 0)
+            return NEW_NIL(); // Nothing to draw
+
+        for (int i = 0; i < list_size(rows); i++)
+        {
+            Value row_val = *(Value *)list_getAt(rows, i);
+            if (!IS_LIST(row_val))
+                vm_error(vm, "[sprite] expected a 2D list of color values.");
+
+            list_t *pixels = AS_LIST(row_val)->items;
+            for (int j = 0; j < list_size(pixels); j++)
+            {
+                Value color_val = *(Value *)list_getAt(pixels, j);
+                if (!IS_NUM(color_val))
+                    vm_error(vm, "[sprite] expected numeric color values.");
+
+                int color = (int)AS_NUM(color_val);
+                // Assuming color 0 is transparent
+                if (color != 0)
+                {
+                    set_pixel(screen, j + x, i + y, color);
+                }
+            }
+        }
     }
     else
-        error("[sprite] expected a 2D list of color values or a sprite index.");
+    {
+        vm_error(vm, "[sprite] expected a sprite index (number) or a 2D list of color values.");
+    }
 
     return NEW_NIL();
 }
@@ -310,16 +337,16 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
 Value pi_color(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 2)
-        error("[color] expects exactly two arguments (x, y).");
+        vm_error(vm, "[color] expects exactly two arguments (x, y).");
 
     if (!is_numeric(argv[0]) || !is_numeric(argv[1]))
-        error("[color] arguments must be numeric.");
+        vm_error(vm, "[color] arguments must be numeric.");
 
     int x = (int)as_number(argv[0]);
     int y = (int)as_number(argv[1]);
 
     if (x < 0 || x >= 128 || y < 0 || y >= 128)
-        error("[color] pixel coordinates out of bounds (0-127).");
+        vm_error(vm, "[color] pixel coordinates out of bounds (0-127).");
 
     int index = y * 128 + x;
     Uint32 pixel_color = vm->screen->pixels[index];

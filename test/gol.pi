@@ -1,167 +1,66 @@
-// let width = 128;
-// let height = 128;
-// let board = [0] * (width * height); // Initialize the board
-
-// for(x in 0..width) {
-//     for(y in 0..height) {
-//         board[x + y * width] = rand() < 0.5 ? 1  : 0;  // Make each cell 20%
-//         pixel(x, y, board[x + y * width] * 6);  // Display initial state
-//     }
-// }
-
-// draw();
-// while(true) {
-//     let newBoard = [0] * (width * height);
-//     for(x in 0..width) {
-//         for(y in 0..height) {
-//             let liveNeighbors = 0;
-//             let nx = 0, ny = 0;
-//             for(dx in -1..2) {
-//                 for(dy in -1..2) {
-//                     if(!(dx == 0 && dy == 0)) {
-//                         nx = x + dx;
-//                         ny = y + dy;
-//                         if(nx >= 0 && nx < width && ny >= 0 && ny < height)
-//                             liveNeighbors += board[nx + ny * width];
-//                     }
-//                 }
-//             }
-//             let cell = board[x + y * width];
-//             if(cell == 1 && (liveNeighbors < 2 || liveNeighbors > 3))
-//                 newBoard[x + y * width] = 0;
-//             elif(cell == 0 && liveNeighbors == 3)
-//                 newBoard[x + y * width] = 1;
-//             else
-//                 newBoard[x + y * width] = cell;
-
-//             pixel(x, y, newBoard[x + y * width] * 6);  // Update display
-//         }
-//     }
-//     board = newBoard;  // Update the board for the next generation
-//     draw()
-// }
-
-
 let width = 128;
 let height = 128;
 let board = [0] * (width * height);  // Initialize the board
-
+let newBoard = [0] * (width * height);  // Allocate once and reuse
 
 // Function to set the initial state of the board randomly
 fun initBoard() {
     for(x in 0..width) {
         for(y in 0..height) {
-            board[x + y * width] = floor(rand() * 2);  // Each cell randomly alive or dead
-            pixel(x, y, board[x + y * width] * 6);  // Display initial state
+            board[x + y * width] = rand() < 0.5 ? 1 : 0;
+            pixel(x, y, board[x + y * width] * 6);
         }
     }
 }
 
-// Function to count live neighbors
+// Function to count live neighbors (optimized version)
 fun countLiveNeighbors(x, y) {
     let count = 0;
-    let nx, ny;
     for(dx in -1..2) {
         for(dy in -1..2) {
-            if(dx == 0 && dy == 0)                 
-                continue;    
-            nx = x + dx;
-            ny = y + dy;
-            if(nx >= 0 && nx < width && ny >= 0 && ny < height)
-                count += board[nx + ny * width];
+            if(!(dx == 0 && dy == 0)) {
+                let nx = x + dx;
+                let ny = y + dy;
+                if(nx >= 0 && nx < width && ny >= 0 && ny < height)
+                    count += board[nx + ny * width];
+            }
         }
     }
     return count;
 }
 
-// Main update function
+// Main update function (optimized with buffer swapping)
 fun update() {
-    let newBoard = [0] * (width * height);
     for(x in 0..width) {
         for(y in 0..height) {
-            let liveNeighbors = countLiveNeighbors(x, y);            
-            let cell = board[x + y * width];
-            if(cell == 1 && (liveNeighbors < 2 || liveNeighbors > 3))
-                newBoard[x + y * width] = 0;
-            elif(cell == 0 && liveNeighbors == 3)
-                newBoard[x + y * width] = 1;
-            else
-                newBoard[x + y * width] = cell;
+            let liveNeighbors = countLiveNeighbors(x, y);
+            let idx = x + y * width;
+            let cell = board[idx];
             
-            pixel(x, y, newBoard[x + y * width] * 6);  // Update display
+            // Apply Game of Life rules
+            if(cell == 1 && (liveNeighbors < 2 || liveNeighbors > 3))
+                newBoard[idx] = 0;
+            elif(cell == 0 && liveNeighbors == 3)
+                newBoard[idx] = 1;
+            else
+                newBoard[idx] = cell;
+            
+            // Only update changed pixels
+            if(newBoard[idx] != board[idx])
+                pixel(x, y, newBoard[idx] * 6);
         }
     }
-    board = newBoard;  // Update the board for the next generation
+    
+    // Swap buffers instead of copying
+    let temp = board;
+    board = newBoard;
+    newBoard = temp;
 }
 
 // Initialization and loop
 initBoard();
 
 while(true) {
-    // sleep(100);  // Slow down the updates
     update();
     draw();
-}
-
-
-
-// Optimized Conway's Game of Life
-let width = 128
-let height = 128
-let board = [0] * (width * height) // Initialize the board
-let newBoard = [0] * (width * height) // Allocate once and reuse
-
-// Initialize the board and display it
-for (x in 0..width) {
-    for (y in 0..height) {
-        board[x + y * width] = rand() < 0.5 ? 1 : 0
-        pixel(x, y, board[x + y * width] * 6)
-    }
-}
-// draw()
-
-while (true) {
-    for (x in 0..width) {
-        for (y in 0..height) {
-            let liveNeighbors = 0
-
-            // Efficient neighbor checking
-            for (dx in -1..2) {
-                for (dy in -1..2) {
-                    if (!(dx == 0 && dy == 0)) {
-                        let nx = x + dx
-                        let ny = y + dy
-
-                        // Prevent out-of-bounds errors
-                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                            liveNeighbors += board[nx + ny * width]
-                        }
-                    }
-                }
-            }
-
-            let idx = x + y * width
-            let cell = board[idx]
-
-            // Apply Game of Life rules
-            if (cell == 1 && (liveNeighbors < 2 || liveNeighbors > 3))
-                newBoard[idx] = 0
-            elif (cell == 0 && liveNeighbors == 3)
-                newBoard[idx] = 1
-            else
-                newBoard[idx] = cell
-
-            // Only update changed pixels
-            if (newBoard[idx] != board[idx]) 
-                pixel(x, y, newBoard[idx] * 6)
-            
-        }
-    }
-
-    // Swap buffers instead of copying
-    let temp = board
-    board = newBoard
-    newBoard = temp
-
-    draw()
 }

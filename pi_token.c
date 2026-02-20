@@ -26,6 +26,7 @@ token_t create_token(tk_type type, char *start, int length, int line, int column
     token.line = line;
     token.column = column;
     token.is_negative = false;
+    token.skip = false;
 
     return token;
 }

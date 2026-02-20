@@ -126,7 +126,7 @@ while (true) {
     poly(flat_vertices, 0);
   }
   
-  sleep(20)
+  sleep(20);
   draw();
   clear(12);
 }

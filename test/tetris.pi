@@ -1,0 +1,275 @@
+
+
+ROWS = 15
+COLS = 10
+CELL_SIZE = 8
+
+game_over = false
+score = 0
+
+tick = 0
+fall_rate = 4  // frames before piece falls
+lastRotate = 0
+
+colors = [2, 3, 8, 9, 13, 14, 19]
+
+// Tetromino definitions (relative coordinates)
+blocks = [
+  [[0,0],[1,0],[0,1],[1,1]],     // O
+  [[0,0],[-1,0],[1,0],[2,0]],    // I
+  [[0,0],[-1,0],[1,0],[1,1]],    // J
+  [[0,0],[-1,0],[1,0],[-1,1]],   // L
+  [[0,0],[-1,0],[0,1],[1,1]],    // S
+  [[0,0],[1,0],[0,1],[-1,1]],    // Z
+  [[0,0],[-1,0],[1,0],[0,1]]     // T
+]
+
+piece = {}
+nextPiece = {}
+board = []
+playing = false
+
+// Initialize the next piece
+fun initNextPiece() {
+    nextPiece.type = rand(0, 6)
+    nextPiece.color = colors[nextPiece.type]
+    nextPiece.shape = blocks[nextPiece.type]
+}
+
+
+// Draw the board cells
+fun drawBoard() {
+  rect(0, 0, COLS * CELL_SIZE, ROWS * CELL_SIZE, 0)
+  for i in 0..ROWS {
+    for j in 0..COLS {
+      if board[i][j] != 0 {
+        let x = j * CELL_SIZE
+        let y = i * CELL_SIZE
+        let color = board[i][j]
+        rect(x, y, CELL_SIZE, CELL_SIZE, color, true)
+        rect(x, y, CELL_SIZE, CELL_SIZE, 0)
+      }
+    }
+  }
+}
+
+// Draw the next piece preview
+fun drawNextPiece() {
+    let previewX = COLS * CELL_SIZE + 10  // Right side of main board
+    let previewY = 40  // Below the score display
+    
+    // Draw preview background
+    rect(previewX - 5, previewY - 5, 40, 40, 0)
+    text(previewX + 5, previewY - 15, "NEXT")
+    
+    // Calculate center offset for the piece
+    let minX = 0, maxX = 0, minY = 0, maxY = 0
+    for i in 0..4 {
+        minX = min([minX, nextPiece.shape[i][0]])
+        maxX = max([maxX, nextPiece.shape[i][0]])
+        minY = min([minY, nextPiece.shape[i][1]])
+        maxY = max([maxY, nextPiece.shape[i][1]])
+    }
+    let offsetX = (4 - (maxX - minX)) / 2
+    let offsetY = (4 - (maxY - minY)) / 2
+    
+    // Draw each block of the next piece
+    for i in 0..4 {
+        let px = nextPiece.shape[i][0] + offsetX
+        let py = nextPiece.shape[i][1] + offsetY
+        let x = previewX + px * CELL_SIZE 
+        let y = previewY + py * CELL_SIZE 
+        rect(x, y, CELL_SIZE, CELL_SIZE, nextPiece.color, true)
+        rect(x, y, CELL_SIZE, CELL_SIZE, 0)
+    }
+}
+
+// Draw the current falling piece
+fun drawPiece() {
+  for i in 0..4 {
+    let px = piece.x + piece.shape[i][0]
+    let py = piece.y + piece.shape[i][1]
+    if py >= 0 {
+      let x = px * CELL_SIZE
+      let y = py * CELL_SIZE
+      rect(x, y, CELL_SIZE, CELL_SIZE, piece.color, true)
+      rect(x, y, CELL_SIZE, CELL_SIZE, 0)
+    }
+  }
+}
+
+// Spawn a new tetromino
+fun newPiece() {    
+    // Copy next piece to current piece
+    piece.x = COLS / 2
+    piece.y = -1
+    piece.type = nextPiece.type    
+    piece.color = nextPiece.color 
+    piece.shape = blocks[piece.type]    
+    
+    // Generate new next piece
+    nextPiece.type = rand(0, 6)
+    nextPiece.color = colors[nextPiece.type]
+    nextPiece.shape = blocks[nextPiece.type]
+}
+
+fun canRotate(rotated) {
+  for i in 0..4 {
+    let x = piece.x + rotated[i][0]
+    let y = piece.y + rotated[i][1]
+    if x < 0 || x >= COLS || y >= ROWS || (y >= 0 && board[y][x] != 0)
+      return false
+  }
+  return true
+}
+
+fun rotatePiece() {
+  if piece.type == 0 return
+  let rotated = [0] * 4
+  for i in 0..4 {
+    let x = piece.shape[i][0]
+    let y = piece.shape[i][1]
+    rotated[i] = [-y, x]
+  }  
+  if canRotate(rotated)
+    piece.shape = rotated
+}
+
+// Check if current piece collides with the board or walls
+fun collision(dx, dy) {
+  for i in 0..4 {
+    let x = piece.x + piece.shape[i][0] + dx
+    let y = piece.y + piece.shape[i][1] + dy
+    if x < 0 || x >= COLS || y >= ROWS
+      return true
+      
+    if y >= 0 && board[y][x] != 0
+      return true
+  }
+  return false
+}
+
+// Lock the piece into the board
+fun lockPiece() {
+  for i in 0..4 {
+    let x = piece.x + piece.shape[i][0]
+    let y = piece.y + piece.shape[i][1]
+    if y >= 0
+      board[y][x] = piece.color
+  }
+}
+
+// Clear filled rows
+fun clearLines() {
+  let i = ROWS - 1
+  while(i > 0) {    
+    let full = true
+    for j in 0..COLS {
+      if board[i][j] == 0 {
+        full = false
+        break
+      }
+    }
+    if full {             
+      for k in i..0 
+        board[k] = board[k-1]
+      
+      board[0] = [0] * COLS    
+      score += 10
+      play(tone(200, 200, WAVE_SINE))  // line clear sound
+    } else 
+        i--
+  }
+}
+
+fun getInput() {
+  if key("KEY_LEFT") && !collision(-1, 0) {
+    piece.x -= 1
+    play(tone(300, 50, WAVE_SQUARE))
+  }
+
+  if key("KEY_RIGHT") && !collision(1, 0) {
+    piece.x += 1
+    play(tone(300, 50, WAVE_SQUARE))
+  }
+
+  if key("KEY_DOWN") && !collision(0, 1) {
+    piece.y += 1
+    play(tone(250, 40, WAVE_SQUARE))
+  }
+
+  if key("KEY_UP") {
+    if time() - lastRotate > 150 {
+      rotatePiece()
+      lastRotate = time()
+      play(tone(400, 50, WAVE_TRIANGLE))
+    }
+  }
+}
+
+fun init_game() {
+  playing = true
+  piece = {}
+  nextPiece = {}
+  board = [1] * ROWS
+  for i in 0..ROWS
+    board[i] = [0] * COLS
+
+  score = 0
+
+  game_over = false 
+
+  initNextPiece()
+  newPiece()
+}
+
+init_game()
+is_running = true
+
+while is_running {
+
+  while playing {
+    clear()
+    getInput()
+
+    tick += 1
+    if tick >= fall_rate {
+      if !collision(0, 1) 
+        piece.y += 1
+      else {
+        lockPiece()
+        play(tone(100, 70, WAVE_NOISE))  // land thud sound
+        clearLines()
+        newPiece()
+        if collision(0, 0)
+          game_over = true
+      }
+      tick = 0
+    }
+
+    drawBoard()
+    drawPiece()
+    drawNextPiece()  // Draw the next piece preview
+    text(85, 2, "SCORE:")
+    text(85, 10, score)
+    draw()
+    sleep(100)
+
+    if game_over {
+      text(36, 50, "GAME OVER", 6)
+      draw()
+      sleep(1000)
+      break
+    }
+  }
+  clear()
+  playing = false
+  text(8, 50, "PRESS SPACE TO PLAY", 6)
+  text(10, 60, "PRESS ESC TO EXIST", 6)
+  draw()
+  if key("KEY_ESC")
+    is_running = false
+  if key("KEY_SPACE") 
+    init_game()
+
+}

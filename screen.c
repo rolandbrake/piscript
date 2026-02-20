@@ -8,129 +8,154 @@
 #include "pi_value.h"
 #include "common.h"
 
-// #define CHAR_COUNT 52 // Number of characters in the array
-#define CHAR_COUNT 77
+#define CHAR_COUNT 95 // Number of characters in the array
 
 const char *characters[CHAR_COUNT] = {
-    "000000 011110 110110 110110 111010 000000", // a
-    "110000 111100 110110 110110 111100 000000", // b
-    "000000 011100 110000 110000 011100 000000", // c
-    "000110 011110 110110 110110 011110 000000", // d
-    "000000 011100 101110 111000 011100 000000", // e
-    "001100 011000 011100 011000 011000 000000", // f
-    "000000 011110 110110 111110 000110 011100", // g
-    "110000 111100 110110 110110 110110 000000", // h
-    "001100 000000 011100 001100 011110 000000", // i
-    "000110 000000 000110 110110 011100 000000", // j
-    "110000 110110 111100 110110 110110 000000", // k
-    "011000 011000 011000 011000 001100 000000", // l
-    "000000 111100 111110 101010 101010 000000", // m
-    "000000 111100 110110 110110 110110 000000", // n
-    "000000 011100 110110 110110 011100 000000", // o
-    "000000 111100 110110 111100 110000 000000", // p
-    "000000 011110 110110 011110 000110 000000", // q
-    "000000 111100 110110 110000 110000 000000", // r
-    "000000 011110 111000 001110 111100 000000", // s
-    "001100 011110 001100 001100 001100 000000", // t
-    "000000 110110 110110 110110 111100 000000", // u
-    "000000 110110 110110 110100 011000 000000", // v
-    "000000 110110 110110 111110 010100 000000", // w
-    "000000 011010 001100 011010 011010 000000", // x
-    "000000 110110 111110 000110 011110 000000", // y
-    "000000 011110 001100 011000 011110 000000", // z
-    "011100 110110 111110 110110 110110 000000", // A
-    "111100 110110 111110 110110 111110 000000", // B
-    "011100 110110 110000 110110 011100 000000", // C
-    "111100 110110 110110 110110 111100 000000", // D
-    "111110 110000 111100 110000 111110 000000", // E
-    "111110 110000 111100 110000 110000 000000", // F
-    "011110 110000 110110 110110 011100 000000", // G
-    "110110 110110 111110 110110 110110 000000", // H
-    "011110 001100 001100 001100 011110 000000", // I
-    "011110 001100 001100 101100 011100 000000", // J
-    "110110 111110 111000 110110 110110 000000", // K
-    "110000 110000 110000 110000 111100 000000", // L
-    "110110 111110 111110 110110 110110 000000", // M
-    "111100 110110 110110 110110 110110 000000", // N
-    "011100 110110 110110 110110 011100 000000", // O
-    "111100 110110 110110 111100 110000 000000", // P
-    "011100 110110 110110 111100 011110 000000", // Q
-    "111100 110110 110110 111000 110110 000000", // R
-    "011110 111000 011110 000110 011110 000000", // S
-    "111110 011000 011000 011000 011000 000000", // T
-    "110110 110110 110110 110110 111100 000000", // U
-    "110110 110110 110110 110110 011100 000000", // V
-    "110110 110110 111110 111110 110110 000000", // W
-    "110110 110110 011100 110110 110110 000000", // X
-    "110110 110110 111110 000110 111110 000000", // Y
-    "111110 001100 011000 110000 111110 000000", // Z
-    "011110 110111 111011 110011 011110 000000", // 0
-    "001100 011100 001100 001100 011110 000000", // 1
-    "111110 000110 111110 110000 111110 000000", // 2
-    "111100 000110 011110 000110 111110 000000", // 3
-    "110110 110110 111110 000110 000110 000000", // 4
-    "111110 110000 111110 000110 111110 000000", // 5
-    "111110 110000 111110 110110 111110 000000", // 6
-    "111110 000110 000110 000110 000110 000000", // 7
-    "111110 110110 111110 110110 111110 000000", // 8
-    "111110 110110 111110 000110 000110 000000", // 9
-    "000000 000000 000000 000000 000000 000000", // Space
-    "011000 011000 011000 000000 011000 000000", // !
-    "000000 000000 010100 000000 000000 000000", // "
-    "010100 111110 010100 111110 010100 000000", // #
-    "011110 101000 011100 001010 111100 001000", // $
-    "110011 110110 001100 011011 110011 000000", // %
-    "011100 010100 011000 010100 001010 000000", // &
-    "000000 000000 000000 010000 100000 000000", // '
-    "001000 010100 100010 000000 000000 000000", // (
-    "100010 010100 001000 000000 000000 000000", // )
-    "000000 011100 000000 011100 000000 000000", // +
-    "000000 000000 000000 000000 011000 000000", // ,
-    "000000 011110 000000 000000 000000 000000", // -
-    "000001 000010 000100 001000 010000 000000", // /
-    "000000 000000 000000 011000 011000 000000", // .
+
+    "0000 0000 0000 0000 0000 0000", // space
+    "0010 0010 0010 0000 0010 0000", // !
+    "1010 1010 0000 0000 0000 0000", // "
+    "1010 1110 1010 1110 1010 0000", // #
+    "1110 1100 0110 1110 0100 0000", // $
+    "1010 0010 0100 1000 1010 0000", // %
+    "1100 1100 0110 1010 1110 0000", // &
+    "0010 0010 0000 0000 0000 0000", // '
+    "0010 0100 0100 0100 0010 0000", // (
+    "0100 0010 0010 0010 0100 0000", // )
+    "0000 1010 0100 1010 0000 0000", // *
+    "0000 0100 1110 0100 0000 0000", // +
+    "0000 0000 0000 0010 0100 0000", // ,
+    "0000 0000 1110 0000 0000 0000", // -
+    "0000 0000 0000 0110 0110 0000", // .
+    "0000 0010 0100 0100 1000 0000", // /
+
+    "1110 1010 1010 1010 1110 0000", // 0
+    "1100 0100 0100 0100 1110 0000", // 1
+    "1110 0010 1110 1000 1110 0000", // 2
+    "1110 0010 0110 0010 1110 0000", // 3
+    "1010 1010 1110 0010 0010 0000", // 4
+    "1110 1000 1110 0010 1110 0000", // 5
+    "1000 1000 1110 1010 1110 0000", // 6
+    "1110 0010 0010 0010 0010 0000", // 7
+    "1110 1010 1110 1010 1110 0000", // 8
+    "1110 1010 1110 0010 1110 0000", // 9
+
+    "0000 0000 0010 0000 0010 0000", // :
+    "0000 0010 0000 0010 0100 0000", // ;
+    "0010 0100 1000 0100 0010 0000", // <
+    "0000 0110 0000 0110 0000 0000", // =
+    "1000 0100 0010 0100 1000 0000", // >
+    "1110 0010 0110 0000 0100 0000", // ?
+    "0100 1010 1010 1000 0110 0000", // @
+
+    "1110 1010 1110 1010 1010 0000", // A
+    "1110 1010 1100 1010 1110 0000", // B
+    "0110 1000 1000 1000 0110 0000", // C
+    "1100 1010 1010 1010 1110 0000", // D
+    "1110 1000 1100 1000 1110 0000", // E
+    "1110 1000 1100 1000 1000 0000", // F
+    "0110 1000 1000 1010 1110 0000", // G
+    "1010 1010 1110 1010 1010 0000", // H
+    "1110 0100 0100 0100 1110 0000", // I
+    "1110 0100 0100 0100 1100 0000", // J
+    "1010 1010 1100 1010 1010 0000", // K
+    "1000 1000 1000 1000 1110 0000", // L
+    "1110 1110 1010 1010 1010 0000", // M
+    "1100 1010 1010 1010 1010 0000", // N
+    "0110 1010 1010 1010 1100 0000", // O
+    "1110 1010 1110 1000 1000 0000", // P
+    "0100 1010 1010 1100 0110 0000", // Q
+    "1110 1010 1100 1010 1010 0000", // R
+    "0110 1000 1110 0010 1100 0000", // S
+    "1110 0100 0100 0100 0100 0000", // T
+    "1010 1010 1010 1010 1100 0000", // U
+    "1010 1010 1010 1010 0100 0000", // V
+    "1010 1010 1010 1110 1110 0000", // W
+    "1010 1010 0100 1010 1010 0000", // X
+    "1010 1010 1110 0010 1110 0000", // Y
+    "1110 0010 0100 1000 1110 0000", // Z
+
+    "0110 0100 0100 0100 0110 0000", // [
+    "0000 1000 0100 0100 0010 0000", // backslash
+    "0110 0010 0010 0010 0110 0000", // ]
+    "0000 0100 1010 0000 0000 0000", // ^
+    "0000 0000 0000 0000 0110 0000", // _
+    "0000 0100 0010 0000 0000 0000", // `
+
+    "0000 1110 1010 1110 1010 0000", // a
+    "0000 1100 1100 1010 1110 0000", // b
+    "0000 1110 1000 1000 1110 0000", // c
+    "0000 1100 1010 1010 1100 0000", // d
+    "0000 1110 1100 1000 1110 0000", // e
+    "0000 1110 1100 1000 1000 0000", // f
+    "0000 1110 1000 1010 1110 0000", // g
+    "0000 1010 1010 1110 1010 0000", // h
+    "0000 1110 0100 0100 1110 0000", // i
+    "0000 1110 0100 0100 1100 0000", // j
+    "0000 1010 1100 1010 1010 0000", // k
+    "0000 1000 1000 1000 1110 0000", // l
+    "0000 1110 1110 1010 1010 0000", // m
+    "0000 1100 1010 1010 1010 0000", // n
+    "0000 0110 1010 1010 1100 0000", // o
+    "0000 1110 1010 1110 1000 0000", // p
+    "0000 0100 1010 1100 0110 0000", // q
+    "0000 1110 1010 1100 1010 0000", // r
+    "0000 0110 1000 0010 1100 0000", // s
+    "0000 1110 0100 0100 0100 0000", // t
+    "0000 1010 1010 1010 0110 0000", // u
+    "0000 1010 1010 1010 0100 0000", // v
+    "0000 1010 1010 1110 1110 0000", // w
+    "0000 1010 0100 0100 1010 0000", // x
+    "0000 1010 1110 0010 1110 0000", // y
+    "0000 1110 0010 0100 1110 0000", // z
+
+    "0110 0100 1100 0100 0110 0000", // {
+    "0000 0010 0010 0010 0010 0000", // |
+    "1100 0100 0110 0100 1100 0000", // }
+    "0000 0000 0010 1110 1000 0000", // ~
+
 };
 
-// PICO-8 palette colors (extended)
-const SDL_Color palette[NUM_COLORS] = {
-    {0, 0, 0, 255},     // Black
-    {29, 43, 83, 255},  // Dark Blue
-    {126, 37, 83, 255}, // Dark Magenta
-    {0, 135, 81, 255},  // Dark Green
-    {171, 82, 54, 255}, // Brown
-    {95, 87, 79, 255},  // Dark Gray
+// colors palette (extended)
+const SDL_Color palette[PALETTE_SIZE] = {
+    {0, 0, 0, 255},     // Black (0)
+    {29, 43, 83, 255},  // Dark Blue (1)
+    {126, 37, 83, 255}, // Dark Magenta (2)
+    {0, 135, 81, 255},  // Dark Green (3)
+    {171, 82, 54, 255}, // Brown (4)
+    {95, 87, 79, 255},  // Dark Gray (5)
     // {194, 195, 199, 255}, // Light Gray
-    {255, 255, 255, 255}, // White
-    {255, 241, 232, 255}, // Very Light Pink
-    {255, 0, 77, 255},    // Bright Red
-    {255, 163, 0, 255},   // Bright Orange
-    {255, 236, 39, 255},  // Bright Yellow
-    {0, 228, 54, 255},    // Bright Green
-    {41, 173, 255, 255},  // Bright Blue
-    {131, 118, 156, 255}, // Soft Purple
-    {255, 119, 168, 255}, // Bright Pink
-    {255, 204, 170, 255}, // Peach
-    {41, 24, 20, 255},    // Dark Brown
-    {17, 29, 53, 255},    // Navy Blue
-    {66, 33, 54, 255},    // Deep Purple
-    {18, 83, 89, 255},    // Teal
-    {116, 47, 41, 255},   // Rust Red
-    {73, 51, 59, 255},    // Muted Purple
-    {162, 136, 121, 255}, // Warm Gray
-    {243, 239, 125, 255}, // Pale Lime
-    {190, 18, 80, 255},   // Dark Pink
-    {255, 108, 36, 255},  // Orange Red
-    {168, 231, 46, 255},  // Lime Green
-    {0, 181, 67, 255},    // Emerald Green
-    {6, 90, 181, 255},    // Cobalt Blue
-    {117, 70, 101, 255},  // Dusky Purple
-    {255, 110, 89, 255},  // Coral
-    {255, 157, 129, 255}, // Light Salmon
+    {255, 255, 255, 255}, // White (6)
+    {255, 241, 232, 255}, // Very Light Pink (7)
+    {255, 0, 77, 255},    // Bright Red (8)
+    {255, 163, 0, 255},   // Bright Orange (9)
+    {255, 236, 39, 255},  // Bright Yellow (10)
+    {0, 228, 54, 255},    // Bright Green  (11)
+    {41, 173, 255, 255},  // Bright Blue (12)
+    {131, 118, 156, 255}, // Soft Purple (13)
+    {255, 119, 168, 255}, // Bright Pink (14)
+    {255, 204, 170, 255}, // Peach (15)
+    {41, 24, 20, 255},    // Dark Brown (16)
+    {17, 29, 53, 255},    // Navy Blue (17)
+    {66, 33, 54, 255},    // Deep Purple (18)
+    {18, 83, 89, 255},    // Teal (19)
+    {116, 47, 41, 255},   // Rust Red (20)
+    {73, 51, 59, 255},    // Muted Purple (21)
+    {162, 136, 121, 255}, // Warm Gray (22)
+    {243, 239, 125, 255}, // Pale Lime (23)
+    {190, 18, 80, 255},   // Dark Pink (24)
+    {255, 108, 36, 255},  // Orange Red (25)
+    {168, 231, 46, 255},  // Lime Green (26)
+    {0, 181, 67, 255},    // Emerald Green (27)
+    {6, 90, 181, 255},    // Cobalt Blue (28)
+    {117, 70, 101, 255},  // Dusky Purple (29)
+    {255, 110, 89, 255},  // Coral (30)
+    {255, 157, 129, 255}, // Light Salmon (31)
 };
 
-static Uint32 colors[PALETTE_SIZE]; // Precomputed colors
+static Uint32 colors[NUM_COLORS]; // Precomputed colors
 
-Screen *screen_init()
+Screen *screen_init(Color color)
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
@@ -142,7 +167,7 @@ Screen *screen_init()
     if (!screen)
         return NULL;
 
-    screen->window = SDL_CreateWindow("PiScript Console",
+    screen->window = SDL_CreateWindow("PI-SHELL",
                                       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                       SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE,
                                       SDL_WINDOW_SHOWN);
@@ -168,7 +193,7 @@ Screen *screen_init()
     screen->renderer = SDL_CreateRenderer(screen->window, -1,
                                           SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-    SDL_RenderSetScale(screen->renderer, SCALE, SCALE);
+    SDL_RenderSetLogicalSize(screen->renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     screen->texture = SDL_CreateTexture(screen->renderer,
                                         SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
@@ -191,14 +216,10 @@ Screen *screen_init()
 
     SDL_ShowCursor(SDL_DISABLE);
 
-    memset(screen->pixels, 12, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32));
-
     screen->cursor_x = 0;
     screen->cursor_y = 0;
 
-    screen->sprite_count = 0;
-
-    screen_clear(screen, 12);
+    screen_clear(screen, color);
     screen_update(screen);
     return screen;
 }
@@ -262,7 +283,7 @@ void screen_update(Screen *screen)
  * @param screen The screen to clear.
  * @param color The color index from the palette to fill the screen with.
  */
-void screen_clear(Screen *screen, int color)
+void screen_clear(Screen *screen, Color color)
 {
     // Calculate the actual color value using the palette
     const Uint32 _color = colors[color % PALETTE_SIZE];
@@ -294,13 +315,13 @@ void screen_clear(Screen *screen, int color)
  * @param y The y-coordinate of the pixel.
  * @param color The color of the pixel, as an index into the palette.
  */
-void inline set_pixel(Screen *screen, int x, int y, int color)
+void inline set_pixel(Screen *screen, int x, int y, Color color)
 {
     if ((unsigned)x < SCREEN_WIDTH && (unsigned)y < SCREEN_HEIGHT)
         screen->pixels[y * SCREEN_WIDTH + x] = colors[color % PALETTE_SIZE];
 }
 
-void inline set_pixel_alpha(Screen *screen, int x, int y, int color_index, double alpha)
+void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, double alpha)
 {
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
         return;
@@ -329,7 +350,7 @@ void inline set_pixel_alpha(Screen *screen, int x, int y, int color_index, doubl
     screen->pixels[index] = (255 << 24) | (r << 16) | (g << 8) | b;
 }
 
-void set_pixel_shaded(Screen *screen, int x, int y, int color, float brightness)
+void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightness)
 {
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
         return;
@@ -358,7 +379,7 @@ void set_pixel_shaded(Screen *screen, int x, int y, int color, float brightness)
  * @param y1 The ending y-coordinate of the line.
  * @param color The color of the line.
  */
-void draw_line(Screen *screen, int x0, int y0, int x1, int y1, int color)
+void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
 {
     int dx = abs(x1 - x0);     // Difference in x
     int dy = abs(y1 - y0);     // Difference in y
@@ -385,7 +406,7 @@ void draw_line(Screen *screen, int x0, int y0, int x1, int y1, int color)
     }
 }
 
-void draw_rect(Screen *screen, int x, int y, int w, int h, int color)
+void draw_rect(Screen *screen, int x, int y, int w, int h, Color color)
 {
     draw_line(screen, x, y, x + w, y, color);
     draw_line(screen, x, y, x, y + h, color);
@@ -393,7 +414,7 @@ void draw_rect(Screen *screen, int x, int y, int w, int h, int color)
     draw_line(screen, x, y + h, x + w, y + h, color);
 }
 
-void draw_fillRect(Screen *screen, int x, int y, int w, int h, int color)
+void draw_fillRect(Screen *screen, int x, int y, int w, int h, Color color)
 {
     for (int i = 0; i < h; i++)
         draw_line(screen, x, y + i, x + w, y + i, color);
@@ -408,7 +429,7 @@ void draw_fillRect(Screen *screen, int x, int y, int w, int h, int color)
  * @param radius The radius of the circle.
  * @param color The color of the circle.
  */
-void draw_circle(Screen *screen, int x0, int y0, int radius, int color)
+void draw_circle(Screen *screen, int x0, int y0, int radius, Color color)
 {
     int x = 0;
     int y = radius;
@@ -439,7 +460,7 @@ void draw_circle(Screen *screen, int x0, int y0, int radius, int color)
     }
 }
 
-void draw_fillCircle(Screen *screen, int x0, int y0, int radius, int color)
+void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Color color)
 {
     int x = 0;
     int y = radius;
@@ -465,7 +486,7 @@ void draw_fillCircle(Screen *screen, int x0, int y0, int radius, int color)
             d = d + 4 * x + 6;
     }
 }
-void draw_polygon(Screen *screen, list_t *points, int color)
+void draw_polygon(Screen *screen, list_t *points, Color color)
 {
     int size = list_size(points);
 
@@ -496,7 +517,7 @@ static int compare_num(const void *a, const void *b)
     return x - y;
 }
 
-void draw_fillPolygon(Screen *screen, list_t *points, int color)
+void draw_fillPolygon(Screen *screen, list_t *points, Color color)
 {
     int size = list_size(points);
     if (size < 6)
@@ -558,53 +579,67 @@ void draw_fillPolygon(Screen *screen, list_t *points, int color)
     free(i_points);
 }
 
-void screen_print(Screen *screen, const char *text, int x, int y, int color)
+void draw_matrix(Screen *screen, int x, int y, int w, int h, uint8_t matrix[h][w])
+{
+    for (int j = 0; j < h; j++)
+        for (int i = 0; i < w; i++)
+            set_pixel(screen, x + i, y + j, matrix[j][i]);
+}
+
+void screen_print(Screen *screen, const char *text, int x, int y, Color color)
 {
     screen->cursor_x = x;
     screen->cursor_y = y;
 
     for (const char *c = text; *c; c++)
     {
-        int index = 0;
-        if (islower(*c))
-            index = *c - 'a';
-        else if (isupper(*c))
-            index = *c - 'A' + 26;
-        else if (isdigit(*c))
-            index = *c - '0' + 52;
-        else if (*c - ' ' <= 15)
-            index = *c - ' ' + 62; // PiMap to indices starting from 63
-        else
+        unsigned char ch = (unsigned char)*c;
+
+        // ASCII range supported by the font
+        if (ch < 32 || ch > 126)
             continue;
 
-        if (index >= (int)(sizeof(characters) / sizeof(characters[0])))
+        int index = ch - 32;
+
+        if (index >= CHAR_COUNT)
             continue;
 
         const char *rows = characters[index];
 
-        int row = 0, col = 0;
+        int row = 0;
+        int col = 0;
+
         for (int i = 0; rows[i] != '\0'; i++)
         {
-            if (rows[i] == ' ') // Skip spaces in the bitmap
+            if (rows[i] == ' ')
             {
-                row++;   // Move to the next row
-                col = 0; // Reset column position
+                row++;
+                col = 0;
                 continue;
             }
 
             if (rows[i] == '1')
-                set_pixel(screen, screen->cursor_x + col, screen->cursor_y + row, color);
+            {
+                set_pixel(
+                    screen,
+                    screen->cursor_x + col,
+                    screen->cursor_y + row,
+                    color);
+            }
 
             col++;
         }
 
-        if (screen->cursor_x + 12 >= SCREEN_WIDTH)
+        // Advance cursor
+        if (screen->cursor_x + 4 >= SCREEN_WIDTH)
         {
-            screen->cursor_y += 6;
             screen->cursor_x = 1;
+            screen->cursor_y += 6;
         }
         else
-            screen->cursor_x += 6;
+        {
+            screen->cursor_x += 4;
+        }
     }
 }
 

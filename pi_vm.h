@@ -2,6 +2,7 @@
 #define PI_VM_H
 
 #include <pthread.h>
+#include <stdarg.h>
 
 #include "pi_compiler.h"
 #include "pi_table.h"
@@ -10,7 +11,7 @@
 #include "pi_object.h"
 #include "screen.h"
 #include "pi_frame.h"
-
+#include "cart.h"
 
 #define STACK_MAX 1024 // max stack size
 #define ITER_MAX 256   // max iterator stack size
@@ -61,15 +62,19 @@ typedef struct
 
     int counter;
 
-    list_t *instrs; // PiList of instruction metadata
+    table_t *instrs; // PiList of instruction metadata
 
     int next_gc; // Next garbage collection threshold
+    list_t *gc_stack;
 
     int obj_count;
+
+    Cart *cart; // Pointer to the loaded cartridge, if any.
 
 } vm_t;
 
 vm_t *init_vm(compiler_t *comp, Screen *screen);
+void vm_reset(vm_t *vm, compiler_t *comp);
 
 Object *add_obj(vm_t *vm, Object *obj);
 void run(vm_t *vm);
@@ -77,6 +82,8 @@ void run(vm_t *vm);
 void push_frame(vm_t *vm, Frame *frame);
 Frame *pop_frame(vm_t *vm);
 
+void vm_error(vm_t *vm, const char *message);
+void vm_errorf(vm_t *vm, const char *fmt, ...);
 void free_vm(vm_t *vm);
 
 #endif // PI_VM_H

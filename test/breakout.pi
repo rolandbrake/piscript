@@ -1,0 +1,142 @@
+
+PADDLE_WIDTH = 20
+PADDLE_HEIGHT = 6
+BALL_SIZE = 3
+ROWS = 5
+COLS = 10
+BRICK_WIDTH = WIDTH / COLS
+BRICK_HEIGHT = 6
+
+paddleX = WIDTH / 2 - PADDLE_WIDTH / 2
+paddleY = HEIGHT - 10
+
+ballX = WIDTH / 2
+ballY = HEIGHT / 2
+ballDX = 1
+ballDY = -1
+
+ballSpeed = 2
+game_over = false
+win = false
+
+
+colors = [2, 3, 8, 9, 13, 14, 19]
+
+// Initialize brick grid
+bricks = [0] * ROWS
+for i in 0..ROWS
+  bricks[i] = [1] * COLS
+
+fun drawBricks() {
+  for i in 0..ROWS {
+    for j in 0..COLS {
+      if bricks[i][j] == 1 {
+        let x = j * BRICK_WIDTH
+        let y = i * BRICK_HEIGHT
+        rect(x, y, BRICK_WIDTH , BRICK_HEIGHT, colors[i], true)
+      }
+    }
+  }
+}
+
+fun drawPaddle() {
+  rect(paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT, 7, true)
+}
+
+fun drawBall() {
+  circ(ballX, ballY, BALL_SIZE, 8, true)
+}
+
+fun resetBall() {
+  ballX = WIDTH / 2
+  ballY = HEIGHT / 2
+  ballDX = 1
+  ballDY = -1
+}
+
+fun checkBrickCollision() {
+  let hit = false
+  for i in 0..ROWS {
+    for j in 0..COLS {
+      if bricks[i][j] == 1 {
+        let bx = j * BRICK_WIDTH
+        let by = i * BRICK_HEIGHT
+        if ballX + BALL_SIZE > bx && ballX < bx + BRICK_WIDTH &&
+           ballY + BALL_SIZE > by && ballY < by + BRICK_HEIGHT {
+          bricks[i][j] = 0
+          ballDY = -ballDY
+          hit = true
+          break
+        }
+      }
+    }
+    if hit break
+  }
+}
+
+fun checkWin() {
+  for i in 0..ROWS {
+    for j in 0..COLS {
+      if bricks[i][j] == 1 return
+    }
+  }
+  win = true
+}
+
+while true {
+  clear(0)
+
+  // Player input
+  if key("KEY_LEFT") && paddleX > 0
+    paddleX -= 2
+  if key("KEY_RIGHT") && paddleX + PADDLE_WIDTH < WIDTH
+    paddleX += 2
+
+  // Ball movement
+  ballX += ballDX * ballSpeed
+  ballY += ballDY * ballSpeed
+
+  // Wall collisions
+  if ballX <= 0 || ballX + BALL_SIZE >= WIDTH
+    ballDX = -ballDX
+  if ballY <= 0
+    ballDY = -ballDY
+
+  // Paddle collision
+  if ballY + BALL_SIZE >= paddleY && ballX + BALL_SIZE > paddleX && ballX < paddleX + PADDLE_WIDTH {
+    ballDY = -ballDY
+    // Add angle based on where it hit the paddle
+    let hitPos = (ballX + BALL_SIZE / 2) - (paddleX + PADDLE_WIDTH / 2)
+    ballDX = hitPos / (PADDLE_WIDTH / 2)
+  }
+
+  // Brick collision
+  checkBrickCollision()
+
+  // Lose condition
+  if ballY > HEIGHT
+    game_over = true
+
+  // Draw game
+  drawBricks()
+  drawPaddle()
+  drawBall()
+
+  if game_over {
+    text(40, 60, "GAME OVER", 6)
+    draw()
+    sleep(1000)
+    break
+  }
+
+  checkWin()
+  if win {
+    text(44, 60, "YOU WIN!", 10)
+    draw()
+    sleep(1000)
+    break
+  }
+
+  draw()
+  sleep(16)
+}

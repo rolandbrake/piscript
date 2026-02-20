@@ -22,7 +22,7 @@ println(abs([-5, 2, -3]))       // Expected: [5, 2, 3]
 
 println(rand())                  // Expected: random number between 0 and 1
 println(rand_n(5))               // Expected: list of 5 random numbers between 0 and 1
-println(rand_i(1, 10))           // Expected: random int between 1 and 10
+println(rand(1, 10))           // Expected: random int between 1 and 10
 
 println(pow(2, 3))               // Expected: 8
 println(pow([2, 3, 4], 2))      // Expected: [4, 9, 16]

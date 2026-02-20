@@ -13,14 +13,14 @@ Value pi_ceil(vm_t *vm, int argc, Value *argv);
 // Rounds a number or each element in a list to the nearest integer.
 Value pi_round(vm_t *vm, int argc, Value *argv);
 
+// Sets the seed for the random number generator.
+Value pi_seed(vm_t *vm, int argc, Value *argv);
+
 // Returns a random float between 0 and 1.
 Value pi_rand(vm_t *vm, int argc, Value *argv);
 
 // Returns a list of random floats of specified size.
 Value pi_rand_n(vm_t *vm, int argc, Value *argv);
-
-// Returns a random integer between min and max.
-Value pi_rand_i(vm_t *vm, int argc, Value *argv);
 
 // Returns the square root of a number or each element in a list.
 Value pi_sqrt(vm_t *vm, int argc, Value *argv);

@@ -61,6 +61,13 @@ static token_t peek(parser_t *parser)
     return parser->tokens[parser->current];
 }
 
+/**
+ * Peeks at the next token from the tokens array.
+ * This function is used to inspect the token immediately following the current token
+ * without advancing the parser.
+ * @return the next token
+ */
+
 static token_t peek_next(parser_t *parser)
 {
     return parser->tokens[parser->current + 1];
@@ -105,17 +112,6 @@ static bool is_delimiter(parser_t *parser, token_t token)
  * Advances the parser to the next token and returns the previous token.
  * @return the previous token
  */
-// static token_t next(parser_t *parser)
-// {
-//     if (!is_atEnd(parser))
-//     {
-//         parser->current++;
-//         if (!is_delimiter(parser, peek(parser)))
-//             parser->last = peek(parser);
-//     }
-//     return previous(parser);
-// }
-
 static token_t next(parser_t *parser)
 {
     if (!is_atEnd(parser))
@@ -125,9 +121,6 @@ static token_t next(parser_t *parser)
         token_t tok = peek(parser);
         if (!is_delimiter(parser, tok))
             parser->last = tok;
-
-        parser->comp->current_line = tok.line;
-        parser->comp->current_col = tok.column;
     }
     return previous(parser);
 }
@@ -209,24 +202,6 @@ static bool check_n(parser_t *parser, int t_count, ...)
     }
     va_end(args);
     return false;
-}
-
-/**
- * Reports a parsing error with a specified message, line, and column.
- *
- * This function outputs an error message to the standard error stream,
- * indicating the location (line and column) and description of a parsing error.
- *
- * @param message The error message to be displayed.
- * @param line The line number where the error occurred.
- * @param column The column number where the error occurred.
- */
-static void p_error(const char *message, int line, int column)
-{
-    // Print the error message with the specified line and column
-    fprintf(stderr, "[Parsing Error] at line %d, column %d: %s\n",
-            line, column, message);
-    exit(EXIT_FAILURE);
 }
 
 /**
@@ -326,6 +301,57 @@ static bool consume_ifExist(parser_t *parser, int t_count, ...)
     va_end(args);
     return consumed;
 }
+
+/**
+ * Updates the parser's current position to match the given token's position.
+ *
+ * This function sets the current line and column of the parser's compiler
+ * to the line and column positions of the provided token.
+ *
+ * @param parser The parser whose position is to be updated.
+ * @param token The token whose position is used to update the parser's position.
+ */
+void set_pos(parser_t *parser, token_t token)
+{
+    // Set the current line of the compiler to the token's line
+    parser->comp->current_line = token.line;
+
+    // Set the current column of the compiler to the token's column
+    parser->comp->current_col = token.column;
+}
+
+/**
+ * Checks if there is a line break between the previous and current token.
+ *
+ * This function compares the line numbers of the previous token and the
+ * current token to determine if there is a line break between them.
+ *
+ * @return true if there is a line break, false otherwise.
+ */
+static bool is_lineBreak(parser_t *parser)
+{
+    // Compare line numbers of previous and current tokens
+    return previous(parser).line < peek(parser).line || peek(parser).type == TK_EOF;
+}
+
+bool need_delimiter(parser_t *parser)
+{
+    // If there's no explicit semicolon,
+    // and it's not a line break,
+    // and the next token is not a closing brace,
+    // then we should insert a semicolon.
+    if (!consume_ifExist(parser, 1, TK_SEMICOLON))
+    {
+        if (!is_lineBreak(parser))
+        {
+            if (!check(parser, TK_RBRACE))
+                return true;
+        }
+    }
+
+    // If we get here, we don't need a delimiter
+    return false;
+}
 /**
  * Checks if the current token is an assignment operator.
  * The function verifies if the parser is in a store state and if the current
@@ -347,18 +373,22 @@ static bool is_assign(parser_t *parser)
 }
 
 /**
- * Checks if there is a line break between the previous and current token.
+ * Marks a range of tokens as skipped tokens.
  *
- * This function compares the line numbers of the previous token and the
- * current token to determine if there is a line break between them.
+ * This function iterates over a range of tokens and sets the skip flag
+ * to true for each of them. This is used to skip over tokens that are not
+ * of interest when parsing.
  *
- * @return true if there is a line break, false otherwise.
+ * @param start the starting index of the range of tokens to be marked
+ * @param end the ending index of the range of tokens to be marked
  */
-static bool is_lineBreak(parser_t *parser)
+void mark_tokens(parser_t *parser, int start, int end)
 {
-    // Compare line numbers of previous and current tokens
-    return previous(parser).line < peek(parser).line;
+    // Iterate over the range of tokens and mark them as skipped
+    for (int i = start; i < end; i++)
+        parser->tokens[i].skip = true;
 }
+
 /**
  * Initializes the parser with the provided tokens.
  * Allocates memory for the parser structure and sets default values
@@ -366,7 +396,7 @@ static bool is_lineBreak(parser_t *parser)
  *
  * @param tokens the array of tokens to be parsed
  */
-parser_t *init_parser(compiler_t *comp, token_t *tokens)
+parser_t *init_parser(compiler_t *comp, token_t *tokens, ParserMode mode)
 {
     // Allocate memory for the parser structure
     parser_t *parser = (parser_t *)malloc(sizeof(parser_t));
@@ -384,6 +414,11 @@ parser_t *init_parser(compiler_t *comp, token_t *tokens)
     // Initialize the compiler associated with the parser
     parser->comp = comp;
 
+    // Set the parsing mode
+    parser->mode = mode;
+    if (mode == MODE_REPL)
+        parser->comp->is_repl = true;
+
     return parser;
 }
 
@@ -394,63 +429,81 @@ parser_t *init_parser(compiler_t *comp, token_t *tokens)
  */
 void parse(parser_t *parser)
 {
-    // Parse the program
-    program(parser);
+    if (parser->mode == MODE_REPL)
+    {
+        // In REPL mode, parse only a single expression statement.
+        if (!is_atEnd(parser))        
+            expr_state(parser);        
+    }
+    else
+    {
+        // In file mode, parse the entire program.
+        program(parser);
+    }
 
     // Emit HALT bytecode to indicate the end of the program
     emit(parser->comp, OP_HALT);
 }
 
+/**
+ * Parses all declarations within the program.
+ * This function performs two passes over the tokens:
+ * 1. Hoists functions and collects globals.
+ * 2. Parses remaining statements while skipping processed tokens.
+ *
+ * @param parser The parser structure containing the tokens to be parsed.
+ */
 static void declarations(parser_t *parser)
 {
-    int current = parser->current;
-    // while (!check(parser, TK_RBRACE) && !is_atEnd(parser))
+    int depth = 0;
+
+    // First pass: Hoist functions and collect globals
     while (!is_atEnd(parser))
     {
-        // Check if the declaration is a function declaration using 'fun'
-        if (match(parser, TK_FUN) && !match(parser, TK_LPAREN))
-            func_decl(parser); // Parse the function declaration
-        else
-            next(parser);
-    }
+        // Track block depth to ignore inner declarations
+        if (check(parser, TK_LBRACE))
+            depth++;
+        else if (check(parser, TK_RBRACE))
+            depth--;
 
-    parser->current = current;
-    while (!check(parser, TK_RBRACE) && !is_atEnd(parser))
-    {
-        if (match(parser, TK_LET))
-            var_decl(parser);
-
-        // skip function declaration
-        else if (match(parser, TK_FUN))
+        // Skip inner block declarations
+        if (depth > 0)
         {
-            // skip function name and first parenthesis
-            skip(parser, 2);
-
-            int depth = 1;
-            while (depth > 0 && !is_atEnd(parser))
-            {
-                if (check(parser, TK_RPAREN))
-                    depth--;
-                else if (check(parser, TK_LPAREN))
-                    depth++;
-
-                next(parser); // Move to the next token
-            }
-
             next(parser);
-            depth = 1;
-            while (depth > 0 && !is_atEnd(parser))
-            {
-                if (check(parser, TK_RBRACE))
-                    depth--;
-                else if (check(parser, TK_LBRACE))
-                    depth++;
+            continue;
+        }
 
-                next(parser); // Move to the next token
-            }
+        // Hoist function declarations
+        if (match(parser, TK_FUN) && !match(parser, TK_LPAREN))
+        {
+            int start = parser->current - 1; // Start at 'fun'
+            func_decl(parser);               // Parse and hoist function
+            int end = parser->current;
+            mark_tokens(parser, start, end); // Mark tokens as processed
+        }
+        // Collect global variable declarations
+        else if (match(parser, TK_LET))
+        {
+            int start = parser->current - 1; // Start at 'let'
+            var_decl(parser);                // Parse variable declaration
+            int end = parser->current;
+            mark_tokens(parser, start, end); // Mark tokens as processed
         }
         else
-            statement(parser);
+            next(parser); // Move to the next token
+    }
+
+    // Reset parser position for second pass
+    parser->current = 0;
+
+    // Second pass: Parse remaining code (skipping processed tokens)
+    while (!is_atEnd(parser))
+    {
+        // Skip tokens marked as processed
+        if (parser->tokens[parser->current].skip)
+            next(parser);
+        else
+            statement(parser); // Parse remaining statements
     }
 }
 
@@ -509,12 +562,12 @@ static void variable(parser_t *parser)
     token_t token = consume(parser, TK_ID, "Expect variable name");
     char *name = token_value(token);
 
+    // parser->comp->name = strdup(name); // Store the variable name;
+
     // Check if the variable is being assigned a value
     if (match(parser, TK_ASSIGN))
-    {
-        // parser->current -= 2;
         assignment(parser, true);
-    }
+
     else
         emit(parser->comp, OP_PUSH_NIL);
 
@@ -534,6 +587,8 @@ static list_t *param_list(parser_t *parser)
     int size = 0;
     token_t name;
     list_t *params = list_create(sizeof(String));
+
+    set_pos(parser, previous(parser));
 
     if (is_object(parser->comp))
         emit(parser->comp, OP_PUSH_NIL);
@@ -574,10 +629,10 @@ static void func_decl(parser_t *parser)
 {
     token_t token = previous(parser);
 
-    // check if the next token is an identifier
     if (match(parser, TK_ID))
     {
-        char *name = token_value(previous(parser));
+        token_t id_token = previous(parser); // Capture token for position
+        char *name = token_value(id_token);
 
         if (is_localScope(parser->comp))
             add_local(parser->comp, name);
@@ -589,42 +644,60 @@ static void func_decl(parser_t *parser)
         consume(parser, TK_LBRACE, "Expect '{' before function body.");
         token = previous(parser);
 
-        // Push the function onto the stack
         push_function(parser->comp, name);
 
-        // Add the parameters to the local scope
+        // Add parameters as locals
         for (int i = 0; i < size; i++)
             add_local(parser->comp, string_get(params, i));
         add_local(parser->comp, "args");
 
-        // Parse the function body
-        while (!check(parser, TK_RBRACE) && !is_atEnd(parser) && !parser->is_return)
-            declaration(parser);
+        bool hit_finalReturn = false;
 
-        // Check if the function has a return statement
+        while (!check(parser, TK_RBRACE) && !is_atEnd(parser))
+        {
+            if (hit_finalReturn)
+            {
+                token_t _token = peek(parser);
+                p_errorf(_token.line, _token.column,
+                         "Unreachable code after final return statement");
+            }
+
+            if (check(parser, TK_RETURN))
+            {
+                declaration(parser);
+                hit_finalReturn = true;
+                continue;
+            }
+
+            declaration(parser);
+        }
+
+        // Implicit return if no return seen
         if (!parser->is_return)
         {
+            // ⬇️ Important: Mark where the implicit return comes from
+            token_t rbrace = peek(parser);
+            set_pos(parser, rbrace);
             emit(parser->comp, OP_PUSH_NIL);
             emit(parser->comp, OP_RETURN);
         }
-        if (parser->is_return && !check(parser, TK_RBRACE))
-            p_error("Unreachable code after return statement.", peek(parser).line, peek(parser).column);
 
         parser->is_return = false;
 
         consume(parser, TK_RBRACE, "Expect '}' after function body.");
 
-        // Pop the function off the stack
         pop_function(parser->comp, size);
 
-        // Store the function in the global scope
         if (!is_localScope(parser->comp))
+        {
+            // ⬇️ Mark function definition location before storing it
+            set_pos(parser, id_token);
             emit_8u(parser->comp, OP_STORE_GLOBAL, name, store_name(parser->comp, name));
+        }
     }
     else
         p_error("Expect function name", token.line, token.column);
 
-    // Consume the semicolon
     consume_ifExist(parser, 1, TK_SEMICOLON);
 }
 
@@ -745,12 +818,12 @@ static void condition(parser_t *parser)
  */
 static void if_stmt(parser_t *parser)
 {
+    token_t start = peek(parser); // capture for accurate position
     condition(parser);
 
-    // Emit a jump if the condition is false
+    set_pos(parser, start);
     int then_jump = emit_16u(parser->comp, OP_JUMP_IF_FALSE, "", 0);
 
-    // Parse the 'then' block
     if (match(parser, TK_LBRACE))
         block(parser);
     else
@@ -759,21 +832,23 @@ static void if_stmt(parser_t *parser)
         parser->is_return = false;
     }
 
-    // PiList to store jumps that need to skip to the end
-    int end_jumps[256]; // Array to store jump locations (adjust size if needed)
-    int jump_count = 0; // Number of stored jumps
+    int end_jumps[256];
+    int jump_count = 0;
 
-    // Emit jump to skip 'elif' and 'else' if needed
     if (check(parser, TK_ELIF) || check(parser, TK_ELSE))
+    {
+        set_pos(parser, peek(parser));
         end_jumps[jump_count++] = emit_16u(parser->comp, OP_JUMP, "", 0);
+    }
 
-    patch_jump(parser->comp, then_jump); // Patch jump from the condition failure
+    patch_jump(parser->comp, then_jump);
 
-    // Handle multiple 'elif' clauses
     while (match(parser, TK_ELIF))
     {
+        token_t elif_tok = previous(parser);
         condition(parser);
 
+        set_pos(parser, elif_tok);
         then_jump = emit_16u(parser->comp, OP_JUMP_IF_FALSE, "", 0);
 
         if (match(parser, TK_LBRACE))
@@ -784,17 +859,21 @@ static void if_stmt(parser_t *parser)
             parser->is_return = false;
         }
 
-        // Emit jump to skip remaining blocks, store it in the list
         if (check(parser, TK_ELIF) || check(parser, TK_ELSE))
+        {
+            set_pos(parser, peek(parser));
             end_jumps[jump_count++] = emit_16u(parser->comp, OP_JUMP, "", 0);
+        }
 
-        patch_jump(parser->comp, then_jump); // Patch jump from failed condition
+        patch_jump(parser->comp, then_jump);
     }
 
-    // Handle 'else' clause
     if (match(parser, TK_ELSE))
     {
-        patch_jump(parser->comp, then_jump); // Patch last 'elif' failure
+        token_t else_tok = previous(parser);
+        set_pos(parser, else_tok);
+
+        patch_jump(parser->comp, then_jump);
 
         if (match(parser, TK_LBRACE))
             block(parser);
@@ -805,36 +884,48 @@ static void if_stmt(parser_t *parser)
         }
     }
     else
-        patch_jump(parser->comp, then_jump); // Patch last 'elif' failure if no 'else' exists
+        patch_jump(parser->comp, then_jump);
 
-    // Patch all jumps that need to skip to the end
     for (int i = 0; i < jump_count; i++)
         patch_jump(parser->comp, end_jumps[i]);
 }
 
+/**
+ * while_stmt -> "while" "(" expr ")" block
+ * Parses a while loop, which repeatedly executes a block as long as a condition is true.
+ * @param parser The parser object used for parsing.
+ */
 static void while_stmt(parser_t *parser)
 {
-
+    // Record the address to jump back to for looping
     int jump = code_size(parser->comp);
+
+    // Capture the starting position of the condition for error reporting
+    token_t cond_start = peek(parser);
+
+    // Parse the loop condition
     condition(parser);
 
-    // Emit a jump if the condition is false
+    // Set the parser position to the start of the condition
+    set_pos(parser, cond_start);
+
+    // Emit a conditional jump instruction to exit the loop if the condition is false
     int address = emit_16u(parser->comp, OP_JUMP_IF_FALSE, "", 0);
 
+    // Push a new loop context onto the stack
     push_loop(parser->comp, jump, false);
 
-    // Parse the loop body
+    // Check if the loop body is enclosed in braces and parse accordingly
     if (match(parser, TK_LBRACE))
-        block(parser); // Parse the block if it's enclosed in braces
+        block(parser);
     else
     {
-        statement(parser); // Parse a single statement if no braces are present
+        statement(parser);
         parser->is_return = false;
     }
 
+    // Pop the loop context and patch the jump address to loop back
     pop_loop(parser->comp, jump);
-
-    // Patch the loop_jump to the end of the loop
     patch_jump(parser->comp, address);
 }
 
@@ -844,51 +935,44 @@ static void while_stmt(parser_t *parser)
  */
 static void for_stmt(parser_t *parser)
 {
-    bool has_parens = match(parser, TK_LPAREN); // Match and consume '(' if present
+    bool has_parens = match(parser, TK_LPAREN);
 
-    // Parse the loop variable (identifier)
-    token_t init = consume(parser, TK_ID, "Expect loop variable after '('.");
+    token_t init = consume(parser, TK_ID, "Invalid for-loop left-hand side. Expect identifier.");
 
-    // Parse the "in" keyword
     consume(parser, TK_IN, "Expect 'in' keyword after loop variable.");
-    // Parse the iterable expression (e.g., a list or range)
+
+    token_t cond_tok = peek(parser);
     cond_expr(parser);
 
-    // Parse the closing parenthesis
     if (has_parens)
         consume(parser, TK_RPAREN, "Expect ')' after iterable expression.");
 
+    set_pos(parser, cond_tok); // associate with iterable expression
     emit(parser->comp, OP_PUSH_ITER);
 
+    set_pos(parser, init); // mark the loop start
     int address = emit_16u(parser->comp, OP_LOOP, "", 0);
 
-    // Create a new scope for the block
     push_scope(parser->comp);
 
     add_variable(parser->comp, token_value(init));
     push_loop(parser->comp, address - 2, true);
 
-    // Parse the loop body
     if (match(parser, TK_LBRACE))
     {
-        // Parse and process declarations until the closing brace or end of input is encountered
         while (!check(parser, TK_RBRACE) && !is_atEnd(parser))
             declaration(parser);
 
-        // Consume the closing brace token to validate block syntax
         consume(parser, TK_RBRACE, "Expect '}' after block.");
     }
     else
     {
-        statement(parser); // Parse a single statement if no braces are present
+        statement(parser);
         parser->is_return = false;
     }
 
-    // Pop the scope after processing the block
     pop_scope(parser->comp);
-
     pop_loop(parser->comp, address - 2);
-    // Emit bytecode to jump back to the start of the loop
     patch_jump(parser->comp, address);
 }
 
@@ -903,12 +987,23 @@ static void for_stmt(parser_t *parser)
  */
 static void break_stmt(parser_t *parser)
 {
+    token_t tok = previous(parser); // 'break' token
+    set_pos(parser, tok);
+
+    if (!in_loop(parser->comp))
+        p_errorf(tok.line, tok.column, "'break' used outside of a loop");
+
     if (is_forLoop(parser->comp))
         emit(parser->comp, OP_POP_ITER);
-    // TODO: check me!
+
     emit_pop(parser->comp, loop_depth(parser->comp));
     push_break(parser->comp, emit_jump(parser->comp, 0));
-    consume_ifExist(parser, 1, TK_SEMICOLON);
+
+    // Mark this point as a return-like exit to check for unreachable code
+    parser->is_return = true;
+
+    if (need_delimiter(parser))
+        p_error("Expected delimiter or newline after 'break'.", tok.line, tok.column);
 }
 
 /**
@@ -919,47 +1014,50 @@ static void break_stmt(parser_t *parser)
  */
 static void continue_stmt(parser_t *parser)
 {
-    int address = get_continue(parser->comp);         // Get the address to jump to for continuing the loop
-    emit_pop(parser->comp, loop_depth(parser->comp)); // Pop the loop stack to clean up the current iteration
-    emit_jump(parser->comp, address);                 // Emit the jump instruction to continue the loop
-    consume_ifExist(parser, 1, TK_SEMICOLON);         // Consume a semicolon if it exists, to validate statement syntax
+    token_t tok = previous(parser); // 'continue' token
+    set_pos(parser, tok);
+
+    if (!in_loop(parser->comp))
+        p_errorf(tok.line, tok.column, "'continue' used outside of a loop");
+
+    int address = get_continue(parser->comp);
+    emit_pop(parser->comp, loop_depth(parser->comp));
+    emit_jump(parser->comp, address);
+
+    parser->is_return = true;
+
+    if (need_delimiter(parser))
+        p_error("Expected delemiter or newline after 'continue'.", tok.line, tok.column);
 }
 
 /**
- * Parses a return statement.
- * A return statement can either return a value or nothing (nil).
- * Emits the necessary bytecode to handle the return operation.
- * @param parser The parser object used for parsing.
+ * return_stmt -> "return [expr]?"
+ * Parses a return statement, optionally with a return value.
  */
 static void return_stmt(parser_t *parser)
 {
+    token_t tok = previous(parser); // 'return' token
+    set_pos(parser, tok);
 
     if (is_constructor(parser->comp))
         emit_8u(parser->comp, OP_LOAD_LOCAL, "this", 0);
     else
     {
-        // Check if the return statement ends with a semicolon, indicating a return of 'nil'
-        if (match(parser, TK_SEMICOLON))
+        // Check if return is followed by a newline or semicolon => nil
+        if (match(parser, TK_SEMICOLON) || is_lineBreak(parser))
         {
-            // Store 'nil' as a constant and emit bytecode to load it
             int index = store_const(parser->comp, NEW_NIL());
             emit_16u(parser->comp, OP_LOAD_CONST, "nil", index);
         }
         else
-            // Parse the expression to be returned
-            expr(parser);
+            expr(parser); // return with value
     }
 
-    // Emit the RETURN opcode to conclude the function
     emit(parser->comp, OP_RETURN);
-
-    // Consume the semicolon token to validate the return statement syntax
-    consume_ifExist(parser, 1, TK_SEMICOLON);
-
-    // Mark the parser state to indicate a return statement was encountered
     parser->is_return = true;
 
-    return; // Prevent further instructions from being emitted
+    if (need_delimiter(parser))
+        p_error("Expected delemiter or newline after return.", tok.line, tok.column);
 }
 
 /**
@@ -981,15 +1079,15 @@ static void expr_state(parser_t *parser)
     {
         prev_lookUp = look_up(parser->comp, true); // Set the look_up flag to true to indicate that the expression is enclosed in parentheses
         primary(parser);                           // Parse the primary expression
-        // if (!is_lineBreak(parser))
-        // parser->emit_load = true;       // Set the emit_load flag to true if the expression is not a line break
-        look_up(parser->comp, prev_lookUp); // Reset the look_up flag to false after parsing the expression
-        parser->current = current;          // Reset the current position to its original value
+        look_up(parser->comp, prev_lookUp);        // Reset the look_up flag to false after parsing the expression
+        parser->current = current;                 // Reset the current position to its original value
     }
 
     current = parser->current;
 
     prev_lookUp = look_up(parser->comp, true);
+
+    // Check if the expression is an assignment expression
     cond_expr(parser);
     token = peek(parser);
     if (token.type >= TK_ASSIGN && token.type <= TK_MOD_ASSIGN)
@@ -1003,11 +1101,15 @@ static void expr_state(parser_t *parser)
     // Check if the expression is an assignment expression
     // If it is, do not emit the POP bytecode
     // The assignment expression is handled separately
-    if (is_assign == false)
-        emit(parser->comp, OP_POP); // Emit the POP bytecode to discard the result of the expression
+    if (!is_assign)
+    {
+        if (!parser->comp->is_repl)
+            emit(parser->comp, OP_POP); // Emit POP only if not in REPL mode
+    }
 
-    // parser->emit_load = false;                // Reset the emit_load flag to false
-    consume_ifExist(parser, 1, TK_SEMICOLON); // Consume the semicolon token
+    // Check for statement separation
+    if (need_delimiter(parser))
+        p_error("Expected delemiter between statements.", peek(parser).line, peek(parser).column);
 }
 
 /**
@@ -1099,8 +1201,13 @@ static void assignment(parser_t *parser, bool emit_load)
             left = assign->left;
             right = assign->right;
 
+            token_t lhs = parser->tokens[left];
+
             if (parser->tokens[left].type != TK_ID)
                 p_error("Invalid assignment target", parser->tokens[left].line, parser->tokens[left].column);
+
+            // Sync the runtime error position to LHS token
+            set_pos(parser, lhs);
 
             if (op != TK_ASSIGN)
             {
@@ -1189,6 +1296,9 @@ static void cond_expr(parser_t *parser)
          */
         int then_jump = emit_16u(parser->comp, OP_JUMP_IF_FALSE, "", 0);
 
+        // Sync current token for better runtime error info
+        set_pos(parser, peek(parser));
+
         /*
          * Parse the expression after the '?'. This is the expression that will
          * be executed if the condition is true.
@@ -1237,7 +1347,9 @@ static void or_expr(parser_t *parser)
     // Parse the "or" expression
     while (match(parser, TK_OR))
     {
+        token_t op_token = previous(parser);
         and_expr(parser);
+        set_pos(parser, op_token);
         // Emit bytecode for the logical OR operator
         emit_8u(parser->comp, OP_BINARY, bin_ops[6], 6);
     }
@@ -1255,7 +1367,9 @@ static void and_expr(parser_t *parser)
     in_expr(parser);
     while (match(parser, TK_AND))
     {
+        token_t op_token = previous(parser);
         in_expr(parser);
+        set_pos(parser, op_token);
         emit_8u(parser->comp, OP_BINARY, bin_ops[5], 5); // Emit bytecode for the "and" operator
     }
 }
@@ -1272,7 +1386,9 @@ static void in_expr(parser_t *parser)
     range_expr(parser);
     while (match(parser, TK_IN))
     {
+        token_t op_token = previous(parser);
         range_expr(parser);
+        set_pos(parser, op_token);
         emit_8u(parser->comp, OP_COMPARE, comp_ops[6], 6); // Emit bytecode for the "in" operator
     }
 }
@@ -1290,11 +1406,13 @@ static void range_expr(parser_t *parser)
     bitOr_expr(parser);
     if (match(parser, TK_DBDOTS))
     {
+        token_t op_token = previous(parser);
         bitOr_expr(parser);
         if (match(parser, TK_COLON))
             expr(parser); // parse the step
         else
             emit(parser->comp, OP_PUSH_NIL);
+        set_pos(parser, op_token);
         // generate the bytecode for the range expression here
         emit(parser->comp, OP_PUSH_RANGE);
     }
@@ -1310,7 +1428,9 @@ static void bitOr_expr(parser_t *parser)
     xor_expr(parser);
     while (match(parser, TK_BITOR))
     {
+        token_t op_token = previous(parser);
         xor_expr(parser);
+        set_pos(parser, op_token);
         // generate the bytecode for the binary expression here
         emit_8u(parser->comp, OP_BINARY, bin_ops[9], 9);
     }
@@ -1326,7 +1446,9 @@ static void xor_expr(parser_t *parser)
     bitAnd_expr(parser);
     while (match(parser, TK_XOR))
     {
+        token_t op_token = previous(parser);
         bitAnd_expr(parser);
+        set_pos(parser, op_token);
         // generate the bytecode for the binary expression here
         emit_8u(parser->comp, OP_BINARY, bin_ops[10], 10);
     }
@@ -1342,7 +1464,9 @@ static void bitAnd_expr(parser_t *parser)
     shift_expr(parser);
     while (match(parser, TK_BITAND))
     {
+        token_t op_token = previous(parser);
         shift_expr(parser);
+        set_pos(parser, op_token);
         // generate the bytecode for the binary expression here
         emit_8u(parser->comp, OP_BINARY, bin_ops[8], 8);
     }
@@ -1362,7 +1486,9 @@ static void shift_expr(parser_t *parser)
     while (match_n(parser, 3, TK_LSHIFT, TK_RSHIFT, TK_URSHIFT))
     {
         tk_type op = previous(parser).type; // Get the shift operator
-        equality_expr(parser);              // Parse the right-hand side expression
+        token_t op_token = previous(parser);
+        equality_expr(parser); // Parse the right-hand side expression
+        set_pos(parser, op_token);
 
         // Emit the bytecode for the corresponding shift operation
         switch (op)
@@ -1395,7 +1521,9 @@ static void equality_expr(parser_t *parser)
     while (match_n(parser, 3, TK_NOT_EQUAL, TK_EQUAL, TK_IS))
     {
         tk_type op = previous(parser).type;
+        token_t op_token = previous(parser);
         compare_expr(parser);
+        set_pos(parser, op_token);
 
         if (op == TK_NOT_EQUAL)
             // !=
@@ -1431,6 +1559,7 @@ static void compare_expr(parser_t *parser)
                    TK_LESS, TK_GREATER_EQUAL, TK_LESS_EQUAL))
     {
         tk_type op = previous(parser).type;
+        token_t op_token = previous(parser);
 
         if (last_value_pos != -1)
         {
@@ -1443,6 +1572,7 @@ static void compare_expr(parser_t *parser)
         // Save position before parsing the next expression (e.g., `c`)
         last_value_pos = parser->current;
         add_expr(parser); // parse right-hand side
+        set_pos(parser, op_token);
 
         // Emit the comparison operator
         int op_index = -1;
@@ -1473,9 +1603,7 @@ static void compare_expr(parser_t *parser)
 
         // If this is not the first comparison, chain it with an AND
         if (comparison_count > 0)
-        {
             emit_8u(parser->comp, OP_BINARY, bin_ops[5], 5); // logical AND
-        }
 
         comparison_count++;
     }
@@ -1489,42 +1617,39 @@ static void compare_expr(parser_t *parser)
  * expression.
  * @returns nothing
  */
-// static void add_expr(parser_t *parser)
-// {
-//     mult_expr(parser);
-//     while (match_n(parser, 2, TK_PLUS, TK_MINUS))
-//     {
-//         tk_type op = previous(parser).type;
-//         mult_expr(parser);
-//         // generate the bytecode for the binary expression here
-//         if (op == TK_PLUS)
-//             emit_8u(parser->comp, OP_BINARY, bin_ops[0], 0); // Emit bytecode for the + operator
-//         else
-//             emit_8u(parser->comp, OP_BINARY, bin_ops[1], 1); // Emit bytecode for the - operator
-//     }
-// }
-
 static void add_expr(parser_t *parser)
 {
     dot_expr(parser); // 👈 changed from mult_expr()
     while (match_n(parser, 2, TK_PLUS, TK_MINUS))
     {
-        tk_type op = previous(parser).type;
+
+        token_t op = previous(parser);
         dot_expr(parser); // 👈 changed from mult_expr()
-        if (op == TK_PLUS)
+        set_pos(parser, op);
+        if (op.type == TK_PLUS)
             emit_8u(parser->comp, OP_BINARY, bin_ops[0], 0);
         else
             emit_8u(parser->comp, OP_BINARY, bin_ops[1], 1);
     }
 }
 
+/**
+ * dot_expr -> mult_expr ( "." mult_expr )*
+ * Parses a dot product expression, which is an expression that takes the dot
+ * product of two values. The syntax for a dot product expression is
+ * [value1 . value2]. Emits the corresponding bytecode for the parsed
+ * expression.
+ * @returns nothing
+ */
 static void dot_expr(parser_t *parser)
 {
-    mult_expr(parser);
-    if (match(parser, TK_DOT_PROD))
+    mult_expr(parser); // Parse the left-hand side of the dot product
+    while (match(parser, TK_DOT_PROD))
     {
-        mult_expr(parser);
-        emit_8u(parser->comp, OP_BINARY, bin_ops[14], 14);
+        token_t op = previous(parser);                     // Save the dot product operator
+        mult_expr(parser);                                 // Parse the right-hand side of the dot product
+        set_pos(parser, op);                               // Set the position to the dot product operator
+        emit_8u(parser->comp, OP_BINARY, bin_ops[14], 14); // Emit the bytecode
     }
 }
 
@@ -1541,9 +1666,10 @@ static void mult_expr(parser_t *parser)
     exp_expr(parser);
     while (match_n(parser, 3, TK_MULT, TK_DIV, TK_MOD))
     {
-        tk_type op = previous(parser).type;
+        token_t op = previous(parser);
         exp_expr(parser);
-        switch (op)
+        set_pos(parser, op);
+        switch (op.type)
         {
         case TK_MULT:
             // Emit bytecode for the * operator
@@ -1575,7 +1701,9 @@ static void exp_expr(parser_t *parser)
     unary_expr(parser);             // Parse the base unary expression
     while (match(parser, TK_POWER)) // Check for the exponentiation operator
     {
-        exp_expr(parser);                                // Recursively parse the exponent
+        token_t op = previous(parser);
+        exp_expr(parser); // Recursively parse the exponent
+        set_pos(parser, op);
         emit_8u(parser->comp, OP_BINARY, bin_ops[7], 7); // Emit bytecode for exponentiation
     }
 }
@@ -1595,58 +1723,67 @@ static void unary_expr(parser_t *parser)
     if (match_n(parser, 8, TK_PLUS, TK_MINUS, TK_NOT, TK_BITNEG, TK_HASH, TK_INCR, TK_DECR, TK_TYPEOF))
     {
         op = previous(parser).type;
+        token_t op_token = previous(parser);
 
+        // Handle negative number literals directly
         if (op == TK_MINUS && peek(parser).type == TK_NUM)
         {
             parser->tokens[parser->current].is_negative = true;
             member_expr(parser);
+            return;
+        }
+
+        // Pre-increment / Pre-decrement or other unary ops
+        current = parser->current;
+        member_expr(parser);
+        set_pos(parser, op_token);
+
+        if (op == TK_INCR || op == TK_DECR)
+        {
+            token_t target = previous(parser);
+
+            // Disallow applying ++ or -- to literals
+            if (target.type == TK_NUM || target.type == TK_STR || target.type == TK_TRUE ||
+                target.type == TK_FALSE || target.type == TK_NIL)
+                p_error("Increment/Decrement operations cannot be applied to calls or literals.",
+                        target.line, target.column);
+
+            int type = (op == TK_INCR) ? 5 : 6;
+            emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
+            emit(parser->comp, OP_DUP_TOP);
+
+            parser->current = current;
+            parser->is_store = true;
+            member_expr(parser);
         }
         else
         {
-            current = parser->current;
-            member_expr(parser);
-
-            if (op == TK_INCR || op == TK_DECR)
+            int type = -1;
+            switch (op)
             {
-                // Check if the operand is a valid target for increment/decrement
-                if (previous(parser).type == TK_NUM || previous(parser).type == TK_STR || previous(parser).type == TK_TRUE || previous(parser).type == TK_FALSE || previous(parser).type == TK_NIL)
-                    p_error("Increment/Decrement operations cannot be applied to literals.", previous(parser).line, previous(parser).column);
-
-                int type = (op == TK_INCR) ? 5 : 6;                     // Determine operation type
-                emit_8u(parser->comp, OP_UNARY, unary_ops[type], type); // Emit the operation
-                emit(parser->comp, OP_DUP_TOP);
-
-                parser->current = current;
-                parser->is_store = true;
-                member_expr(parser);
+            case TK_PLUS:
+                type = 0;
+                break;
+            case TK_MINUS:
+                type = 1;
+                break;
+            case TK_NOT:
+                type = 2;
+                break;
+            case TK_BITNEG:
+                type = 3;
+                break;
+            case TK_HASH:
+                type = 4;
+                break;
+            case TK_TYPEOF:
+                type = 7;
+                break;
+            default:
+                break;
             }
-            else
-            {
-                // Emit appropriate bytecode for other unary operations
-                switch (op)
-                {
-                case TK_PLUS:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[0], 0);
-                    break;
-                case TK_MINUS:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[1], 1);
-                    break;
-                case TK_NOT:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[2], 2);
-                    break;
-                case TK_BITNEG:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[3], 3);
-                    break;
-                case TK_HASH:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[4], 4);
-                    break;
-                case TK_TYPEOF:
-                    emit_8u(parser->comp, OP_UNARY, unary_ops[7], 7);
-                    break;
-                default:
-                    break;
-                }
-            }
+            if (type != -1)
+                emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
         }
     }
     else
@@ -1655,24 +1792,27 @@ static void unary_expr(parser_t *parser)
         member_expr(parser);
         token_t operand = previous(parser);
 
+        // Handle post-increment / post-decrement
         if (match_n(parser, 2, TK_INCR, TK_DECR))
         {
             op = previous(parser).type;
+            token_t op_token = previous(parser);
 
-            // Check if the operand is a valid target for increment/decrement
-            if (operand.type == TK_NUM || operand.type == TK_STR || operand.type == TK_TRUE || operand.type == TK_FALSE || operand.type == TK_NIL)
-                p_error("Increment/Decrement operations cannot be applied to literals.", operand.line, operand.column);
+            if (operand.type == TK_NUM || operand.type == TK_STR || operand.type == TK_TRUE ||
+                operand.type == TK_FALSE || operand.type == TK_NIL)
+                p_error("Increment/Decrement operations cannot be applied to literals.",
+                        operand.line, operand.column);
 
             emit(parser->comp, OP_DUP_TOP);
-            if (op == TK_INCR)
-                emit_8u(parser->comp, OP_UNARY, unary_ops[5], 5);
-            else
-                emit_8u(parser->comp, OP_UNARY, unary_ops[6], 6);
+            set_pos(parser, op_token);
+
+            int type = (op == TK_INCR) ? 5 : 6;
+            emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
 
             parser->current = current;
             parser->is_store = true;
             member_expr(parser);
-            advance(parser);
+            advance(parser); // Skip over the ++ or --
         }
     }
 }
@@ -1688,6 +1828,7 @@ static bool slice_expr(parser_t *parser)
 {
     int index;
     bool is_slice = false;
+    token_t token = peek(parser); // position marking for error reporting
 
     // Handle the start of the slice
     if (check(parser, TK_COLON))
@@ -1704,6 +1845,7 @@ static bool slice_expr(parser_t *parser)
     if (match(parser, TK_COLON))
     {
         is_slice = true;
+        token = previous(parser);
 
         // Handle the end expression
         if (!check(parser, TK_RBRACKET) && !check(parser, TK_COLON))
@@ -1711,8 +1853,6 @@ static bool slice_expr(parser_t *parser)
         else
         {
             // If the end is missing, assume infinity
-            // index = store_const(parser->comp, NEW_NUM(INFINITY));
-            // emit_16u(parser->comp, OP_LOAD_CONST, "inf", index);
             emit_16u(parser->comp, OP_LOAD_CONST, "inf", 1);
         }
 
@@ -1736,6 +1876,7 @@ static bool slice_expr(parser_t *parser)
             emit_16u(parser->comp, OP_LOAD_CONST, "1", index);
         }
 
+        set_pos(parser, token); // Set the position to the start of the slice
         // Emit the slice operation
         emit(parser->comp, OP_PUSH_SLICE);
     }
@@ -1752,15 +1893,21 @@ static bool slice_expr(parser_t *parser)
 static void member_expr(parser_t *parser)
 {
     primary(parser); // Parse the primary expression (e.g., variable or literal)
+
     while (true)
     {
         token_t token = previous(parser);
+
+        set_pos(parser, token);
         if (match(parser, TK_DOT))
         {
+            token_t token = previous(parser); // For position tracking
             // Handle property access using dot notation
             token_t name = consume(parser, TK_ID, "Expect property name after '.'");
+
             int index = store_const(parser->comp, new_value(name)); // Store the property name as a constant
             emit_16u(parser->comp, OP_LOAD_CONST, token_value(name), index);
+
             if (is_assign(parser))
                 emit(parser->comp, OP_SET_ITEM); // Emit bytecode to set the property value
             else
@@ -1776,7 +1923,10 @@ static void member_expr(parser_t *parser)
                 p_error("Cannot assign to slice", peek(parser).line, peek(parser).column);
 
             if (!is_slice)
-                emit(parser->comp, is_assign(parser) ? OP_SET_ITEM : OP_GET_ITEM);
+            {
+                bool assign = is_assign(parser);
+                emit(parser->comp, assign ? OP_SET_ITEM : OP_GET_ITEM);
+            }
         }
 
         // handle function call
@@ -1795,25 +1945,32 @@ static void member_expr(parser_t *parser)
                     args++;
                 }
             }
-            consume(parser, TK_RPAREN, "Expect ')' after function call");
-            emit_8u(parser->comp, OP_CALL_FUNCTION, token_value(token), (byte)args);
+            token_t _token = consume(parser, TK_RPAREN, "Expect ')' after function call");
+            set_pos(parser, _token);
+            char *name = strcmp(token_value(token), ")") == 0 ? "<FUN>" : token_value(token);
+            emit_8u(parser->comp, OP_CALL_FUNCTION, name, (byte)args);
         }
         else
             break; // Exit the loop if no member expression is found
     }
 }
 
-// Helper to parse the body of an arrow function
+// Helper to parse the body of an arrow functionstatic void arrow_func(parser_t *parser)
 static void arrow_func(parser_t *parser)
 {
     if (match(parser, TK_LBRACE))
     {
+        token_t token = previous(parser); // Save position for setting later
+
         if (check(parser, TK_RBRACE))
         {
+            set_pos(parser, token); // Set position at '{' for empty arrow block
+
             if (is_constructor(parser->comp))
                 emit_8u(parser->comp, OP_LOAD_LOCAL, "this", 0);
             else
                 emit(parser->comp, OP_PUSH_NIL);
+
             emit(parser->comp, OP_RETURN);
             parser->is_return = true;
         }
@@ -1825,19 +1982,28 @@ static void arrow_func(parser_t *parser)
 
         if (!parser->is_return)
         {
+            token_t token = peek(parser); // Set position before final return
+
+            set_pos(parser, token);
+
             if (is_constructor(parser->comp))
                 emit_8u(parser->comp, OP_LOAD_LOCAL, "this", 0);
             else
                 emit(parser->comp, OP_PUSH_NIL);
+
             emit(parser->comp, OP_RETURN);
             parser->is_return = false;
         }
 
-        consume(parser, TK_RBRACE, "Expect '}' after function body.");
+        token_t rbrace = consume(parser, TK_RBRACE, "Expect '}' after function body.");
+        set_pos(parser, rbrace); // Set position at '}'
     }
     else
     {
+        token_t token = peek(parser); // Likely the token just before expression
         expr(parser);
+
+        set_pos(parser, token); // Set position of single-expression arrow function
         emit(parser->comp, OP_RETURN);
     }
 }
@@ -1854,6 +2020,7 @@ static void primary(parser_t *parser)
     if (match_n(parser, 7, TK_NUM, TK_STR, TK_TRUE, TK_FALSE, TK_NIL, TK_INF, TK_NAN))
     {
         token_t token = previous(parser);
+        set_pos(parser, token);
 
         if (token.type == TK_NAN)
             emit_16u(parser->comp, OP_LOAD_CONST, "NAN", 0);
@@ -1869,6 +2036,8 @@ static void primary(parser_t *parser)
     // Check for grouped expressions
     else if (match(parser, TK_LPAREN))
     {
+        int _current = parser->current;
+        set_pos(parser, previous(parser));
 
         if (is_lookUp(parser->comp))
         {
@@ -1914,7 +2083,6 @@ static void primary(parser_t *parser)
         }
         else
         {
-            int _current = parser->current;
             while (!check(parser, TK_RPAREN))
                 next(parser);
 
@@ -1939,7 +2107,6 @@ static void primary(parser_t *parser)
 
                 arrow_func(parser);
 
-                // pop_function(parser->comp, size + (is_constructor(parser->comp) ? 1 : 0));
                 pop_function(parser->comp, size + (is_object(parser->comp) ? 1 : 0));
             }
             else
@@ -1954,42 +2121,38 @@ static void primary(parser_t *parser)
     // Check for variable identifiers
     else if (match(parser, TK_ID))
     {
+        char *name = tk_string(previous(parser));
+        set_pos(parser, previous(parser));
 
-        int _current = parser->current;
         // Lookup for right-associative arrow functions or assignment chains
-        if (is_lookUp(parser->comp))
+        if (is_lookUp(parser->comp) && match(parser, TK_RARROW))
         {
-
-            if (match(parser, TK_RARROW))
+            if (match(parser, TK_LBRACE))
             {
-                if (match(parser, TK_LBRACE))
+                int depth = 1;
+                while (depth > 0 && !is_atEnd(parser))
                 {
-                    int depth = 1;
-                    while (depth > 0 && !is_atEnd(parser))
-                    {
-                        if (check(parser, TK_RBRACE))
-                            depth--;
-                        else if (check(parser, TK_LBRACE))
-                            depth++;
+                    if (check(parser, TK_RBRACE))
+                        depth--;
+                    else if (check(parser, TK_LBRACE))
+                        depth++;
 
-                        if (depth == 0)
-                            break;
+                    if (depth == 0)
+                        break;
 
-                        next(parser); // Move to the next token
-                    }
-
-                    if (depth != 0)
-                        p_error("Unmatched '{' in arrow function.", peek(parser).line, peek(parser).column);
-                    consume(parser, TK_RBRACE, "Expect '}' after arrow function.");
+                    next(parser); // Move to the next token
                 }
-                else
-                    expr(parser);
 
-                return;
+                if (depth != 0)
+                    p_error("Unmatched '{' in arrow function.", peek(parser).line, peek(parser).column);
+                consume(parser, TK_RBRACE, "Expect '}' after arrow function.");
             }
+            else
+                expr(parser);
+
+            return;
         }
 
-        char *name = tk_string(previous(parser));
         // handle arrow functions
         if (match(parser, TK_RARROW))
         {
@@ -2009,7 +2172,6 @@ static void primary(parser_t *parser)
 
             arrow_func(parser);
 
-            // pop_function(parser->comp, (is_constructor(parser->comp) ? 2 : 1));
             pop_function(parser->comp, (is_object(parser->comp) ? 2 : 1));
         }
         // First handle potential walrus operator
@@ -2039,14 +2201,15 @@ static void primary(parser_t *parser)
         {
             if (is_assign(parser))
                 store_variable(parser->comp, name); // Handle variable assignment
-            else
-                load_variable(parser->comp, name); // Load variable value
+            else                                    // Load variable value
+                load_variable(parser->comp, name);
         }
     }
     // Check for list literals
     else if (match(parser, TK_LBRACKET))
     {
         int size = 0;
+        set_pos(parser, previous(parser));
         if (match(parser, TK_RBRACKET))
             emit_16u(parser->comp, OP_PUSH_LIST, "", 0); // Emit empty list
         else
@@ -2067,11 +2230,13 @@ static void primary(parser_t *parser)
             emit_16u(parser->comp, OP_PUSH_LIST, "", size); // Emit list with elements
         }
     }
-    // Check for map literals
+    // Check for map / object literals
     else if (match(parser, TK_LBRACE))
     {
+        set_pos(parser, previous(parser));
         if (is_lookUp(parser->comp))
         {
+            // Verify the map is a valid expression
             int depth = 1;
             while (depth > 0 && !is_atEnd(parser))
             {
@@ -2116,7 +2281,11 @@ static void primary(parser_t *parser)
 
                 if (match(parser, TK_LPAREN))
                 {
-
+                    /**
+                     * Parse a function expression as a value in the map.
+                     * The function expression is parsed as a lambda function
+                     * so it can be used as a value in the map.
+                     */
                     list_t *params = param_list(parser);
                     int size = list_size(params);
                     consume(parser, TK_RPAREN, "Expect ')' before function body.");
@@ -2131,7 +2300,8 @@ static void primary(parser_t *parser)
                         add_local(parser->comp, string_get(params, i));
                     add_local(parser->comp, "args");
 
-                    if (check(parser, TK_RBRACE))
+                    // if (check(parser, TK_RBRACE))
+                    if (match(parser, TK_RBRACE))
                     {
                         if (is_constructor(parser->comp))
                             emit_8u(parser->comp, OP_LOAD_LOCAL, "this", 0);
@@ -2179,30 +2349,37 @@ static void primary(parser_t *parser)
         }
     }
 
-    // handle anonymous functions
+    // Parse anonymous function expressions
     else if (match(parser, TK_FUN))
     {
-
+        set_pos(parser, previous(parser));
+        /**
+         * Parses an anonymous function expression.
+         * Anonymous functions are functions that are declared without a name.
+         * They can be used as values in expressions.
+         */
         compiler_t *comp = parser->comp;
 
         // Function expressions
         consume(parser, TK_LPAREN, "Expect '(' after function name.");
-        list_t *params = param_list(parser);
-        int size = list_size(params);
+        list_t *params = param_list(parser); // Parse the parameter list
+        int size = list_size(params);        // Get the number of parameters
         consume(parser, TK_RPAREN, "Expect ')' before function body.");
         consume(parser, TK_LBRACE, "Expect '{' before function body.");
 
-        push_function(comp, NULL);
+        push_function(comp, NULL); // Push the function onto the stack
 
         if (is_object(comp))
-            add_local(comp, "this");
+            add_local(comp, "this"); // Add the "this" variable to the local scope
 
+        // Add the parameters to the local scope
         for (int i = 0; i < size; i++)
             add_local(comp, string_get(params, i));
-        add_local(comp, "args");
+        add_local(comp, "args"); // Add the "args" variable to the local scope
 
         if (match(parser, TK_RBRACE))
         {
+            // If the anonymous function expression is empty, return nil
             if (is_constructor(comp))
                 emit_8u(comp, OP_LOAD_LOCAL, "this", 0);
             else
@@ -2219,6 +2396,7 @@ static void primary(parser_t *parser)
 
             if (!parser->is_return)
             {
+                // If the anonymous function expression has a return statement
                 if (is_constructor(comp))
                     emit_8u(comp, OP_LOAD_LOCAL, "this", 0);
                 else
@@ -2229,12 +2407,7 @@ static void primary(parser_t *parser)
             }
         }
 
-        // if (parser->is_return && !check(parser, TK_RBRACE))
-        //     p_error("Unreachable code after return statement.", peek(parser).line, peek(parser).column);
-
-        // parser->is_return = false;
-
-        pop_function(comp, size + (is_object(parser->comp) ? 1 : 0));
+        pop_function(comp, size + (is_object(parser->comp) ? 1 : 0)); // Pop the function from the stack
 
         consume(parser, TK_RBRACE, "Expect '}' after function body.");
     }
@@ -2252,6 +2425,6 @@ static void primary(parser_t *parser)
 void free_parser(parser_t *parser)
 {
     free(parser->tokens);        // Free the memory allocated for tokens
-    free_compiler(parser->comp); // Free resources associated with the compiler
+    // free_compiler(parser->comp); // Free resources associated with the compiler
     free(parser);                // Free the parser structure itself
 }

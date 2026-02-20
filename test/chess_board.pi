@@ -2,6 +2,6 @@ clear(0)
 for x in 0..128
     for y in 0..128
         if ((x ^ y) & 8)
-            pi(x, y, 7)
+            pixel(x, y, 7)
 
 draw()

@@ -6,6 +6,9 @@
 #include "../common.h"
 
 static uint32_t state = 2463534242; // Initial seed
+// --- Random State ---
+static uint32_t rng_state[4];
+static int rng_initialized = 0;
 
 /**
  * @brief Return the floor of a number or each element in a list.
@@ -18,7 +21,7 @@ static uint32_t state = 2463534242; // Initial seed
 Value pi_floor(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[floor] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[floor] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -34,7 +37,7 @@ Value pi_floor(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[floor] All elements in the list must be numeric.");
+                vm_error(vm,"[floor] All elements in the list must be numeric.");
 
             double _floor = floor(as_number(item));
             Value val = NEW_NUM(_floor);
@@ -47,7 +50,7 @@ Value pi_floor(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[floor] expects a numeric value or a list of numberic values.");
+        vm_error(vm,"[floor] expects a numeric value or a list of numberic values.");
     return NEW_NIL();
 }
 
@@ -61,7 +64,7 @@ Value pi_floor(vm_t *vm, int argc, Value *argv)
 Value pi_ceil(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[ceil] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[ceil] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -77,7 +80,7 @@ Value pi_ceil(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[ceil] All elements in the list must be numeric.");
+                vm_error(vm,"[ceil] All elements in the list must be numeric.");
 
             double _ceil = ceil(as_number(item));
             Value val = NEW_NUM(_ceil);
@@ -90,7 +93,7 @@ Value pi_ceil(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[ceil] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[ceil] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -104,7 +107,7 @@ Value pi_ceil(vm_t *vm, int argc, Value *argv)
 Value pi_round(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[round] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[round] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -120,7 +123,7 @@ Value pi_round(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[round] All elements in the list must be numeric.");
+                vm_error(vm,"[round] All elements in the list must be numeric.");
 
             double _round = round(as_number(item));
             Value val = NEW_NUM(_round);
@@ -133,7 +136,7 @@ Value pi_round(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[round] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[round] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -147,7 +150,7 @@ Value pi_round(vm_t *vm, int argc, Value *argv)
 Value pi_sqrt(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[sqrt] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[sqrt] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -163,7 +166,7 @@ Value pi_sqrt(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[sqrt] All elements in the list must be numeric.");
+                vm_error(vm,"[sqrt] All elements in the list must be numeric.");
 
             double _sqrt = sqrt(as_number(item));
             Value val = NEW_NUM(_sqrt);
@@ -176,7 +179,7 @@ Value pi_sqrt(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[sqrt] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[sqrt] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -190,7 +193,7 @@ Value pi_sqrt(vm_t *vm, int argc, Value *argv)
 Value pi_sin(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[sin] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[sin] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -206,7 +209,7 @@ Value pi_sin(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[sin] All elements in the list must be numeric.");
+                vm_error(vm,"[sin] All elements in the list must be numeric.");
 
             double _sin = sin(as_number(item));
             Value val = NEW_NUM(_sin);
@@ -219,7 +222,7 @@ Value pi_sin(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[sin] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[sin] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -233,7 +236,7 @@ Value pi_sin(vm_t *vm, int argc, Value *argv)
 Value pi_cos(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[cos] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[cos] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -249,7 +252,7 @@ Value pi_cos(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[cos] All elements in the list must be numeric.");
+                vm_error(vm,"[cos] All elements in the list must be numeric.");
 
             double _cos = cos(as_number(item));
             Value val = NEW_NUM(_cos);
@@ -262,7 +265,7 @@ Value pi_cos(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[cos] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[cos] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -277,7 +280,7 @@ Value pi_cos(vm_t *vm, int argc, Value *argv)
 Value pi_asin(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[asin] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[asin] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -285,7 +288,7 @@ Value pi_asin(vm_t *vm, int argc, Value *argv)
     {
         double val = as_number(arg);
         if (val < -1.0 || val > 1.0)
-            error("[asin] argument must be in the range [-1, 1].");
+            vm_error(vm,"[asin] argument must be in the range [-1, 1].");
 
         double result = asin(val);
         return NEW_NUM(result);
@@ -299,11 +302,11 @@ Value pi_asin(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[asin] All elements in the list must be numeric.");
+                vm_error(vm,"[asin] All elements in the list must be numeric.");
 
             double val = as_number(item);
             if (val < -1.0 || val > 1.0)
-                error("[asin] All list elements must be in the range [-1, 1].");
+                vm_error(vm,"[asin] All list elements must be in the range [-1, 1].");
 
             double res = asin(val);
             Value val_obj = NEW_NUM(res);
@@ -316,7 +319,7 @@ Value pi_asin(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[asin] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[asin] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -330,7 +333,7 @@ Value pi_asin(vm_t *vm, int argc, Value *argv)
 Value pi_tan(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[tan] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[tan] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -346,7 +349,7 @@ Value pi_tan(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[tan] All elements in the list must be numeric.");
+                vm_error(vm,"[tan] All elements in the list must be numeric.");
 
             double _tan = tan(as_number(item));
             Value val = NEW_NUM(_tan);
@@ -359,7 +362,7 @@ Value pi_tan(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[tan] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[tan] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -374,7 +377,7 @@ Value pi_tan(vm_t *vm, int argc, Value *argv)
 Value pi_acos(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[acos] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[acos] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -382,7 +385,7 @@ Value pi_acos(vm_t *vm, int argc, Value *argv)
     {
         double val = as_number(arg);
         if (val < -1.0 || val > 1.0)
-            error("[acos] argument must be in the range [-1, 1].");
+            vm_error(vm,"[acos] argument must be in the range [-1, 1].");
 
         double result = acos(val);
         return NEW_NUM(result);
@@ -396,11 +399,11 @@ Value pi_acos(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[acos] All elements in the list must be numeric.");
+                vm_error(vm,"[acos] All elements in the list must be numeric.");
 
             double val = as_number(item);
             if (val < -1.0 || val > 1.0)
-                error("[acos] All list elements must be in the range [-1, 1].");
+                vm_error(vm,"[acos] All list elements must be in the range [-1, 1].");
 
             double res = acos(val);
             Value val_obj = NEW_NUM(res);
@@ -413,7 +416,7 @@ Value pi_acos(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[acos] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[acos] expects a numeric value or a list of numeric values.");
 
     return NEW_NIL(); // Unreachable
 }
@@ -429,7 +432,7 @@ Value pi_acos(vm_t *vm, int argc, Value *argv)
 Value pi_atan(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[atan] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[atan] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -448,7 +451,7 @@ Value pi_atan(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[atan] All elements in the list must be numeric.");
+                vm_error(vm,"[atan] All elements in the list must be numeric.");
 
             double val = as_number(item);
             double res = atan(val);
@@ -462,7 +465,7 @@ Value pi_atan(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[atan] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[atan] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -477,7 +480,7 @@ Value pi_atan(vm_t *vm, int argc, Value *argv)
 Value pi_deg(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[deg] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[deg] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -496,7 +499,7 @@ Value pi_deg(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[deg] All elements in the list must be numeric.");
+                vm_error(vm,"[deg] All elements in the list must be numeric.");
 
             double val = as_number(item);
             double res = val * RAD_TO_DEG;
@@ -510,7 +513,7 @@ Value pi_deg(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[deg] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[deg] expects a numeric value or a list of numeric values.");
 
     return NEW_NIL();
 }
@@ -526,9 +529,9 @@ Value pi_deg(vm_t *vm, int argc, Value *argv)
 Value pi_rad(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[rad] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[rad] expects a numeric value or a list of numeric values.");
 
-    Value arg = argv[0];    
+    Value arg = argv[0];
 
     if (is_numeric(arg))
     {
@@ -545,7 +548,7 @@ Value pi_rad(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[rad] All elements in the list must be numeric.");
+                vm_error(vm,"[rad] All elements in the list must be numeric.");
 
             double val = as_number(item);
             double res = val * DEG_TO_RAD;
@@ -559,7 +562,7 @@ Value pi_rad(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[rad] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[rad] expects a numeric value or a list of numeric values.");
 
     return NEW_NIL();
 }
@@ -578,7 +581,7 @@ Value pi_rad(vm_t *vm, int argc, Value *argv)
 Value pi_sum(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[sum] expects a single list of numeric values.");
+        vm_error(vm,"[sum] expects a single list of numeric values.");
 
     list_t *input = AS_CLIST(argv[0]);
     double total = 0.0;
@@ -587,7 +590,7 @@ Value pi_sum(vm_t *vm, int argc, Value *argv)
     {
         Value item = *(Value *)list_getAt(input, i);
         if (!is_numeric(item))
-            error("[sum] All elements in the list must be numeric.");
+            vm_error(vm,"[sum] All elements in the list must be numeric.");
         total += as_number(item);
     }
 
@@ -609,7 +612,7 @@ Value pi_sum(vm_t *vm, int argc, Value *argv)
 Value pi_exp(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[exp] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[exp] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -625,7 +628,7 @@ Value pi_exp(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[exp] All elements in the list must be numeric.");
+                vm_error(vm,"[exp] All elements in the list must be numeric.");
 
             double val = exp(as_number(item));
             Value v = NEW_NUM(val);
@@ -638,7 +641,7 @@ Value pi_exp(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[exp] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[exp] expects a numeric value or a list of numeric values.");
 
     return NEW_NIL();
 }
@@ -658,7 +661,7 @@ Value pi_exp(vm_t *vm, int argc, Value *argv)
 Value pi_log2(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[log2] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[log2] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -666,7 +669,7 @@ Value pi_log2(vm_t *vm, int argc, Value *argv)
     {
         double num = as_number(arg);
         if (num <= 0)
-            error("[log2] input must be positive.");
+            vm_error(vm,"[log2] input must be positive.");
         return NEW_NUM(log2(num));
     }
     else if (IS_LIST(arg))
@@ -678,11 +681,11 @@ Value pi_log2(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[log2] All elements in the list must be numeric.");
+                vm_error(vm,"[log2] All elements in the list must be numeric.");
 
             double val = as_number(item);
             if (val <= 0)
-                error("[log2] All elements must be positive.");
+                vm_error(vm,"[log2] All elements must be positive.");
 
             Value v = NEW_NUM(log2(val));
             list_add(result, &v);
@@ -694,7 +697,7 @@ Value pi_log2(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[log2] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[log2] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -713,7 +716,7 @@ Value pi_log2(vm_t *vm, int argc, Value *argv)
 Value pi_log10(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[log10] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[log10] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -721,7 +724,7 @@ Value pi_log10(vm_t *vm, int argc, Value *argv)
     {
         double num = as_number(arg);
         if (num <= 0)
-            error("[log10] input must be positive.");
+            vm_error(vm,"[log10] input must be positive.");
         return NEW_NUM(log10(num));
     }
     else if (IS_LIST(arg))
@@ -733,11 +736,11 @@ Value pi_log10(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[log10] All elements in the list must be numeric.");
+                vm_error(vm,"[log10] All elements in the list must be numeric.");
 
             double val = as_number(item);
             if (val <= 0)
-                error("[log10] All elements must be positive.");
+                vm_error(vm,"[log10] All elements must be positive.");
 
             Value v = NEW_NUM(log10(val));
             list_add(result, &v);
@@ -749,7 +752,7 @@ Value pi_log10(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[log10] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[log10] expects a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -764,13 +767,13 @@ Value pi_log10(vm_t *vm, int argc, Value *argv)
 Value pi_pow(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 2)
-        error("[pow] expects exactly two arguments: base and exponent.");
+        vm_error(vm,"[pow] expects exactly two arguments: base and exponent.");
 
     Value base = argv[0];
     Value exponent = argv[1];
 
     if (!is_numeric(exponent))
-        error("[pow] The exponent must be a numeric value.");
+        vm_error(vm,"[pow] The exponent must be a numeric value.");
 
     double exp_num = as_number(exponent);
 
@@ -789,7 +792,7 @@ Value pi_pow(vm_t *vm, int argc, Value *argv)
             Value item = *(Value *)list_getAt(input, i);
 
             if (!is_numeric(item))
-                error("[pow] All elements in the base list must be numeric.");
+                vm_error(vm,"[pow] All elements in the base list must be numeric.");
 
             double val = as_number(item);
             double pow_val = pow(val, exp_num);
@@ -804,7 +807,7 @@ Value pi_pow(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[pow] The base argument must be a numeric value or a list of numeric values.");
+        vm_error(vm,"[pow] The base argument must be a numeric value or a list of numeric values.");
     return NEW_NIL();
 }
 
@@ -819,17 +822,17 @@ Value pi_pow(vm_t *vm, int argc, Value *argv)
 Value pi_mean(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1)
-        error("[mean] expects exactly one argument: a list of numeric values.");
+        vm_error(vm,"[mean] expects exactly one argument: a list of numeric values.");
 
     Value arg = argv[0];
 
     if (!IS_LIST(arg))
-        error("[mean] expects a list of numeric values.");
+        vm_error(vm,"[mean] expects a list of numeric values.");
 
     list_t *input = AS_CLIST(arg);
 
     if (input->size == 0)
-        error("[mean] cannot compute mean of an empty list.");
+        vm_error(vm,"[mean] cannot compute mean of an empty list.");
 
     double sum = 0.0;
 
@@ -838,7 +841,7 @@ Value pi_mean(vm_t *vm, int argc, Value *argv)
         Value item = *(Value *)list_getAt(input, i);
 
         if (!is_numeric(item))
-            error("[mean] all elements in the list must be numeric.");
+            vm_error(vm,"[mean] all elements in the list must be numeric.");
 
         sum += as_number(item);
     }
@@ -863,11 +866,11 @@ Value pi_avg(vm_t *vm, int argc, Value *argv)
 Value pi_var(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[var] expects a single argument: a list of numbers.");
+        vm_error(vm,"[var] expects a single argument: a list of numbers.");
 
     list_t *input = AS_CLIST(argv[0]);
     if (input->size == 0)
-        error("[var] Cannot calculate variance of an empty list.");
+        vm_error(vm,"[var] Cannot calculate variance of an empty list.");
 
     // Calculate mean
     double sum = 0.0;
@@ -875,7 +878,7 @@ Value pi_var(vm_t *vm, int argc, Value *argv)
     {
         Value item = *(Value *)list_getAt(input, i);
         if (!is_numeric(item))
-            error("[var] All elements in the list must be numeric.");
+            vm_error(vm,"[var] All elements in the list must be numeric.");
 
         sum += as_number(item);
     }
@@ -902,11 +905,11 @@ Value pi_var(vm_t *vm, int argc, Value *argv)
 Value pi_dev(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[dev] expects a single argument: a list of numbers.");
+        vm_error(vm,"[dev] expects a single argument: a list of numbers.");
 
     list_t *input = AS_CLIST(argv[0]);
     if (input->size == 0)
-        error("[dev] Cannot calculate standard deviation of an empty list.");
+        vm_error(vm,"[dev] Cannot calculate standard deviation of an empty list.");
 
     // Calculate mean
     double sum = 0.0;
@@ -914,7 +917,7 @@ Value pi_dev(vm_t *vm, int argc, Value *argv)
     {
         Value item = *(Value *)list_getAt(input, i);
         if (!is_numeric(item))
-            error("[dev] All elements in the list must be numeric.");
+            vm_error(vm,"[dev] All elements in the list must be numeric.");
 
         sum += as_number(item);
     }
@@ -936,7 +939,20 @@ Value pi_dev(vm_t *vm, int argc, Value *argv)
     return NEW_NUM(stddev);
 }
 
-// Comparison function for qsort to sort Values as numbers
+/**
+ * Compares two values as numbers.
+ *
+ * This function is a comparison function for qsort that compares two values as
+ * numbers. It returns a negative value if the first value is less than the
+ * second, zero if they are equal, and a positive value if the first value is
+ * greater than the second.
+ *
+ * @param a The first value to compare.
+ * @param b The second value to compare.
+ * @return A negative value if the first value is less than the second, zero if
+ *         they are equal, and a positive value if the first value is greater
+ *         than the second.
+ */
 static int compare_values(const void *a, const void *b)
 {
     const Value *va = (const Value *)a;
@@ -958,17 +974,17 @@ static int compare_values(const void *a, const void *b)
 Value pi_median(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[median] expects a single argument: a list of numbers.");
+        vm_error(vm,"[median] expects a single argument: a list of numbers.");
 
     list_t *input = AS_CLIST(argv[0]);
     int size = input->size;
     if (size == 0)
-        error("[median] Cannot calculate median of an empty list.");
+        vm_error(vm,"[median] Cannot calculate median of an empty list.");
 
     // Copy the values to a temporary array for sorting
     Value *copy = malloc(size * sizeof(Value));
     if (!copy)
-        error("[median] Memory allocation failed.");
+        vm_error(vm,"[median] Memory allocation failed.");
 
     for (int i = 0; i < size; i++)
     {
@@ -976,7 +992,7 @@ Value pi_median(vm_t *vm, int argc, Value *argv)
         if (!is_numeric(item))
         {
             free(copy);
-            error("[median] All elements in the list must be numeric.");
+            vm_error(vm,"[median] All elements in the list must be numeric.");
         }
         copy[i] = item;
     }
@@ -1010,18 +1026,18 @@ Value pi_median(vm_t *vm, int argc, Value *argv)
 Value pi_mode(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[mode] expects a single argument: a list of numbers.");
+        vm_error(vm,"[mode] expects a single argument: a list of numbers.");
 
     list_t *input = AS_CLIST(argv[0]);
     int size = input->size;
 
     if (size == 0)
-        error("[mode] Cannot calculate mode of an empty list.");
+        vm_error(vm,"[mode] Cannot calculate mode of an empty list.");
 
     // Copy values to temporary array for sorting
     Value *copy = malloc(size * sizeof(Value));
     if (!copy)
-        error("[mode] Memory allocation failed.");
+        vm_error(vm,"[mode] Memory allocation failed.");
 
     for (int i = 0; i < size; i++)
     {
@@ -1029,7 +1045,7 @@ Value pi_mode(vm_t *vm, int argc, Value *argv)
         if (!is_numeric(item))
         {
             free(copy);
-            error("[mode] All elements in the list must be numeric.");
+            vm_error(vm,"[mode] All elements in the list must be numeric.");
         }
         copy[i] = item;
     }
@@ -1045,9 +1061,7 @@ Value pi_mode(vm_t *vm, int argc, Value *argv)
     for (int i = 1; i < size; i++)
     {
         if (as_number(copy[i]) == as_number(copy[i - 1]))
-        {
             current_count++;
-        }
         else
         {
             if (current_count > max_count)
@@ -1071,6 +1085,112 @@ Value pi_mode(vm_t *vm, int argc, Value *argv)
 }
 
 /**
+ * A Xorshift PRNG, specifically the SplitMix32 algorithm as described by
+ * Sebastiano Vigna in his paper "An experimental exploration of the
+ * Xorshift generators" (2016). The SplitMix32 algorithm is a 32-bit
+ * version of the Xorshift algorithm that is suitable for use in
+ * applications where memory is a concern. It has a period of 2^32 and
+ * passes the PractRand random number generator test suite.
+ *
+ * This function takes a pointer to a seed value and returns a random
+ * 32-bit integer.
+ */
+static uint32_t splitmix32(uint32_t *seed)
+{
+    uint32_t z = (*seed += 0x9e3779b9);
+    z = (z ^ (z >> 16)) * 0x85ebca6b;
+    z = (z ^ (z >> 13)) * 0xc2b2ae35;
+    return z ^ (z >> 16);
+}
+
+/**
+ * Seeds the random number generator with a given 32-bit integer.
+ *
+ * @param seed A 32-bit integer to use as the seed.
+ */
+void rng_seed(uint32_t seed)
+{
+    // Initialize the state array with the seed value
+    for (int i = 0; i < 4; i++)
+        rng_state[i] = splitmix32(&seed);
+    rng_initialized = 1;
+}
+
+// --- xoshiro32** next function ---
+// This function implements the xoshiro32** PRNG algorithm.
+// It returns a random 32-bit integer.
+uint32_t xoshiro32(void)
+{
+    // The state array is an array of four 32-bit integers.
+    uint32_t *s = rng_state;
+
+    // Compute the result based on the current state.
+    uint32_t result = s[1] * 5;
+    result = ((result << 7) | (result >> (32 - 7))) * 9;
+
+    // Compute the temporary value t.
+    uint32_t t = s[1] << 9;
+
+    // Update the state array.
+    s[2] ^= s[0];
+    s[3] ^= s[1];
+    s[1] ^= s[2];
+    s[0] ^= s[3];
+
+    // Update the state array using the temporary value.
+    s[2] ^= t;
+    s[3] = (s[3] << 11) | (s[3] >> (32 - 11));
+
+    // Return the result.
+    return result;
+}
+
+/**
+ * Generates a random double in the range [0.0, 1.0).
+ *
+ * This function uses the xoshiro32** PRNG algorithm to generate a random
+ * 32-bit integer, then divides it by UINT32_MAX to produce a double
+ * between 0.0 (inclusive) and 1.0 (exclusive).
+ *
+ * If the random number generator is not initialized, it seeds it using
+ * the current time.
+ *
+ * @return A random double in the range [0.0, 1.0).
+ */
+double rand_num()
+{
+    // Check if the random number generator has been initialized
+    if (!rng_initialized)
+        rng_seed((uint32_t)time(NULL)); // Seed with current time if not initialized
+
+    // Generate a random double in [0.0, 1.0)
+    return xoshiro32() / (double)UINT32_MAX;
+}
+
+/**
+ * @brief Seeds the random number generator with a given numeric value.
+ *
+ * This function initializes the RNG using a single numeric argument.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments, expected to be 1.
+ * @param argv The argument values, expected to contain a single numeric value.
+ * @return A NIL value indicating the operation was performed.
+ */
+Value pi_seed(vm_t *vm, int argc, Value *argv)
+{
+    // Check if exactly one numeric argument is provided
+    if (argc != 1 || !is_numeric(argv[0]))
+        vm_error(vm,"[seed] expects a single numeric argument.");
+
+    // Seed the RNG with the provided numeric value
+    rng_seed((uint32_t)as_number(argv[0]));
+
+    // Return NIL to indicate successful seeding
+    return NEW_NIL();
+}
+
+/**
  * Generates a random number between 0 and 1.
  *
  * @param vm The virtual machine instance.
@@ -1081,16 +1201,40 @@ Value pi_mode(vm_t *vm, int argc, Value *argv)
 
 Value pi_rand(vm_t *vm, int argc, Value *argv)
 {
-    static uint32_t state;
-    static int initialized = 0;
+    if (!rng_initialized)
+        rng_seed((uint32_t)time(NULL)); // Still safe to call once here
 
-    if (!initialized)
+    if (argc == 0)
+        return NEW_NUM(rand_num()); // [0.0, 1.0)
+
+    else if (argc == 1 && is_numeric(argv[0]))
     {
-        state = (uint32_t)time(NULL);
-        initialized = 1;
+        int max = (int)as_number(argv[0]);
+        int min = 0;
+
+        if (max < min)
+            vm_error(vm,"[rand] max must be >= 0");
+
+        int range = max - min + 1;
+        int result = min + (int)(rand_num() * range);
+        return NEW_NUM(result);
     }
 
-    return NEW_NUM(rand_num(&state));
+    else if (argc == 2 && is_numeric(argv[0]) && is_numeric(argv[1]))
+    {
+        int min = (int)as_number(argv[0]);
+        int max = (int)as_number(argv[1]);
+
+        if (min > max)
+            vm_error(vm,"[rand] min must not be greater than max");
+
+        int range = max - min + 1;
+        int result = min + (int)(rand_num() * range);
+        return NEW_NUM(result);
+    }
+
+    else
+        vm_error(vm,"[rand] expects 0, 1, or 2 numeric arguments.");
 }
 
 /**
@@ -1104,11 +1248,11 @@ Value pi_rand(vm_t *vm, int argc, Value *argv)
 Value pi_rand_n(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !is_numeric(argv[0]))
-        error("[rand_n] expects a single numeric argument representing the size.");
+        vm_error(vm,"[rand_n] expects a single numeric argument representing the size.");
 
     int size = (int)as_number(argv[0]);
     if (size < 0)
-        error("[rand_n] size must be non-negative.");
+        vm_error(vm,"[rand_n] size must be non-negative.");
 
     list_t *list = list_create(sizeof(Value));
 
@@ -1127,31 +1271,6 @@ Value pi_rand_n(vm_t *vm, int argc, Value *argv)
 }
 
 /**
- * @brief Generates a random integer between min and max (inclusive).
- *
- * @param vm The virtual machine instance.
- * @param argc The number of arguments (expects exactly 2).
- * @param argv The arguments (expects two numeric arguments: min and max).
- * @return A random integer between min and max.
- */
-Value pi_rand_i(vm_t *vm, int argc, Value *argv)
-{
-    if (argc != 2 || !is_numeric(argv[0]) || !is_numeric(argv[1]))
-        error("[rand_i] expects two numeric arguments: min and max.");
-
-    int min = (int)as_number(argv[0]);
-    int max = (int)as_number(argv[1]);
-
-    if (min > max)
-        error("[rand_i] min must not be greater than max.");
-
-    int range = max - min + 1;
-    int r = rand() % range + min;
-
-    return NEW_NUM(r);
-}
-
-/**
  * @brief Returns the minimum value in a list of numeric values.
  *
  * Accepts a single argument which must be a list of numeric values.
@@ -1160,12 +1279,12 @@ Value pi_rand_i(vm_t *vm, int argc, Value *argv)
 Value pi_min(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[min] expects a list of numeric values.");
+        vm_error(vm,"[min] expects a list of numeric values.");
 
     list_t *input = AS_CLIST(argv[0]);
 
     if (input->size == 0)
-        error("[min] cannot operate on an empty list.");
+        vm_error(vm,"[min] cannot operate on an empty list.");
 
     double min_val = 0;
     bool initialized = false;
@@ -1174,7 +1293,7 @@ Value pi_min(vm_t *vm, int argc, Value *argv)
     {
         Value item = *(Value *)list_getAt(input, i);
         if (!is_numeric(item))
-            error("[min] All elements in the list must be numeric.");
+            vm_error(vm,"[min] All elements in the list must be numeric.");
 
         double num = as_number(item);
         if (!initialized || num < min_val)
@@ -1196,12 +1315,12 @@ Value pi_min(vm_t *vm, int argc, Value *argv)
 Value pi_max(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !IS_LIST(argv[0]))
-        error("[max] expects a list of numeric values.");
+        vm_error(vm,"[max] expects a list of numeric values.");
 
     list_t *input = AS_CLIST(argv[0]);
 
     if (input->size == 0)
-        error("[max] cannot operate on an empty list.");
+        vm_error(vm,"[max] cannot operate on an empty list.");
 
     double max_val = 0;
     bool initialized = false;
@@ -1210,7 +1329,7 @@ Value pi_max(vm_t *vm, int argc, Value *argv)
     {
         Value item = *(Value *)list_getAt(input, i);
         if (!is_numeric(item))
-            error("[max] All elements in the list must be numeric.");
+            vm_error(vm,"[max] All elements in the list must be numeric.");
 
         double num = as_number(item);
         if (!initialized || num > max_val)
@@ -1232,7 +1351,7 @@ Value pi_max(vm_t *vm, int argc, Value *argv)
 Value pi_abs(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        error("[abs] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[abs] expects a numeric value or a list of numeric values.");
 
     Value arg = argv[0];
 
@@ -1248,7 +1367,7 @@ Value pi_abs(vm_t *vm, int argc, Value *argv)
         {
             Value item = *(Value *)list_getAt(input, i);
             if (!is_numeric(item))
-                error("[abs] All elements in the list must be numeric.");
+                vm_error(vm,"[abs] All elements in the list must be numeric.");
 
             double _abs = fabs(as_number(item));
             Value val = NEW_NUM(_abs);
@@ -1261,15 +1380,25 @@ Value pi_abs(vm_t *vm, int argc, Value *argv)
         return NEW_OBJ(list);
     }
     else
-        error("[abs] expects a numeric value or a list of numeric values.");
+        vm_error(vm,"[abs] expects a numeric value or a list of numeric values.");
 
     return NEW_NIL();
 }
 
+/**
+ * @brief Computes the natural logarithm of a number.
+ *
+ * This function accepts a single numeric value and returns its natural logarithm.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments (expects exactly 1 numeric argument).
+ * @param argv The arguments (a single numeric value).
+ * @return The natural logarithm of the number.
+ */
 Value pi_log(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !is_numeric(argv[0]))
-        error("[log] expects a single numeric argument.");
+        vm_error(vm,"[log] expects a single numeric argument.");
 
     double result = log(as_number(argv[0]));
 

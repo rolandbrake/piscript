@@ -1,14 +1,14 @@
-obj = load3d("objs/teapot.obj");
+obj = load3d("../objs/teapot.obj");
 
 
 angle = 0
-color = 8
+color = 6
 while true {
   clear(12)
-  p_obj = project(translate(rotate(obj, 0, angle * 1.2, 0),0, -1.5, 0), 20, 16)  
-  render(p_obj, color, true)
+  p_obj = proj3d(tran3d(rot3d(obj, angle * 0.2, angle * 1.2, angle * 0.1),0, -1.5, 0), 30, 16)  
+  rend3d(p_obj, color, true)
   
   draw()
-  angle = angle + 0.1
+  angle = angle + 1
   sleep(40)  
 }

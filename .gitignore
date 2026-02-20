@@ -29,6 +29,10 @@ Here's the `.gitignore` file:
 *.log
 *.tmp
 
+
+#log files
+*.log
+
 # Build directories
 build/
 dist/
@@ -45,12 +49,27 @@ emscripten_cache/
 *.code-workspace
 
 
+
+
+
 #site
 
 piscript-site/
+
+#formatter and minifiers
+JS/
+
+
+#release files
+release/
 
 # macOS
 .DS_Store
 
 # Windows
 Thumbs.db
+
+
+vids/
+images/
+objs/

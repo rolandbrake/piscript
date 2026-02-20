@@ -3,6 +3,8 @@
 
 #include "list.h"
 
+#define GET_STRING(STR) ((String *)STR)->data
+
 typedef struct
 {
     char *data; // Pointer to dynamically allocated string
