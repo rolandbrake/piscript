@@ -23,7 +23,7 @@ Here's the `.gitignore` file:
 *.out
 *.wasm
 # *.html
-*.js
+# *.js
 
 # Debug files
 *.log
