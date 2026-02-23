@@ -139,16 +139,38 @@ EM_JS(void, js_load_sprites_to_memory, (), {
         const width = s.width;
         const height = s.height;
         const pixels = s.pixels;
+        const pixelCount = width * height;
 
-        Module.HEAPU16[offset >> 1] = width;
-        Module.HEAPU16[(offset >> 1) + 1] = height;
+        // Write as bytes to avoid misaligned HEAPU16 writes when offset is odd.
+        Module.HEAPU8[offset] = width & 0xff;
+        Module.HEAPU8[offset + 1] = (width >> 8) & 0xff;
+        Module.HEAPU8[offset + 2] = height & 0xff;
+        Module.HEAPU8[offset + 3] = (height >> 8) & 0xff;
         offset += 4;
 
-        for (let j = 0; j < pixels.length; j++)
+        if (Array.isArray(pixels) && pixels.length > 0 && Array.isArray(pixels[0]))
         {
-            Module.HEAPU8[offset + j] = pixels[j];
+            let k = 0;
+            for (let y = 0; y < height; y++)
+            {
+                const row = pixels[y] || [];
+                for (let x = 0; x < width; x++)
+                {
+                    const v = Number(row[x] ?? 0);
+                    Module.HEAPU8[offset + k] = (Number.isFinite(v) ? v : 0) & 0xff;
+                    k++;
+                }
+            }
         }
-        offset += width * height;
+        else
+        {
+            for (let j = 0; j < pixelCount; j++)
+            {
+                const v = Number((pixels && pixels[j]) ?? 0);
+                Module.HEAPU8[offset + j] = (Number.isFinite(v) ? v : 0) & 0xff;
+            }
+        }
+        offset += pixelCount;
     }
 
     _load_sprites_from_buffer(buffer, spriteCount);
