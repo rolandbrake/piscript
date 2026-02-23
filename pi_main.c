@@ -39,8 +39,10 @@ void main_loop()
     Uint32 delta_time = current_time - last_time;
     last_time = current_time;
 
+    // Run the main loop
     if (vm && vm->running)
         run(vm);
+
     else if (!paused)
     {
         clock_t end_time = clock();
@@ -209,7 +211,7 @@ EM_JS(void, js_load_sfx_to_memory, (), {
                 waveform = note.wave;
             else if (typeof note.wave === 'string')
             {
-                const waveMap = { sine: 0, square: 1, triangle: 2, sawtooth: 3, noise: 4 };
+                const waveMap = {sine : 0, square : 1, triangle : 2, sawtooth : 3, noise : 4};
                 waveform = waveMap[note.wave] ?? 0;
             }
 
@@ -372,7 +374,8 @@ int main(int argc, char *argv[])
     last_time = SDL_GetTicks();
     start_time = clock();
 
-    emscripten_set_main_loop(main_loop, 0, 1);
+    // emscripten_set_main_loop(main_loop, 0, 1);
+    emscripten_set_main_loop(main_loop, TARGET_FPS, 1);
 
     SDL_DestroyWindow(screen->window);
     SDL_DestroyRenderer(screen->renderer);
@@ -766,7 +769,7 @@ static void shell_read(char *buffer, int size, ...)
             {
                 if (strcmp(command_name, commands[i].name) == 0)
                 {
-                    cmd_color = COLOR_BRIGHT_GREEN; // Color for recognized commands
+                    cmd_color = COLOR_WARM_GRAY; // Color for recognized commands
                     is_command = true;
                     break;
                 }

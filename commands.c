@@ -156,7 +156,7 @@ void cmd_about(int argc, char **argv)
     Screen *screen = shell_io->vm->screen;
 
     screen->cursor_y += 10;
-    shell_io->out("PiScript Shell v0.0.1\n", SHELL_COLOR, COLOR_BRIGHT_RED, SHELL_END);
+    shell_io->out("PiScript Shell v0.1.0\n", SHELL_COLOR, COLOR_BRIGHT_RED, SHELL_END);
     shell_io->out("Created by: Roland Brake\n", SHELL_COLOR, COLOR_BRIGHT_BLUE, SHELL_END);
     shell_io->out("License: MIT\n", SHELL_COLOR, COLOR_WHITE, SHELL_END);
     shell_io->out("GitHub: https://github.com/\nrolandbrake \n", SHELL_COLOR, COLOR_WHITE, SHELL_END);

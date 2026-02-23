@@ -128,4 +128,6 @@ int get_colorIndex(Uint32 pixel_color);
 
 void draw_matrix(Screen *screen, int x, int y, int w, int h, uint8_t matrix[h][w]);
 
+void draw_sprite(Screen *screen, Sprite *sprite, int x, int y);
+
 #endif

@@ -6,7 +6,7 @@
 #define HISTORY_MAX 64
 #define LINE_MAX 256
 
-#define LOGO_W 50
+#define LOGO_W 53
 #define LOGO_H 12
 #define LOGO_X 4
 #define LOGO_Y 4

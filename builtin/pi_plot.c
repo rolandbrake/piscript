@@ -282,9 +282,7 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
                 uint8_t color = sprite->pixels[i * sprite->width + j];
                 // Assuming color 0 is transparent
                 if (color != 0)
-                {
                     set_pixel(screen, j + x, i + y, color);
-                }
             }
         }
     }
@@ -311,16 +309,12 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
                 int color = (int)AS_NUM(color_val);
                 // Assuming color 0 is transparent
                 if (color != 0)
-                {
                     set_pixel(screen, j + x, i + y, color);
-                }
             }
         }
     }
     else
-    {
         vm_error(vm, "[sprite] expected a sprite index (number) or a 2D list of color values.");
-    }
 
     return NEW_NIL();
 }
