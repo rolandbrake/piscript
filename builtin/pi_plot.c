@@ -1,5 +1,6 @@
 #include <math.h>   // For rounding
 #include <stdlib.h> // For memory allocation
+#include <string.h> // For memcpy
 
 #include "pi_plot.h"
 #include "../screen.h"
@@ -78,18 +79,31 @@ Value pi_line(vm_t *vm, int argc, Value *argv)
 
 /**
  * Updates the screen by applying all pending drawing operations.
+ * Optionally sets a global draw offset before presenting the frame.
  *
  * This function is intended to be called after any series of drawing functions
  * to ensure that the changes are rendered on the screen.
  *
  * @param vm The virtual machine instance.
- * @param argc The number of arguments (not used in this function).
- * @param argv The arguments (not used in this function).
+ * @param argc The number of arguments (0 or 2).
+ * @param argv Optional arguments: offset_x, offset_y.
  * @return A nil value indicating completion.
  */
 
 Value pi_draw(vm_t *vm, int argc, Value *argv)
 {
+    if (argc != 0 && argc != 2)
+        vm_error(vm, "[draw] expects either no arguments or two numeric arguments (offset_x, offset_y).");
+
+    if (argc == 2)
+    {
+        if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]))
+            vm_error(vm, "[draw] offset_x and offset_y must be numeric.");
+
+        vm->screen->offset_x = (int)round(AS_NUM(argv[0]));
+        vm->screen->offset_y = (int)round(AS_NUM(argv[1]));
+    }
+
     screen_update(vm->screen);
     return NEW_NIL();
 }
@@ -233,88 +247,88 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
 }
 
 /**
- * Draws a sprite on the screen using a 2D list of color values or a sprite index.
- *
- * This function takes at least one argument: a 2D list of color values or a sprite index.
- * The color values are expected to be numeric. If the first argument is a 2D list of color values,
- * it is interpreted as a sprite with dimensions equal to the size of the list. The color values
- * are copied into the sprite and then drawn on the screen at the specified position (x, y).
- * If the first argument is a numeric sprite index, it is interpreted as a reference to a sprite
- * in the screen's sprite list. The sprite is drawn on the screen at the specified position (x, y).
- *
- * @param vm The virtual machine instance.
- * @param argc The number of arguments (at least 1).
- * @param argv The arguments: sprite (2D list of color values or sprite index), x, y.
- * @return A nil value indicating completion.
+ * Sprite constructor/draw overloads:
+ *  - sprite(index) -> returns a sprite object copied from the cartridge sprite sheet.
+ *  - sprite(index, x, y) -> draws a cartridge sprite by index.
+ *  - sprite(spriteObject, x, y) -> draws a sprite object.
  */
 Value pi_sprite(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 3 || !IS_NUM(argv[1]) || !IS_NUM(argv[2]))
-        vm_error(vm, "[sprite] expects at least three arguments: id, x, y.");
+    if (argc != 1 && argc != 3)
+        vm_error(vm, "[sprite] expects either sprite(index) or sprite(index|sprite, x, y).");
 
-    Screen *screen = vm->screen;
-    int x = (int)AS_NUM(argv[1]);
-    int y = (int)AS_NUM(argv[2]);
-
-    // Case 1: The first argument is a numeric index into the cartridge's sprite sheet.
     if (IS_NUM(argv[0]))
     {
         if (vm->cart == NULL || vm->cart->sprites == NULL)
-        {
-            vm_error(vm, "[sprite] no cartridge with sprites is loaded to get index from.");
-            return NEW_NIL();
-        }
+            vm_error(vm, "[sprite] no cartridge with sprites is loaded.");
 
         int index = (int)AS_NUM(argv[0]);
+        if ((double)index != AS_NUM(argv[0]))
+            vm_error(vm, "[sprite] sprite index must be an integer.");
+
         if (index < 0 || index >= vm->cart->spr_count)
-        {
             vm_error(vm, "[sprite] sprite index out of bounds.");
-            return NEW_NIL();
-        }
 
         Sprite *sprite = &vm->cart->sprites[index];
 
-        // Draw the sprite on the screen
+        // Constructor mode: sprite(index) -> ObjSprite
+        if (argc == 1)
+        {
+            size_t pixels_size = (size_t)sprite->width * (size_t)sprite->height;
+            uint8_t *data = (uint8_t *)malloc(pixels_size);
+            if (data == NULL)
+                vm_error(vm, "[sprite] failed to allocate sprite data.");
+
+            memcpy(data, sprite->pixels, pixels_size);
+            return NEW_OBJ(new_sprite((uint8_t)sprite->width, (uint8_t)sprite->height, data));
+        }
+
+        if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+            vm_error(vm, "[sprite] draw mode expects numeric x and y.");
+
+        int x = (int)AS_NUM(argv[1]);
+        int y = (int)AS_NUM(argv[2]);
+        if ((double)x != AS_NUM(argv[1]) || (double)y != AS_NUM(argv[2]))
+            vm_error(vm, "[sprite] x and y must be integers.");
+
+        // Draw mode: sprite(index, x, y) -> nil
         for (int i = 0; i < sprite->height; i++)
         {
             for (int j = 0; j < sprite->width; j++)
             {
                 uint8_t color = sprite->pixels[i * sprite->width + j];
-                // Assuming color 0 is transparent
                 if (color != 0)
-                    set_pixel(screen, j + x, i + y, color);
+                    set_pixel(vm->screen, j + x, i + y, color);
             }
         }
+
+        return NEW_NIL();
     }
-    // Case 2: The first argument is a 2D list of color values for a dynamic sprite.
-    else if (IS_LIST(argv[0]))
+
+    if (!IS_SPRITE(argv[0]))
+        vm_error(vm, "[sprite] first argument must be a sprite index or sprite object.");
+
+    if (argc != 3)
+        vm_error(vm, "[sprite] sprite object mode expects 3 arguments: sprite, x, y.");
+
+    if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+        vm_error(vm, "[sprite] draw mode expects numeric x and y.");
+
+    int x = (int)AS_NUM(argv[1]);
+    int y = (int)AS_NUM(argv[2]);
+    if ((double)x != AS_NUM(argv[1]) || (double)y != AS_NUM(argv[2]))
+        vm_error(vm, "[sprite] x and y must be integers.");
+
+    ObjSprite *obj_sprite = AS_SPRITE(argv[0]);
+    for (int i = 0; i < obj_sprite->height; i++)
     {
-        list_t *rows = AS_LIST(argv[0])->items;
-        if (list_size(rows) == 0)
-            return NEW_NIL(); // Nothing to draw
-
-        for (int i = 0; i < list_size(rows); i++)
+        for (int j = 0; j < obj_sprite->width; j++)
         {
-            Value row_val = *(Value *)list_getAt(rows, i);
-            if (!IS_LIST(row_val))
-                vm_error(vm, "[sprite] expected a 2D list of color values.");
-
-            list_t *pixels = AS_LIST(row_val)->items;
-            for (int j = 0; j < list_size(pixels); j++)
-            {
-                Value color_val = *(Value *)list_getAt(pixels, j);
-                if (!IS_NUM(color_val))
-                    vm_error(vm, "[sprite] expected numeric color values.");
-
-                int color = (int)AS_NUM(color_val);
-                // Assuming color 0 is transparent
-                if (color != 0)
-                    set_pixel(screen, j + x, i + y, color);
-            }
+            uint8_t color = obj_sprite->data[i * obj_sprite->width + j];
+            if (color != 0)
+                set_pixel(vm->screen, j + x, i + y, color);
         }
     }
-    else
-        vm_error(vm, "[sprite] expected a sprite index (number) or a 2D list of color values.");
 
     return NEW_NIL();
 }

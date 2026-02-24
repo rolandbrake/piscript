@@ -72,6 +72,8 @@ typedef struct
     SDL_Renderer *renderer; // Pointer to the SDL renderer
     SDL_Texture *texture;   // Texture used for pixel rendering
     Uint32 *pixels;         // Array storing pixel colors
+    int offset_x;      // Global x-offset applied to drawing operations
+    int offset_y;      // Global y-offset applied to drawing operations
     int cursor_x;           // Current x position of the text cursor
     int cursor_y;           // Current y position of the text cursor
     Color text_color;       // Current text color

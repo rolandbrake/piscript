@@ -557,6 +557,13 @@ char *as_string(Value val)
             sprintf(result, "<%s: %p>", fun->name, (void *)fun);
             return result;
         }
+        case OBJ_SPRITE:
+        {
+            ObjSprite *sprite = AS_SPRITE(val);
+            char *result = (char *)malloc(64);
+            sprintf(result, "<sprite %dx%d>", sprite->width, sprite->height);
+            return result;
+        }
         case OBJ_RANGE:
         case OBJ_CODE:
             break;
@@ -741,6 +748,12 @@ void print_value(Value val, bool is_root)
             printf("<%s: %p>", fn->name, (void *)fn);
             break;
         }
+        case OBJ_SPRITE:
+        {
+            ObjSprite *sprite = AS_SPRITE(val);
+            printf("<sprite %dx%d>", sprite->width, sprite->height);
+            break;
+        }
         case OBJ_MAP:
         case OBJ_CODE:
             break;
@@ -786,6 +799,8 @@ char *type_name(Value val)
             return "model3d";
         case OBJ_IMAGE:
             return "image";
+        case OBJ_SPRITE:
+            return "sprite";
         default:
             return "undefined";
         }

@@ -216,6 +216,8 @@ Screen *screen_init(Color color)
 
     SDL_ShowCursor(SDL_DISABLE);
 
+    screen->offset_x = 0;
+    screen->offset_y = 0;
     screen->cursor_x = 0;
     screen->cursor_y = 0;
 
@@ -317,12 +319,18 @@ void screen_clear(Screen *screen, Color color)
  */
 void inline set_pixel(Screen *screen, int x, int y, Color color)
 {
+    x -= screen->offset_x;
+    y -= screen->offset_y;
+
     if ((unsigned)x < SCREEN_WIDTH && (unsigned)y < SCREEN_HEIGHT)
         screen->pixels[y * SCREEN_WIDTH + x] = colors[color % PALETTE_SIZE];
 }
 
 void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, double alpha)
 {
+    x -= screen->offset_x;
+    y -= screen->offset_y;
+
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
         return;
 
@@ -352,6 +360,9 @@ void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, dou
 
 void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightness)
 {
+    x -= screen->offset_x;
+    y -= screen->offset_y;
+
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
         return;
 

@@ -369,6 +369,12 @@ void free_object(Object *obj)
         free(image->alpha);
         break;
     }
+    case OBJ_SPRITE:
+    {
+        ObjSprite *sprite = (ObjSprite *)obj;
+        free(sprite->data);
+        break;
+    }
 
     default:
         // Handle other object types if needed

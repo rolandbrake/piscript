@@ -21,6 +21,7 @@
 #define IS_RANGE(o) IS_OBJ_TYPE(o, OBJ_RANGE)
 #define IS_MODEL(o) IS_OBJ_TYPE(o, OBJ_MODEL3D)
 #define IS_IMAGE(o) IS_OBJ_TYPE(o, OBJ_IMAGE)
+#define IS_SPRITE(o) IS_OBJ_TYPE(o, OBJ_SPRITE)
 
 #define IS_COLLECTION(o) (IS_LIST(o) || IS_MAP(o) || IS_STRING(o))
 
@@ -34,6 +35,7 @@
 #define AS_CODE(o) ((ObjCode *)AS_OBJ(o))
 #define AS_FILE(o) ((ObjFile *)AS_OBJ(o))
 #define AS_IMAGE(o) ((ObjImage *)AS_OBJ(o))
+#define AS_SPRITE(o) ((ObjSprite *)AS_OBJ(o))
 
 #define AS_CSTRING(o) AS_STRING(o)->chars
 
@@ -58,6 +60,7 @@ typedef enum
     OBJ_CODE,
     OBJ_FILE,
     OBJ_IMAGE,
+    OBJ_SPRITE,
     OBJ_MODEL3D,
     OBJ_SOUND
 } o_type;
@@ -172,6 +175,14 @@ typedef struct
     Sound data;   // Sound data from the cartridge if is_cart is true
 } ObjSound;
 
+typedef struct
+{
+    Object object;
+    uint8_t width;
+    uint8_t height;
+    uint8_t *data;
+} ObjSprite;
+
 uint32_t string_hash(char *chars, size_t length);
 Object *new_pistring(char *str);
 PiString *copy_pistring(char *chars, int length);
@@ -184,6 +195,7 @@ Object *new_file(FILE *file, char *filename, char *mode);
 ObjModel3d *new_model3d(triangle *triangles, int count, ObjImage *texture);
 ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha);
 ObjSound *new_sound(Mix_Chunk *chunk);
+ObjSprite *new_sprite(uint8_t width, uint8_t height, uint8_t *data);
 
 Value map_get(PiMap *map, Value key);
 void map_set(PiMap *map, Value key, Value value);

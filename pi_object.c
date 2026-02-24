@@ -227,6 +227,15 @@ ObjSound *new_sound(Mix_Chunk *chunk)
     return sound;
 }
 
+ObjSprite *new_sprite(uint8_t width, uint8_t height, uint8_t *data)
+{
+    ObjSprite *sprite = CREATE_OBJ(ObjSprite, OBJ_SPRITE);
+    sprite->width = width;
+    sprite->height = height;
+    sprite->data = data;
+    return sprite;
+}
+
 /**
  * Retrieves the value associated with a given key from a PiMap.
  *
