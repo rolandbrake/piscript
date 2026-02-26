@@ -1,16 +1,67 @@
 //Snake game implementation
 snake = [{x: 64, y: 64}]
 dir = {x: 1, y: 0}  // Initial direction: right
-food = {x: floor(rand() * 127), y: floor(rand() * 120) + 7}
+food = {x: floor(rand() * 120) + 4, y: floor(rand() * 120) + 4}
 game_over = false
 s = 8 
 r = 4
 speed = 8
 score = 0
-food_color = 1
+food_type = 0 // 0 = yellow, 1 = red
+
+fun spawn_food() {
+    food = {x: floor(rand() * 120) + 4, y: floor(rand() * 120) + 4}
+    food_type = floor(rand() * 5) == 0 ? 1 : 0
+}
+
+fun draw_playGround() {
+    let colors = [3, 11]
+    let index
+    for x in 0..128:16 {
+        for y in 0..128:16 {
+            index = ((x / 16) + (y / 16)) % 2
+            rect(x, y, 16, 16, colors[index], true)
+        }
+    }
+}
+
+fun draw_startScreen() {
+    draw_playGround()
+    text(36, 20, "SNAKE")
+    text(16, 34, "ARROWS: MOVE")
+    text(16, 44, "NO 180 TURN")
+    text(16, 54, "SPACE: START")
+    text(16, 64, "HIT BODY = GAME OVER")
+    text(16, 74, "WRAP: LEFT/RIGHT/TOP/BOTTOM")
+
+    circ(34, 92, r, 14, true)
+    text(44, 88, "YELLOW FOOD")
+    text(44, 96, "+10 POINTS")
+
+    circ(34, 108, r, 8, true)
+    text(44, 104, "RED FOOD")
+    text(44, 112, "+20 POINTS")
+
+    text(16, 122, "PRESS SPACE TO START")
+    draw()
+}
+
+spawn_food()
+
+let waiting_start = true
+while (waiting_start) {
+    draw_startScreen()
+    if (key('KEY_SPACE')) {
+        waiting_start = false
+        while (key('KEY_SPACE')) {
+            sleep(20)
+        }
+    }
+    sleep(40)
+}
 
 while (!game_over) {
-    clear(12)
+    draw_playGround()
     
     if (key('KEY_UP') && dir.y != 1) {
         dir = {x: 0, y: -1}
@@ -50,10 +101,8 @@ while (!game_over) {
     // Check if snake ate food
     let ate_food = false
     if (abs((head.x + 4) - food.x) < s && abs((head.y + 4) - food.y) < s) {
-        score += 10
-        food = {x: floor(rand() * 120) + 7, y: floor(rand() * 120) + 7}
-        food_color = floor(rand() * 16)
-        if (food_color == 12) food_color = 1
+        score += food_type == 1 ? 20 : 10
+        spawn_food()
         ate_food = true
 
         // ✅ Eat food sound (happy blip)        
@@ -72,6 +121,7 @@ while (!game_over) {
         rect(snake[i].x, snake[i].y, s, s, color, true)
     }
 
+    let food_color = food_type == 1 ? 8 : 14
     circ(food.x, food.y, r, food_color, true)
     text("SCORE: " + score)
 

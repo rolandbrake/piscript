@@ -178,8 +178,8 @@ typedef struct
 typedef struct
 {
     Object object;
-    uint8_t width;
-    uint8_t height;
+    uint16_t width;
+    uint16_t height;
     uint8_t *data;
 } ObjSprite;
 
@@ -195,7 +195,7 @@ Object *new_file(FILE *file, char *filename, char *mode);
 ObjModel3d *new_model3d(triangle *triangles, int count, ObjImage *texture);
 ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha);
 ObjSound *new_sound(Mix_Chunk *chunk);
-ObjSprite *new_sprite(uint8_t width, uint8_t height, uint8_t *data);
+ObjSprite *new_sprite(uint16_t width, uint16_t height, uint8_t *data);
 
 Value map_get(PiMap *map, Value key);
 void map_set(PiMap *map, Value key, Value value);

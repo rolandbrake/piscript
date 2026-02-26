@@ -250,12 +250,14 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
  * Sprite constructor/draw overloads:
  *  - sprite(index) -> returns a sprite object copied from the cartridge sprite sheet.
  *  - sprite(index, x, y) -> draws a cartridge sprite by index.
+ *  - sprite(index, x, y, centered) -> draws cartridge sprite centered at (x, y) when centered is true.
  *  - sprite(spriteObject, x, y) -> draws a sprite object.
+ *  - sprite(spriteObject, x, y, centered) -> draws sprite object centered at (x, y) when centered is true.
  */
 Value pi_sprite(vm_t *vm, int argc, Value *argv)
 {
-    if (argc != 1 && argc != 3)
-        vm_error(vm, "[sprite] expects either sprite(index) or sprite(index|sprite, x, y).");
+    if (argc != 1 && argc != 3 && argc != 4)
+        vm_error(vm, "[sprite] expects sprite(index) or sprite(index|sprite, x, y [, centered]).");
 
     if (IS_NUM(argv[0]))
     {
@@ -280,16 +282,21 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
                 vm_error(vm, "[sprite] failed to allocate sprite data.");
 
             memcpy(data, sprite->pixels, pixels_size);
-            return NEW_OBJ(new_sprite((uint8_t)sprite->width, (uint8_t)sprite->height, data));
+            return NEW_OBJ(new_sprite(sprite->width, sprite->height, data));
         }
 
         if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
             vm_error(vm, "[sprite] draw mode expects numeric x and y.");
+        if (argc == 4 && !IS_BOOL(argv[3]))
+            vm_error(vm, "[sprite] centered must be a boolean.");
 
         int x = (int)AS_NUM(argv[1]);
         int y = (int)AS_NUM(argv[2]);
         if ((double)x != AS_NUM(argv[1]) || (double)y != AS_NUM(argv[2]))
             vm_error(vm, "[sprite] x and y must be integers.");
+        bool centered = (argc == 4) ? AS_BOOL(argv[3]) : false;
+        int draw_x = centered ? x - ((int)sprite->width / 2) : x;
+        int draw_y = centered ? y - ((int)sprite->height / 2) : y;
 
         // Draw mode: sprite(index, x, y) -> nil
         for (int i = 0; i < sprite->height; i++)
@@ -298,7 +305,7 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
             {
                 uint8_t color = sprite->pixels[i * sprite->width + j];
                 if (color != 0)
-                    set_pixel(vm->screen, j + x, i + y, color);
+                    set_pixel(vm->screen, j + draw_x, i + draw_y, color);
             }
         }
 
@@ -308,11 +315,13 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
     if (!IS_SPRITE(argv[0]))
         vm_error(vm, "[sprite] first argument must be a sprite index or sprite object.");
 
-    if (argc != 3)
-        vm_error(vm, "[sprite] sprite object mode expects 3 arguments: sprite, x, y.");
+    if (argc != 3 && argc != 4)
+        vm_error(vm, "[sprite] sprite object mode expects sprite, x, y [, centered].");
 
     if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
         vm_error(vm, "[sprite] draw mode expects numeric x and y.");
+    if (argc == 4 && !IS_BOOL(argv[3]))
+        vm_error(vm, "[sprite] centered must be a boolean.");
 
     int x = (int)AS_NUM(argv[1]);
     int y = (int)AS_NUM(argv[2]);
@@ -320,13 +329,16 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[sprite] x and y must be integers.");
 
     ObjSprite *obj_sprite = AS_SPRITE(argv[0]);
+    bool centered = (argc == 4) ? AS_BOOL(argv[3]) : false;
+    int draw_x = centered ? x - ((int)obj_sprite->width / 2) : x;
+    int draw_y = centered ? y - ((int)obj_sprite->height / 2) : y;
     for (int i = 0; i < obj_sprite->height; i++)
     {
         for (int j = 0; j < obj_sprite->width; j++)
         {
             uint8_t color = obj_sprite->data[i * obj_sprite->width + j];
             if (color != 0)
-                set_pixel(vm->screen, j + x, i + y, color);
+                set_pixel(vm->screen, j + draw_x, i + draw_y, color);
         }
     }
 

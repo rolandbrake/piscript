@@ -1923,6 +1923,8 @@ void run(vm_t *vm)
         {
 
 
+
+
 #ifdef DEBUG
             printf("[DEBUG] SP: %d\n", vm->sp);
             printf("[GC] Running garbage collection...\n");
