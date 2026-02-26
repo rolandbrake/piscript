@@ -140,12 +140,29 @@ void mark_object(Object *obj)
                 mark_value(*item); // Ensure items inside lists are also marked
         }
         break;
-    }    case OBJ_MAP:
+    }
+
+    case OBJ_MAP:
     {
         PiMap *map = (PiMap *)obj;
-        // Values stored in the table are plain Value cells. Any nested
-        // objects are owned by the VM object list and must not be freed here.
-        ht_free(map->table);
+
+        if (map->proto)
+            mark_object((Object *)map->proto);
+
+        table_t *table = map->table;
+        if (!table)
+            break;
+
+        for (int i = 0; i < table->capacity; i++)
+        {
+            ht_item *item = &table->items[i];
+            if (!item->key || !item->value)
+                continue;
+
+            Value *val = (Value *)item->value;
+            if (val && IS_OBJ(*val))
+                mark_object(AS_OBJ(*val));
+        }
         break;
     }
 
@@ -263,11 +280,11 @@ void free_object(Object *obj)
     {
         // Free the memory allocated for the list items
         PiList *list = (PiList *)obj;
-
         list_free(list->items);
-
         break;
-    }    case OBJ_MAP:
+    }
+
+    case OBJ_MAP:
     {
         PiMap *map = (PiMap *)obj;
         // Values stored in the table are plain Value cells. Any nested
@@ -280,7 +297,7 @@ void free_object(Object *obj)
     {
         // Free the memory allocated for the code list
         ObjCode *code = (ObjCode *)obj;
-        free(code->data);
+        list_free(code->data);
         break;
     }
 
@@ -300,20 +317,20 @@ void free_object(Object *obj)
         break;
     }
 
-    // case OBJ_IMAGE:
-    // {
-    //     // Free the memory allocated for the image's pixels and alpha channel
-    //     ObjImage *image = (ObjImage *)obj;
-    //     free(image->pixels);
-    //     free(image->alpha);
-    //     break;
-    // }
-    // case OBJ_SPRITE:
-    // {
-    //     ObjSprite *sprite = (ObjSprite *)obj;
-    //     free(sprite->data);
-    //     break;
-    // }
+    case OBJ_IMAGE:
+    {
+        // Free the memory allocated for the image's pixels and alpha channel
+        ObjImage *image = (ObjImage *)obj;
+        free(image->pixels);
+        free(image->alpha);
+        break;
+    }
+    case OBJ_SPRITE:
+    {
+        ObjSprite *sprite = (ObjSprite *)obj;
+        free(sprite->data);
+        break;
+    }
 
     default:
         // Handle other object types if needed
@@ -390,7 +407,9 @@ void mark_roots(vm_t *vm)
 void run_gc(vm_t *vm)
 {
 
-    mark_globals(vm);`r`n    mark_iters(vm);`r`n    mark_constants(vm);
+    mark_globals(vm);
+    mark_iters(vm);
+    mark_constants(vm);
 
     // Mark all roots: typically the VM's stack, global variables, etc.
     mark_roots(vm);

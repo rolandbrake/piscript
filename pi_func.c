@@ -24,6 +24,9 @@ Object *new_func(char *name, ObjCode *body, list_t *params, UpValue **upvalues, 
     // Initialize object header
     object->type = OBJ_FUN;
     object->is_marked = false;
+    object->in_gcList = false;
+    object->gc_color = GC_WHITE;
+    object->next = NULL;
 
     Function *fn = (Function *)object;
 
@@ -75,6 +78,9 @@ Value *new_native(const char *name, native_func func)
 
     val->data.object->type = OBJ_FUN;
     val->data.object->is_marked = true;
+    val->data.object->in_gcList = false;
+    val->data.object->gc_color = GC_WHITE;
+    val->data.object->next = NULL;
 
     // Cast the allocated object to Function
     Function *fn = (Function *)val->data.object;

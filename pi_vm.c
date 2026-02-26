@@ -1671,7 +1671,7 @@ void run(vm_t *vm)
             // Read the number of upvalues
             int numUpvalues = code[pc++];
 
-            UpValue **upvalues = ALLOCATE(UpValue *, numUpvalues);
+            UpValue **upvalues = ALLOCATE(UpValue *, numUpvalues + 1);
 
             // Populate the upvalue list directly from the stack
             for (int i = 0; i < numUpvalues; i++)
@@ -1687,6 +1687,7 @@ void run(vm_t *vm)
 
                 upvalues[numUpvalues - i - 1] = upvalue;
             }
+            upvalues[numUpvalues] = NULL;
 
             ObjCode *body = AS_CODE(pop_stack(vm));
             char *name = AS_CSTRING(pop_stack(vm));
