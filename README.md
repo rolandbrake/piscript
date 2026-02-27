@@ -30,8 +30,65 @@ Pi-Script is ideal for:
 - 🧩 Lightweight scripting integration in C projects
 
 ---
+
 <h1 align="center"> Pi-Script In Action </h1>
-<p align="center"><img src= "./images/examples.gif" alt="Piscript in action" /></p>
+
+<p align="center">
+  <img src="./images/examples.gif" alt="Piscript in action" />
+</p>
+
+Pi-Script makes it easy to create visual experiments, animations, and small interactive programs inside a retro-style virtual console.
+
+---
+
+# 🖥 Pi Shell
+
+<p align="">
+  <img src="./images/shell.gif" alt="Pi Shell Demo" width="300"/>
+</p>
+
+**Pi Shell** is the native desktop runtime environment for Pi-Script.
+
+It provides a lightweight development workflow for running Pi-Script locally with:
+
+- 🧠 Interactive script execution
+- 📁 File-based project support
+- ⚡ Fast native performance
+- 🛠 Integrated graphics window
+- 🧩 Ideal for game development and experiments
+
+Run scripts directly:
+
+```bash
+./pi run mygame.pi
+```
+
+Pi Shell extends Pi-Script beyond the browser, turning it into a practical creative coding tool for real desktop development.
+
+---
+
+# 🐍 Pi-Script In Action — Snake Game
+
+<p align="">
+  <img src="./images/snake.gif" alt="Snake Game in Pi-Script"  width="300"/>
+</p>
+
+A complete Snake game built entirely in Pi-Script.
+
+This example demonstrates:
+
+- 🎮 Game loop implementation
+- 🕹 Keyboard input handling
+- 🧠 State management
+- 🎨 Real-time rendering with `pixel()` and `draw()`
+- ⚡ Smooth performance inside the 128×128 virtual console
+
+The Snake game proves that Pi-Script is capable of building fully playable retro-style games with clean and minimal code.
+
+Try it in:
+
+- 🌐 Online Playground  
+- 🖥 Pi Shell (native build)
 
 ---
 
@@ -124,4 +181,6 @@ Run this example:
 
 - In the online playground  
   👉 https://piscript.netlify.app/playground  
-- Or using the nativ
+- Or using the native build via Pi Shell
+
+---

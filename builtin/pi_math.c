@@ -1395,7 +1395,7 @@ Value pi_abs(vm_t *vm, int argc, Value *argv)
  * @param argv The arguments (a single numeric value).
  * @return The natural logarithm of the number.
  */
-Value pi_log(vm_t *vm, int argc, Value *argv)
+Value pi_logE(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0 || !is_numeric(argv[0]))
         vm_error(vm,"[log] expects a single numeric argument.");

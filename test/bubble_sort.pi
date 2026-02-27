@@ -1,4 +1,4 @@
-fun bubbleSort(list =  []) {
+fun bubbleSort(list = []) {
     let n = #list    
     let swapped = false
     for i in 0..n {             
@@ -17,3 +17,6 @@ fun bubbleSort(list =  []) {
   }
   
   println(bubbleSort([5,4,3,2,1]))
+
+  draw()
+  sleep(5000) // Keep the console open to view the output

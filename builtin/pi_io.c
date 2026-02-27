@@ -3,166 +3,298 @@
 #include <stdio.h>
 #include <string.h>
 
-#define BUFFER_SIZE 1024
-
 #include "pi_io.h"
 
 #include "../common.h"
 #include "../screen.h"
 
 /**
- * @brief Prints its arguments to the console followed by a newline.
+ * @brief Appends a string to the given buffer.
  *
- * Converts each argument to a string and concatenates them together with
- * spaces in between. The resulting string is then printed to the console.
+ * This function appends a string to the given buffer. It takes care to not
+ * overflow the buffer. If the buffer is full, it does nothing.
  *
- * @param vm The virtual machine instance.
- * @param argc Number of arguments passed to the function.
- * @param argv The arguments provided to the function.
- * @return Nil
+ * @param buffer The buffer to append to.
+ * @param offset A pointer to the offset of the buffer.
+ * @param text The string to append.
  */
-Value pi_println(vm_t *vm, int argc, Value *argv)
+static void append(char *buffer, int *offset, const char *text)
 {
+    int remaining = BUFFER_SIZE - *offset - 1;
+    if (remaining <= 0)
+        return;
 
-    char result[1024] = "";
-    int offset = 0;
-
-    for (int i = 0; i < argc; i++)
-    {
-        const char *str;
-        bool is_allocated = false;
-        str = as_string(argv[i]);
-
-        int len = strlen(str);
-        if (offset + len >= 1024)
-            vm_error(vm,"[println] Output string is too long.");
-
-        strcat(result, str);
-        offset += len;
-
-        if (is_allocated)
-            free((void *)str); // Only free if allocated
-    }
-
-    SDL_Delay(0);
-    printf("%s\n", result);
-    return NEW_NIL();
+    // Calculate how much of the string can be written into the buffer
+    int written = snprintf(buffer + *offset, remaining, "%s", text);
+    if (written > 0)
+        // Update the offset to reflect the amount of characters written
+        *offset += written;
 }
 
 /**
- * @brief Prints its arguments to the console without a trailing newline.
+ * @brief Appends a single character to the given buffer.
  *
- * Converts each argument to a string and concatenates them together with
- * spaces in between. The resulting string is then printed to the console.
+ * This function appends a single character to the given buffer. It takes
+ * care to not overflow the buffer. If the buffer is full, it does
+ * nothing.
+ *
+ * @param buffer The buffer to append to.
+ * @param offset A pointer to the offset of the buffer.
+ * @param c The character to append.
+ */
+static void append_char(char *buffer, int *offset, char c)
+{
+    // Check if the buffer is full
+    if (*offset >= BUFFER_SIZE - 1)
+        return;
+
+    // Append the character
+    buffer[*offset] = c;
+    (*offset)++;
+
+    // Null terminate the buffer
+    buffer[*offset] = '\0';
+}
+
+/**
+ * @brief Prints a string on the screen.
+ *
+ * This function takes one or three arguments: the text to be printed, and
+ * optionally the x and y coordinates of the text position, and the text
+ * color index. The text color index is wrapped within 32. An error is
+ * raised if less than one argument is provided.
  *
  * @param vm The virtual machine instance.
- * @param argc Number of arguments passed to the function.
- * @param argv The arguments provided to the function.
- * @return Nil
+ * @param argc The number of arguments (1 to 3).
+ * @param argv The arguments: text (string), x (integer, optional), y (integer, optional), and text_color (integer, optional).
+ * @return A nil value indicating completion.
  */
 Value pi_print(vm_t *vm, int argc, Value *argv)
 {
+    if (argc < 1)
+        vm_error(vm, "[print] expects at least text.");
 
-    if (argc == 0)
-        vm_error(vm,"[print] expects at least one argument.");
+    const char *text = as_string(argv[0]);
 
-    for (int i = 0; i < argc; i++)
-        print_value(argv[i], false);
+    int x = vm->screen->cursor_x;
+    int y = vm->screen->cursor_y;
+    int color = vm->screen->text_color;
 
-    return NEW_NIL();
-}
-
-/**
- * @brief Prints a formatted string to the console.
- *
- * @param vm The virtual machine instance.
- * @param argc Number of arguments.
- * @param argv Arguments: format string followed by values to format into the string.
- *
- * The format string uses the following notation:
- * - `{n}` where `n` is a single digit, inserts the value at index `n` (0-indexed)
- * - `\\n` inserts a newline
- *
- * @return Nil
- */
-Value pi_printf(vm_t *vm, int argc, Value *argv)
-{
-    if (argc == 0 || !IS_STRING(argv[0]))
-        vm_error(vm,"[printf] expects a format string as the first argument.");
-
-    const char *format = AS_CSTRING(argv[0]);
-    char result[1024] = "";
-
-    for (const char *p = format; *p; p++)
-    {
-        if (*p == '{' && isdigit(*(p + 1)) && *(p + 2) == '}')
-        {
-            int index = *(p + 1) - '0';
-            if (index + 1 >= argc)
-                vm_error(vm,"[printf] argument index out of range.");
-
-            strcat(result, as_string(argv[index + 1]));
-            p += 2; // Skip over the "{n}" part
-        }
-        else if (*p == '\\' && *(p + 1) == 'n')
-        {
-            strcat(result, "\n");
-            p++; // Skip over the '\n'
-        }
-        else
-            strncat(result, p, 1);
-    }
-
-    printf("%s", result);
-    return NEW_NIL();
-}
-
-/**
- * @brief Renders text at a specified position on the screen.
- *
- * This function displays a given string at the specified (x, y) coordinates
- * on the screen. If only a single string argument is provided, the text is
- * rendered at the current cursor position. Optionally, a color can be specified.
- *
- * @param vm The virtual machine instance.
- * @param argc The number of arguments passed to the function.
- * @param argv The arguments provided to the function, which include:
- *             - x (integer): The x-coordinate for text rendering.
- *             - y (integer): The y-coordinate for text rendering.
- *             - text (string): The text to render.
- *             - color (optional integer): The color to use for rendering.
- * @return Nil
- */
-Value pi_text(vm_t *vm, int argc, Value *argv)
-{
-    int x, y;
-    const char *text;
-    int color = 0;
-
+    // Optional arguments
     if (argc >= 3)
     {
-        // First two arguments are cursor position
-        x = as_number(argv[0]);
-        y = as_number(argv[1]);
-        text = as_string(argv[2]);
-    }
-    else if (argc == 1 && IS_STRING(argv[0]))
-    {
-        // Single string argument, print at default cursor position
-        x = vm->screen->cursor_x;
-        y = vm->screen->cursor_y;
-        text = as_string(argv[0]);
+        x = (int)as_number(argv[1]);
+        y = (int)as_number(argv[2]);
     }
 
     if (argc >= 4 && IS_NUM(argv[3]))
-        color = AS_NUM(argv[3]);
-    // else
-    //     vm_error(vm,"[text] expects either 3 arguments (x, y, string) or 1 string argument.");
+        color = (int)AS_NUM(argv[3]);
 
     screen_print(vm->screen, text, x, y, color);
+
     return NEW_NIL();
 }
 
+/**
+ * @brief Prints a string on the screen followed by a newline character.
+ *
+ * This function takes one or four arguments: the text to be printed, and
+ * optionally the x and y coordinates of the text position, and the text
+ * color index. The text color index is wrapped within 32. An error is
+ * raised if less than one argument is provided.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments (1 to 4).
+ * @param argv The arguments: text (string), x (integer, optional), y (integer, optional), and text_color (integer, optional).
+ * @return A nil value indicating completion.
+ */
+Value pi_println(vm_t *vm, int argc, Value *argv)
+{
+    if (argc == 0)
+    {
+        // Just move to the next line if no text is provided
+        vm->screen->cursor_x = 1;
+        vm->screen->cursor_y += 6; // Move down by 6 pixels for
+        return NEW_NIL();
+    }
+
+    // Get the text to be printed
+    const char *text = as_string(argv[0]);
+
+    // Get the x and y coordinates of the text position
+    int x = vm->screen->cursor_x;
+    int y = vm->screen->cursor_y;
+
+    // Get the text color index
+    int color = vm->screen->text_color;
+
+    // Parse optional arguments
+    if (argc >= 3)
+    {
+        // Get the x coordinate
+        x = (int)as_number(argv[1]);
+
+        // Get the y coordinate
+        y = (int)as_number(argv[2]);
+    }
+
+    if (argc >= 4 && IS_NUM(argv[3]))
+    {
+        // Get the text color index
+        color = (int)AS_NUM(argv[3]);
+    }
+
+    // Print the text
+    screen_print(vm->screen, text, x, y, color);
+
+    // Move the cursor to the next line
+    vm->screen->cursor_x = 1;
+    vm->screen->cursor_y = y + 6;
+
+    return NEW_NIL();
+}
+
+/**
+ * @brief Prints a formatted string on the screen.
+ *
+ * This function takes one or more arguments: the format string, and
+ * optionally any number of values to be formatted into the string.
+ * The format string is expected to contain placeholders in the form of
+ * {index:color} where index is the 0-based index of the value to be
+ * formatted, and color is the text color index to use for the formatted
+ * value.
+ *
+ * The format string is also expected to contain newline characters (\n) which
+ * will move the cursor to the next line.
+ *
+ * The function is case-insensitive.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The number of arguments (1 to N).
+ * @param argv The arguments: format (string), and optionally values to be formatted.
+ * @return A nil value indicating completion.
+ */
+Value pi_printf(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1 || !IS_STRING(argv[0]))
+        vm_error(vm, "[printf] expects format string.");
+
+    const char *format = AS_CSTRING(argv[0]);
+
+    char result[BUFFER_SIZE];
+    result[0] = '\0';
+    int offset = 0;
+
+    for (const char *p = format; *p; p++)
+    {
+        // Handle {index:color}
+        if (*p == '{')
+        {
+            const char *start = p;
+            p++;
+
+            if (!isdigit(*p))
+            {
+                p = start;
+                append_char(result, &offset, *p);
+                continue;
+            }
+
+            int index = *p - '0';
+            p++;
+
+            int color = vm->screen->text_color;
+
+            if (*p == ':')
+            {
+                p++;
+                if (!isdigit(*p))
+                    vm_error(vm, "[printf] invalid color format.");
+
+                color = *p - '0';
+                p++;
+            }
+
+            if (*p != '}')
+                vm_error(vm, "[printf] missing closing }.");
+
+            if (index + 1 >= argc)
+                vm_error(vm, "[printf] argument index out of range.");
+
+            const char *arg = as_string(argv[index + 1]);
+
+            // Render directly with color
+            screen_print(
+                vm->screen,
+                arg,
+                vm->screen->cursor_x,
+                vm->screen->cursor_y,
+                color);
+
+            continue;
+        }
+
+        // Handle \n
+        if (*p == '\\' && *(p + 1) == 'n')
+        {
+            vm->screen->cursor_x = 1;
+            vm->screen->cursor_y += 6;
+            p++;
+            continue;
+        }
+
+        // Normal character
+        char temp[2] = {*p, '\0'};
+        screen_print(
+            vm->screen,
+            temp,
+            vm->screen->cursor_x,
+            vm->screen->cursor_y,
+            vm->screen->text_color);
+    }
+
+    return NEW_NIL();
+}
+
+/**
+ * @brief Prints a message to the console.
+ *
+ * This function takes a message as a string and prints it to the console.
+ * It also takes an optional flag string that specifies the type of log message:
+ *   - "e" for error log messages
+ *   - "w" for warning log messages
+ *
+ * If no flag is provided, the message is simply printed to the console.
+ *
+ * @param vm The virtual machine instance.
+ * @param argc The argument count; expects at least 1 argument.
+ * @param argv The argument values; expects the first argument to be a string.
+ * @return A nil value indicating completion.
+ */
+Value pi_log(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1)
+        vm_error(vm, "[log] expects message.");
+
+    const char *msg = as_string(argv[0]);
+
+    const char *flag = "i";
+
+    if (argc >= 2 && IS_STRING(argv[1]))
+        flag = AS_CSTRING(argv[1]);
+
+    // Error log message
+    if (strcmp(flag, "e") == 0)
+        printf(ANSI_RED "%s" ANSI_RESET "\n", msg);
+    // Warning log message
+    else if (strcmp(flag, "w") == 0)
+        printf(ANSI_YELLOW "%s" ANSI_RESET "\n", msg);
+    // Normal log message
+    else
+        printf("%s\n", msg);
+
+    return NEW_NIL();
+}
 /**
  * @brief Maps a key name to its corresponding SDL_Scancode.
  *
@@ -259,7 +391,7 @@ static SDL_Scancode get_keyCode(const char *keyname)
 Value pi_key(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
-        vm_error(vm,"[key] expects at least one argument (string or number)");
+        vm_error(vm, "[key] expects at least one argument (string or number)");
 
     bool once = false;
 
@@ -273,12 +405,12 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
         const char *keyname = as_string(argv[0]);
         scancode = get_keyCode(keyname);
         if (scancode == SDL_SCANCODE_UNKNOWN)
-            vm_errorf(vm,"[key] Unknown key name: %s", keyname);
+            vm_errorf(vm, "[key] Unknown key name: %s", keyname);
     }
     else if (IS_NUM(argv[0]))
         scancode = (SDL_Scancode)as_number(argv[0]);
     else
-        vm_error(vm,"[key] Argument must be string or number");
+        vm_error(vm, "[key] Argument must be string or number");
 
     SDL_PumpEvents();
     const Uint8 *keystate = SDL_GetKeyboardState(NULL);
@@ -294,9 +426,9 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
             prev_pressed = true;
             return NEW_BOOL(true);
         }
-        else if (!pressed)        
+        else if (!pressed)
             prev_pressed = false;
-        
+
         return NEW_BOOL(false);
     }
     else
@@ -315,7 +447,7 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
 Value pi_input(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1 || !IS_STRING(argv[0]))
-        vm_error(vm,"[input] expects a single string argument as a prompt.");
+        vm_error(vm, "[input] expects a single string argument as a prompt.");
 
     PiString *prompt = AS_STRING(argv[0]);
     printf("%s", prompt->chars);
@@ -323,7 +455,7 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
 
     char buffer[BUFFER_SIZE];
     if (!fgets(buffer, BUFFER_SIZE, stdin))
-        vm_error(vm,"[input] Failed to read input.");
+        vm_error(vm, "[input] Failed to read input.");
 
     // Remove trailing newline if exists
     size_t len = strlen(buffer);
@@ -344,7 +476,7 @@ Value pi_input(vm_t *vm, int argc, Value *argv)
 Value pi_open(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || !IS_STRING(argv[0]))
-        vm_error(vm,"[open] expects a single string argument as a file path.");
+        vm_error(vm, "[open] expects a single string argument as a file path.");
 
     char *mode = "r";
     if (argc >= 2)
@@ -352,14 +484,14 @@ Value pi_open(vm_t *vm, int argc, Value *argv)
         if (IS_STRING(argv[1]))
             mode = AS_CSTRING(argv[1]);
         else
-            vm_error(vm,"[open] expects a string argument as a file mode.");
+            vm_error(vm, "[open] expects a string argument as a file mode.");
     }
 
     PiString *path = AS_STRING(argv[0]);
     FILE *file = fopen(path->chars, mode);
 
     if (!file)
-        vm_errorf(vm,"[open] Failed to open file: %s", path->chars);
+        vm_errorf(vm, "[open] Failed to open file: %s", path->chars);
 
     // Extract filename from path
     const char *fullpath = path->chars;
@@ -392,12 +524,12 @@ Value pi_open(vm_t *vm, int argc, Value *argv)
 Value pi_read(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        vm_error(vm,"[read] expects a single file handler as argument.");
+        vm_error(vm, "[read] expects a single file handler as argument.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        vm_error(vm,"[read] File is closed.");
+        vm_error(vm, "[read] File is closed.");
 
     size_t buffer_size = BUFFER_SIZE;
     size_t capacity = buffer_size;
@@ -405,7 +537,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
 
     char *content = malloc(capacity);
     if (!content)
-        vm_error(vm,"[read] Out of memory.");
+        vm_error(vm, "[read] Out of memory.");
 
     while (!feof(file->fp))
     {
@@ -416,7 +548,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
             if (!new_content)
             {
                 free(content);
-                vm_error(vm,"[read] Out of memory during read.");
+                vm_error(vm, "[read] Out of memory during read.");
             }
             content = new_content;
         }
@@ -425,7 +557,7 @@ Value pi_read(vm_t *vm, int argc, Value *argv)
         if (ferror(file->fp))
         {
             free(content);
-            vm_errorf(vm,"[read] Failed to read file: %s", file->filename);
+            vm_errorf(vm, "[read] Failed to read file: %s", file->filename);
         }
         length += bytes;
     }
@@ -449,22 +581,22 @@ Value pi_write(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        vm_error(vm,"[write] expects a file handler and a string as arguments.");
+        vm_error(vm, "[write] expects a file handler and a string as arguments.");
 
     if (!IS_STRING(argv[1]))
-        vm_error(vm,"[write] second argument must be a string.");
+        vm_error(vm, "[write] second argument must be a string.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        vm_error(vm,"[write] File is closed.");
+        vm_error(vm, "[write] File is closed.");
 
     char *str = AS_CSTRING(argv[1]);
 
     size_t written = fwrite(str, 1, strlen(str), file->fp);
 
     if (written < strlen(str) || ferror(file->fp))
-        vm_errorf(vm,"[write] Failed to write to file: %s", file->filename);
+        vm_errorf(vm, "[write] Failed to write to file: %s", file->filename);
 
     return NEW_BOOL(true); // or return number of bytes written if you want
 }
@@ -481,19 +613,19 @@ Value pi_seek(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        vm_error(vm,"[seek] expects a file handler and a number as arguments.");
+        vm_error(vm, "[seek] expects a file handler and a number as arguments.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (file->closed)
-        vm_error(vm,"[seek] File is closed.");
+        vm_error(vm, "[seek] File is closed.");
 
     if (!IS_NUM(argv[1]))
-        vm_error(vm,"[seek] second argument must be a number.");
+        vm_error(vm, "[seek] second argument must be a number.");
 
     long pos = as_number(argv[1]);
     if (fseek(file->fp, pos, SEEK_SET) != 0)
-        vm_errorf(vm,"[seek] Failed to seek in file: %s", file->filename);
+        vm_errorf(vm, "[seek] Failed to seek in file: %s", file->filename);
 
     return NEW_BOOL(true);
 }
@@ -510,15 +642,13 @@ Value pi_close(vm_t *vm, int argc, Value *argv)
 {
 
     if (argc != 1 || OBJ_TYPE(argv[0]) != OBJ_FILE)
-        vm_error(vm,"[close] expects a file handler as argument.");
+        vm_error(vm, "[close] expects a file handler as argument.");
 
     ObjFile *file = AS_FILE(argv[0]);
 
     if (fclose(file->fp) != 0)
-        vm_errorf(vm,"[close] Failed to close file: %s", file->filename);
+        vm_errorf(vm, "[close] Failed to close file: %s", file->filename);
 
     file->closed = true;
     return NEW_BOOL(true);
 }
-
-

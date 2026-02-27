@@ -84,7 +84,7 @@ for(row in 0..9){
     println();
 }
 
-println("--------------------------------------------");
+println("-----------------------------");
 
 // Solve the Sudoku puzzle
 if(solve_sudoku()){
@@ -97,3 +97,6 @@ if(solve_sudoku()){
 }
 else
     println("No solution exists.");
+
+draw()
+sleep(5000) // Keep the console open to view the output   

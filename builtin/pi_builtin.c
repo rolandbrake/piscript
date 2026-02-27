@@ -34,6 +34,7 @@ BuiltinFunc builtin_functions[] = {
     {"exp", pi_exp},
     {"log2", pi_log2},
     {"log10", pi_log10},
+    {"logE", pi_logE},
     {"pow", pi_pow},
     {"abs", pi_abs},
     {"mean", pi_mean},
@@ -71,12 +72,12 @@ BuiltinFunc builtin_functions[] = {
     {"sleep", pi_sleep},
     {"time", _pi_time},
 
-    // IO
+    // IO    
     {"println", pi_println},
     {"print", pi_print},
     {"printf", pi_printf},
-    {"key", pi_key},
-    {"text", pi_text},
+    {"log", pi_log},
+    {"key", pi_key},    
     {"input", pi_input},
 
     // File

@@ -4,7 +4,6 @@
 #include "../list.h"
 #include "pi_plot.h"
 
-
 Value pi_fps(vm_t *vm, int argc, Value *argv)
 {
     int fps = round(vm->fps);
@@ -14,7 +13,7 @@ Value pi_fps(vm_t *vm, int argc, Value *argv)
 Value _pi_type(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        vm_error(vm,"[type] expects at least one argument.");
+        vm_error(vm, "[type] expects at least one argument.");
 
     char *type = type_name(argv[0]);
 
@@ -24,7 +23,7 @@ Value _pi_type(vm_t *vm, int argc, Value *argv)
 Value pi_error(vm_t *vm, int argc, Value *argv)
 {
     if (argc == 0)
-        vm_error(vm,"[error] expects at least one argument.");
+        vm_error(vm, "[error] expects at least one argument.");
 
     const char *str = as_string(argv[0]);
     printf("Error: %s\n", str);
@@ -35,29 +34,28 @@ Value pi_error(vm_t *vm, int argc, Value *argv)
 /**
  * @brief Sets the cursor position on the screen.
  *
- * This function takes two arguments representing the x and y coordinates,
- * and sets the virtual machine's screen cursor to these coordinates.
- * An error is raised if no arguments are provided.
+ * This function takes two or three numeric arguments: the x and y coordinates, and
+ * optionally the text color index. The text color index is wrapped within 32. An
+ * error is raised if less than two arguments are provided.
  *
  * @param vm The virtual machine instance.
- * @param argc The number of arguments passed to the function.
- * @param argv The arguments provided to the function, which include:
- *             - x (integer): The x-coordinate for the cursor position.
- *             - y (integer): The y-coordinate for the cursor position.
- * @return Nil
+ * @param argc The number of arguments (2 or 3).
+ * @param argv The arguments: x, y, and optionally text_color.
+ * @return A nil value indicating completion.
  */
-
 Value pi_cursor(vm_t *vm, int argc, Value *argv)
 {
+    if (argc < 2)
+        vm_error(vm, "[cursor] expects at least x and y.");
 
-    if (argc == 0)
-        vm_error(vm,"[cursor] expects at least one argument.");
-
-    int x = as_number(argv[0]);
-    int y = as_number(argv[1]);
+    int x = (int)as_number(argv[0]);
+    int y = (int)as_number(argv[1]);
 
     vm->screen->cursor_x = x;
     vm->screen->cursor_y = y;
+
+    if (argc >= 3 && IS_NUM(argv[2]))
+        vm->screen->text_color = (Color)AS_NUM(argv[2]);
 
     return NEW_NIL();
 }

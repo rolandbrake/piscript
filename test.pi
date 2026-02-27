@@ -1,1 +1,6 @@
-println("Hello, Mars");
+clear(12)
+println("Hello, World!")
+println("This is a test program.")
+draw()
+sleep(2000)
+

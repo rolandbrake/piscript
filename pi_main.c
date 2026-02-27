@@ -808,18 +808,18 @@ static void shell_read(char *buffer, int size, ...)
                 int y = base_y + r * CHAR_HEIGHT;
 
                 char ch[2] = {buffer[i], '\0'};
-                Color current_char_color = text_color;
+                Color current_charColor = text_color;
 
                 if (is_command && i < strlen(command_name))
                 {
-                    current_char_color = cmd_color;
+                    current_charColor = cmd_color;
                 }
                 else if (isspace(buffer[i]) && is_command)
                 {
                     is_command = false; // Stop coloring command once space is encountered
                 }
 
-                screen_print(screen, ch, x, y, current_char_color);
+                screen_print(screen, ch, x, y, current_charColor);
             }
         }
 

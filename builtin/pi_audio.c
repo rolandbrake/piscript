@@ -377,16 +377,16 @@ Value pi_play(vm_t *vm, int argc, Value *argv)
 
     if (argc >= 2)
     {
-        if (!IS_NUM(argv[1]))
-            vm_error(vm, "[play] channel must be a number.");
-        channel = (int)AS_NUM(argv[1]);
+        if (!IS_BOOL(argv[1]))
+            vm_error(vm, "[play] loop must be a boolean.");
+        loop = AS_BOOL(argv[1]);
     }
 
     if (argc >= 3)
     {
-        if (!IS_BOOL(argv[2]))
-            vm_error(vm, "[play] loop must be a boolean.");
-        loop = AS_BOOL(argv[2]);
+        if (!IS_NUM(argv[2]))
+            vm_error(vm, "[play] channel must be a number.");
+        channel = (int)AS_NUM(argv[2]);
     }
 
     if (argc >= 4)

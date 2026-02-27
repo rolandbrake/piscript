@@ -61,6 +61,10 @@ Value pi_log2(vm_t *vm, int argc, Value *argv);
 // Returns the base-10 logarithm of a number or each element in a list.
 Value pi_log10(vm_t *vm, int argc, Value *argv);
 
+
+// Returns the natural logarithm of a number or each element in a list.
+Value pi_logE(vm_t *vm, int argc, Value *argv);
+
 // Returns a number raised to the power of another number.
 Value pi_pow(vm_t *vm, int argc, Value *argv);
 

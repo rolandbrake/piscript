@@ -218,8 +218,9 @@ Screen *screen_init(Color color)
 
     screen->offset_x = 0;
     screen->offset_y = 0;
-    screen->cursor_x = 0;
-    screen->cursor_y = 0;
+    screen->cursor_x = 1;
+    screen->cursor_y = 1;
+    screen->text_color = COLOR_WHITE;
 
     screen_clear(screen, color);
     screen_update(screen);
@@ -601,7 +602,6 @@ void screen_print(Screen *screen, const char *text, int x, int y, Color color)
 {
     screen->cursor_x = x;
     screen->cursor_y = y;
-
     for (const char *c = text; *c; c++)
     {
         unsigned char ch = (unsigned char)*c;
@@ -648,9 +648,7 @@ void screen_print(Screen *screen, const char *text, int x, int y, Color color)
             screen->cursor_y += 6;
         }
         else
-        {
             screen->cursor_x += 4;
-        }
     }
 }
 

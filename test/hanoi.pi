@@ -4,6 +4,7 @@ fun hanoi(ndisks, startPeg = 1, endPeg = 3) {
     if(ndisks) {
         hanoi(ndisks-1, startPeg, 6-startPeg-endPeg);
         println("Move disk " + ndisks + " from peg " + startPeg + " to peg " + endPeg);
+        draw()
         hanoi(ndisks-1, 6-startPeg-endPeg, endPeg);
     }
 }
@@ -11,3 +12,4 @@ fun hanoi(ndisks, startPeg = 1, endPeg = 3) {
 
  
 hanoi(10);
+sleep(5000); // Keep the console open to view the output
