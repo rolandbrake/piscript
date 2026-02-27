@@ -60,7 +60,7 @@ It provides a lightweight development workflow for running Pi-Script locally wit
 Run scripts directly:
 
 ```bash
-./pi run mygame.pi
+run <script-name>.pi
 ```
 
 Pi Shell extends Pi-Script beyond the browser, turning it into a practical creative coding tool for real desktop development.
@@ -85,7 +85,7 @@ This example demonstrates:
 
 The Snake game proves that Pi-Script is capable of building fully playable retro-style games with clean and minimal code.
 
-Try it in:
+Try it in (snake.px):
 
 - 🌐 Online Playground  
 - 🖥 Pi Shell (native build)
@@ -158,7 +158,7 @@ make clean         # Clean build artifacts
 ### Run the Interpreter
 
 ```bash
-./pi run test.pi
+ run test.pi
 ```
 
 ---
