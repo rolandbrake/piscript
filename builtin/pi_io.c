@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "pi_io.h"
 
@@ -74,7 +75,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
     if (argc < 1)
         vm_error(vm, "[print] expects at least text.");
 
-    const char *text = as_string(argv[0]);
+    char *text = as_string(argv[0]);
 
     int x = vm->screen->cursor_x;
     int y = vm->screen->cursor_y;
@@ -91,6 +92,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
         color = (int)AS_NUM(argv[3]);
 
     screen_print(vm->screen, text, x, y, color);
+    free(text);
 
     return NEW_NIL();
 }
@@ -119,7 +121,7 @@ Value pi_println(vm_t *vm, int argc, Value *argv)
     }
 
     // Get the text to be printed
-    const char *text = as_string(argv[0]);
+    char *text = as_string(argv[0]);
 
     // Get the x and y coordinates of the text position
     int x = vm->screen->cursor_x;
@@ -146,6 +148,7 @@ Value pi_println(vm_t *vm, int argc, Value *argv)
 
     // Print the text
     screen_print(vm->screen, text, x, y, color);
+    free(text);
 
     // Move the cursor to the next line
     vm->screen->cursor_x = 1;
@@ -221,7 +224,7 @@ Value pi_printf(vm_t *vm, int argc, Value *argv)
             if (index + 1 >= argc)
                 vm_error(vm, "[printf] argument index out of range.");
 
-            const char *arg = as_string(argv[index + 1]);
+            char *arg = as_string(argv[index + 1]);
 
             // Render directly with color
             screen_print(
@@ -230,6 +233,7 @@ Value pi_printf(vm_t *vm, int argc, Value *argv)
                 vm->screen->cursor_x,
                 vm->screen->cursor_y,
                 color);
+            free(arg);
 
             continue;
         }
@@ -276,7 +280,7 @@ Value pi_log(vm_t *vm, int argc, Value *argv)
     if (argc < 1)
         vm_error(vm, "[log] expects message.");
 
-    const char *msg = as_string(argv[0]);
+    char *msg = as_string(argv[0]);
 
     const char *flag = "i";
 
@@ -292,6 +296,7 @@ Value pi_log(vm_t *vm, int argc, Value *argv)
     // Normal log message
     else
         printf("%s\n", msg);
+    free(msg);
 
     return NEW_NIL();
 }
@@ -402,10 +407,11 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
 
     if (IS_STRING(argv[0]))
     {
-        const char *keyname = as_string(argv[0]);
+        char *keyname = as_string(argv[0]);
         scancode = get_keyCode(keyname);
         if (scancode == SDL_SCANCODE_UNKNOWN)
             vm_errorf(vm, "[key] Unknown key name: %s", keyname);
+        free(keyname);
     }
     else if (IS_NUM(argv[0]))
         scancode = (SDL_Scancode)as_number(argv[0]);

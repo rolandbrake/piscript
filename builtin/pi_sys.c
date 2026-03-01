@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include "pi_sys.h"
 #include "../pi_value.h"
 #include "../list.h"
@@ -17,7 +18,7 @@ Value _pi_type(vm_t *vm, int argc, Value *argv)
 
     char *type = type_name(argv[0]);
 
-    return NEW_OBJ(new_pistring(type));
+    return NEW_OBJ(new_pistring(strdup(type)));
 }
 
 Value pi_error(vm_t *vm, int argc, Value *argv)
@@ -101,7 +102,7 @@ Value pi_mouse(vm_t *vm, int argc, Value *argv)
 Value pi_zen(vm_t *vm, int argc, Value *argv)
 {
 
-    return NEW_OBJ(new_pistring(
+    return NEW_OBJ(new_pistring(strdup(
 
         "*********************************************\n"
         " ____ ___ ____   ____ ____  ___ ____ _____  \n"
@@ -126,5 +127,5 @@ Value pi_zen(vm_t *vm, int argc, Value *argv)
         "10. A script should feel like art.\n"
         "\n"
         "PiScript is a canvas—paint with logic.\n"
-        "----------------------------------------\n"));
+        "----------------------------------------\n")));
 }

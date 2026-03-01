@@ -336,14 +336,16 @@ Value pi_sound(vm_t *vm, int argc, Value *argv)
     else if (IS_STR(argv[0]))
     {
 
-        const char *path = as_string(argv[0]);
+        char *path = as_string(argv[0]);
         Mix_Chunk *chunk = Mix_LoadWAV(path);
         if (!chunk)
         {
             char *buffer = (char *)malloc(strlen(path) + 1);
             snprintf(buffer, strlen(path) + 1, "Failed to load file '%s'", path);
+            free(path);
             vm_error(vm, buffer);
         }
+        free(path);
 
         ObjSound *sound = new_sound(chunk);
         sound->is_cart = false;

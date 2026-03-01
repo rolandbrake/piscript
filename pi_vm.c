@@ -918,7 +918,6 @@ void run(vm_t *vm)
 
                         push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(res))));
 
-                        free(res);
                         free(l_str);
                         free(r_str);
                         break;
@@ -1028,7 +1027,7 @@ void run(vm_t *vm)
                             strcat(result, str);
 
                         push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(result))));
-                        free(result); // Clean up temporary string buffer
+                        free(str);
                     }
                     else
                         vm_error(vm, "Unsupported operand types for binary operator [*].");
@@ -1808,6 +1807,7 @@ void run(vm_t *vm)
                 _char[0] = str[_index];
                 _char[1] = '\0';
                 push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(_char))));
+                free(str);
                 break;
             }
 
@@ -1936,16 +1936,17 @@ void run(vm_t *vm)
 #endif
             int before = count_objs(vm);
             run_gc(vm);
-            int count = before - vm->obj_count;
+            int after = count_objs(vm);
+            int collected = before - after;
 
             vm->counter = 0;
 
             // Adjust next threshold adaptively
-            if (count > 128)
+            if (collected < 128)
                 vm->next_gc /= 2; // GC did not help, try more often
             else
                 vm->next_gc *= 2; // GC was effective, increase threshold
-            vm->obj_count = before;
+            vm->obj_count = after;
 
             // Clamp bounds (prevent very frequent or very rare GC)
             if (vm->next_gc < 1024)

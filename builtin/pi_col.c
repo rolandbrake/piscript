@@ -329,6 +329,7 @@ Value pi_insert(vm_t *vm, int argc, Value *argv)
         free(str->chars);
         str->chars = new_chars;
         str->length = new_len;
+        free(_str);
 
         return collection;
     }

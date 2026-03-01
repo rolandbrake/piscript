@@ -250,8 +250,10 @@ ObjSprite *new_sprite(uint16_t width, uint16_t height, uint8_t *data)
  */
 Value map_get(PiMap *map, Value key)
 {
+    char *key_str = as_string(key);
     // Attempt to retrieve the item from the hash table using the key
-    void *item = ht_get(map->table, as_string(key));
+    void *item = ht_get(map->table, key_str);
+    free(key_str);
 
     // Check if the item was found; if not, return nil
     if (item == NULL)
@@ -274,7 +276,10 @@ Value map_get(PiMap *map, Value key)
  */
 bool map_has(PiMap *map, Value key)
 {
-    return ht_get(map->table, as_string(key)) != NULL;
+    char *key_str = as_string(key);
+    bool found = ht_get(map->table, key_str) != NULL;
+    free(key_str);
+    return found;
 }
 
 /**
@@ -291,12 +296,15 @@ bool map_has(PiMap *map, Value key)
  */
 void map_set(PiMap *map, Value key, Value value)
 {
+    char *key_str = as_string(key);
     // Attempt to set the item in the hash table using the key
-    bool updated = ht_set(map->table, as_string(key), &value);
+    bool updated = ht_set(map->table, key_str, &value);
 
     // If the key does not exist in the table, add it
     if (!updated)
-        ht_put(map->table, as_string(key), &value);
+        ht_put(map->table, key_str, &value);
+
+    free(key_str);
 }
 
 /**
