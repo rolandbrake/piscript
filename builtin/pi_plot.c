@@ -57,12 +57,13 @@ Value pi_pixel(vm_t *vm, int argc, Value *argv)
 
 Value pi_line(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 4 ||
+    if (argc < 5 ||
         argv[0].type != VAL_NUM ||
         argv[1].type != VAL_NUM ||
         argv[2].type != VAL_NUM ||
-        argv[3].type != VAL_NUM)
-        vm_error(vm, "[line] expects four numeric arguments at least.");
+        argv[3].type != VAL_NUM ||
+        argv[4].type != VAL_NUM)
+        vm_error(vm, "[line] expects five numeric arguments: x1, y1, x2, y2, color.");
 
     int x1 = (int)round(AS_NUM(argv[0]));
     int y1 = (int)round(AS_NUM(argv[1]));
@@ -105,6 +106,20 @@ Value pi_draw(vm_t *vm, int argc, Value *argv)
     }
 
     screen_update(vm->screen);
+
+    // Runtime-level frame pacing for tight render loops.
+    if (vm->frameInterval_ms > 0)
+    {
+        Uint32 now = SDL_GetTicks();
+        if (vm->last_drawTicks != 0)
+        {
+            Uint32 elapsed = now - vm->last_drawTicks;
+            if (elapsed < vm->frameInterval_ms)
+                SDL_Delay(vm->frameInterval_ms - elapsed);
+        }
+        vm->last_drawTicks = SDL_GetTicks();
+    }
+
     return NEW_NIL();
 }
 

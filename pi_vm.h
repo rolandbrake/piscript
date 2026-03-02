@@ -18,8 +18,8 @@
 
 #define RUN_STEPS 1024 // max number of instructions to run
 
-// #define NEXT_GC (1024 * 1024)
-#define NEXT_GC 1024
+// Initial GC threshold (number of newly allocated VM objects).
+#define NEXT_GC 4096
 
 typedef struct
 {
@@ -70,6 +70,9 @@ typedef struct
     int obj_count;
 
     Cart *cart; // Pointer to the loaded cartridge, if any.
+
+    Uint32 frameInterval_ms; // Target frame interval for draw pacing (0 = uncapped)
+    Uint32 last_drawTicks;   // Last draw timestamp used for frame pacing
 
 } vm_t;
 

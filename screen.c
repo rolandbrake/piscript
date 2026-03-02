@@ -221,6 +221,7 @@ Screen *screen_init(Color color)
     screen->cursor_x = 1;
     screen->cursor_y = 1;
     screen->text_color = COLOR_WHITE;
+    screen->dirty = true;
 
     screen_clear(screen, color);
     screen_update(screen);
@@ -267,6 +268,9 @@ void screen_close(Screen *screen)
  */
 void screen_update(Screen *screen)
 {
+    if (!screen->dirty)
+        return;
+
     // Update the texture with the current pixel data
     SDL_UpdateTexture(screen->texture, NULL, screen->pixels, SCREEN_WIDTH * sizeof(Uint32));
 
@@ -275,6 +279,7 @@ void screen_update(Screen *screen)
 
     // Present the updated rendering to the screen
     SDL_RenderPresent(screen->renderer);
+    screen->dirty = false;
 }
 
 /**
@@ -289,7 +294,7 @@ void screen_update(Screen *screen)
 void screen_clear(Screen *screen, Color color)
 {
     // Calculate the actual color value using the palette
-    const Uint32 _color = colors[color % PALETTE_SIZE];
+    const Uint32 _color = colors[((unsigned)color) & (PALETTE_SIZE - 1)];
     // Total number of pixels on the screen
     const int size = SCREEN_WIDTH * SCREEN_HEIGHT;
 
@@ -308,6 +313,7 @@ void screen_clear(Screen *screen, Color color)
     // Reset cursor position to the top-left of the screen
     screen->cursor_x = 1;
     screen->cursor_y = 1;
+    screen->dirty = true;
 }
 
 /**
@@ -324,7 +330,10 @@ void inline set_pixel(Screen *screen, int x, int y, Color color)
     y -= screen->offset_y;
 
     if ((unsigned)x < SCREEN_WIDTH && (unsigned)y < SCREEN_HEIGHT)
-        screen->pixels[y * SCREEN_WIDTH + x] = colors[color % PALETTE_SIZE];
+    {
+        screen->pixels[y * SCREEN_WIDTH + x] = colors[((unsigned)color) & (PALETTE_SIZE - 1)];
+        screen->dirty = true;
+    }
 }
 
 void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, double alpha)
@@ -357,6 +366,7 @@ void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, dou
 
     // Set full alpha channel (255)
     screen->pixels[index] = (255 << 24) | (r << 16) | (g << 8) | b;
+    screen->dirty = true;
 }
 
 void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightness)
@@ -379,6 +389,7 @@ void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightnes
 
     // Store pixel with full alpha (opaque)
     screen->pixels[y * SCREEN_WIDTH + x] = (255 << 24) | (r << 16) | (g << 8) | b;
+    screen->dirty = true;
 }
 
 /**
@@ -393,15 +404,33 @@ void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightnes
  */
 void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
 {
+    x0 -= screen->offset_x;
+    y0 -= screen->offset_y;
+    x1 -= screen->offset_x;
+    y1 -= screen->offset_y;
+
+    // Fast trivial reject if the whole segment is outside one side.
+    if ((x0 < 0 && x1 < 0) ||
+        (x0 >= SCREEN_WIDTH && x1 >= SCREEN_WIDTH) ||
+        (y0 < 0 && y1 < 0) ||
+        (y0 >= SCREEN_HEIGHT && y1 >= SCREEN_HEIGHT))
+        return;
+
+    Uint32 packed = colors[color & (PALETTE_SIZE - 1)];
     int dx = abs(x1 - x0);     // Difference in x
     int dy = abs(y1 - y0);     // Difference in y
     int sx = x0 < x1 ? 1 : -1; // Step direction for x
     int sy = y0 < y1 ? 1 : -1; // Step direction for y
     int err = dx - dy;         // Error term
+    bool wrote = false;
 
     while (1)
     {
-        set_pixel(screen, x0, y0, color); // Set pixel at current position
+        if ((unsigned)x0 < SCREEN_WIDTH && (unsigned)y0 < SCREEN_HEIGHT)
+        {
+            screen->pixels[y0 * SCREEN_WIDTH + x0] = packed;
+            wrote = true;
+        }
         if (x0 == x1 && y0 == y1)         // Check if the end of the line is reached
             break;
         int e2 = 2 * err; // Double the error term
@@ -416,6 +445,9 @@ void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
             y0 += sy;  // Move in y direction
         }
     }
+
+    if (wrote)
+        screen->dirty = true;
 }
 
 void draw_rect(Screen *screen, int x, int y, int w, int h, Color color)

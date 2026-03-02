@@ -123,6 +123,9 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     vm->cart = NULL;
 
+    vm->frameInterval_ms = 1000 / TARGET_FPS;
+    vm->last_drawTicks = 0;
+
     return vm;
 }
 
@@ -164,6 +167,9 @@ void vm_reset(vm_t *vm, compiler_t *comp)
 
     vm->openUpvalues = NULL;
     vm->function = NULL;
+
+    vm->frameInterval_ms = 1000 / TARGET_FPS;
+    vm->last_drawTicks = 0;
 
     // Mark new constants from the new compiler for GC
     mark_constants(vm);

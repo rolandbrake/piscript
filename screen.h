@@ -77,6 +77,7 @@ typedef struct
     int cursor_x;           // Current x position of the text cursor
     int cursor_y;           // Current y position of the text cursor
     Color text_color;       // Current text color
+    bool dirty;             // Tracks whether pixel buffer changed since last present
 
 } Screen;
 
