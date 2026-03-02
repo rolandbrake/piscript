@@ -15,6 +15,9 @@
 
 #include "builtin/pi_builtin.h"
 
+#define GC_MIN_THRESHOLD 4096
+#define GC_MAX_THRESHOLD (1024 * 1024 * 8)
+
 static PiMap *define_keys(vm_t *vm)
 {
     table_t *table = ht_create(sizeof(Value));
@@ -199,6 +202,7 @@ inline Object *add_obj(vm_t *vm, Object *obj)
     // Add to the front of the list
     obj->next = vm->objects;
     vm->objects = obj;
+    vm->counter++; // Track new allocations (GC trigger is allocation-driven).
 
     return obj;
 }
@@ -621,7 +625,6 @@ void run(vm_t *vm)
     {
 
         op = code[pc++];
-        vm->counter++;
 
         vm->ip++; // Advance instruction index
 
@@ -1918,9 +1921,8 @@ void run(vm_t *vm)
         }
 
 #ifdef __EMSCRIPTEN__
-// For Emscripten, use a much larger GC threshold or manual GC
-#define EMSCRIPTEN_GC_THRESHOLD (1024 * 1024 * 10) // 10MB worth of objects
-        if (vm->counter >= EMSCRIPTEN_GC_THRESHOLD)
+// Allocation-driven threshold to avoid collecting on instruction-heavy loops.
+        if (vm->counter >= vm->next_gc)
         {
             run_gc(vm);
             vm->counter = 0;
@@ -1928,18 +1930,6 @@ void run(vm_t *vm)
 #else
         if (vm->counter >= vm->next_gc)
         {
-
-
-
-
-#ifdef DEBUG
-            printf("[DEBUG] SP: %d\n", vm->sp);
-            printf("[GC] Running garbage collection...\n");
-            printf("[GC] Before: %d objects in memory\n", count_objs(vm));
-            run_gc(vm);
-            printf("[GC] After: %d objects in memory\n", count_objs(vm));
-            printf("[GC] Counter: %d\n", vm->counter);
-#endif
             int before = count_objs(vm);
             run_gc(vm);
             int after = count_objs(vm);
@@ -1947,18 +1937,26 @@ void run(vm_t *vm)
 
             vm->counter = 0;
 
-            // Adjust next threshold adaptively
-            if (collected < 128)
-                vm->next_gc /= 2; // GC did not help, try more often
+            // Adapt threshold to avoid over-collecting in long-running loops.
+            if (collected <= 0)
+                vm->next_gc += vm->next_gc / 2; // GC reclaimed nothing: back off.
             else
-                vm->next_gc *= 2; // GC was effective, increase threshold
+                vm->next_gc = after + (after / 2); // Target ~1.5x live set allocations.
             vm->obj_count = after;
 
-            // Clamp bounds (prevent very frequent or very rare GC)
-            if (vm->next_gc < 1024)
-                vm->next_gc = 1024;
-            else if (vm->next_gc > 1024 * 1024)
-                vm->next_gc = 1024 * 1024;
+            // Clamp bounds (prevent very frequent or very rare GC).
+            if (vm->next_gc < GC_MIN_THRESHOLD)
+                vm->next_gc = GC_MIN_THRESHOLD;
+            else if (vm->next_gc > GC_MAX_THRESHOLD)
+                vm->next_gc = GC_MAX_THRESHOLD;
+
+#ifdef DEBUG
+            printf("[DEBUG] SP: %d\n", vm->sp);
+            printf("[GC] Running garbage collection...\n");
+            printf("[GC] Before: %d objects in memory\n", before);
+            printf("[GC] After: %d objects in memory\n", after);
+            printf("[GC] Collected: %d, Next threshold: %d\n", collected, vm->next_gc);
+#endif
         }
 #endif
         vm->pc = pc;
