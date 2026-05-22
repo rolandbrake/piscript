@@ -1022,7 +1022,7 @@ static void continue_stmt(parser_t *parser)
 
     int address = get_continue(parser->comp);
     emit_pop(parser->comp, loop_depth(parser->comp));
-    emit_jump(parser->comp, address);
+    emit_jump(parser->comp, address - code_size(parser->comp));
 
     parser->is_return = true;
 

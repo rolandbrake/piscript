@@ -142,6 +142,19 @@ run test.pi
 
 ---
 
+## Numbers
+
+Pi-Script supports integer, decimal, base-prefixed, and scientific decimal
+number literals. Scientific notation uses an `e` or `E` exponent:
+
+```piscript
+let time_step = 10e-2    // 0.1
+let tiny = 2.5e-4
+let large = 6.02E23
+```
+
+---
+
 ## Colors
 
 Pi-Script accepts two screen color forms.

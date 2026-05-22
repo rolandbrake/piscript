@@ -1,4 +1,8 @@
 let a = 42;
-println(a);  // Expected output: 42
+log(a);  // Expected output: 42
 let b = 3.14159;
-println(b);  // Expected output: 3.14159
+log(b);  // Expected output: 3.14159
+let c = 10e-2;
+log(c);  // Expected output: 0.1
+let d = 6.02e23;
+log(d);  // Expected output: 6.02e23

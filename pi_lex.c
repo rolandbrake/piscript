@@ -342,25 +342,25 @@ void scan_token()
                 else if (peek(0) == '.' && peek(1) != '.')
                 {
                     scanner->ch = next();
-                    if (is_digit(peek(0)))
-                        decimal();
+                    decimal();
                     add_token(TK_NUM);
                 }
                 else if (is_digit(peek(0)))
                     l_error("leading zeros in decimal integer literals are not permitted");
                 else
+                {
+                    decimal();
                     add_token(TK_NUM);
+                }
             }
             else
             {
                 while (is_digit(peek(0)))
                     scanner->ch = next();
                 if (peek(0) == '.' && peek(1) != '.')
-                {
                     scanner->ch = next();
-                    if (is_digit(peek(0)))
-                        decimal();
-                }
+
+                decimal();
                 add_token(TK_NUM);
             }
         }
@@ -560,18 +560,14 @@ void decimal()
 {
     while (is_digit(peek(0)))
         next();
+
     if (match_s("eE"))
     {
-        if (match_s("+-"))
-        {
-            next();
-            if (!is_digit(peek(0)))
-                l_error("invalid decimal literal");
-            while (is_digit(peek(0)))
-                next();
-        }
-        else if (!is_digit(peek(0)))
+        match_s("+-");
+
+        if (!is_digit(peek(0)))
             l_error("invalid decimal literal");
+
         while (is_digit(peek(0)))
             next();
     }

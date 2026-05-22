@@ -40,7 +40,6 @@ SRC := \
     builtin/pi_obj.c \
     builtin/pi_render.c \
     builtin/pi_img.c \
-    builtin/pi_ui.c \
     builtin/pi_builtin.c
 
 EM_SRC := $(SRC)
