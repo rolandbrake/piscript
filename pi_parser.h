@@ -22,6 +22,7 @@ typedef struct
     int current;     // Current token index being parsed.
     bool access;     // Flag indicating whether access to variables is allowed.
     bool is_store;   // Flag indicating whether a store operation is in progress.
+    bool force_store; // Force a store pass for prefix increment/decrement targets.
     bool emit_load;  // Flag indicating whether to emit a LOAD instruction.
     bool is_assign;  // Flag indicating whether an assignment is in progress.
     bool has_walrus; // Flag indicating whether a walrus operator is in progress.

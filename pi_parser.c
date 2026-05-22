@@ -363,13 +363,22 @@ bool need_delimiter(parser_t *parser)
 static bool is_assign(parser_t *parser)
 {
     // Check if the parser is in a store state and the current token is an assignment operator
-    if (parser->is_store && check_n(parser, 11, TK_ASSIGN, TK_PLUS_ASSIGN, TK_MINUS_ASSIGN, TK_DIV_ASSIGN, TK_MULT_ASSIGN,
-                                    TK_MOD_ASSIGN, TK_BITOR_ASSIGN, TK_XOR_ASSIGN, TK_BITAND_ASSIGN, TK_INCR, TK_DECR))
+    if (parser->is_store &&
+        (parser->force_store ||
+         check_n(parser, 11, TK_ASSIGN, TK_PLUS_ASSIGN, TK_MINUS_ASSIGN, TK_DIV_ASSIGN, TK_MULT_ASSIGN,
+                 TK_MOD_ASSIGN, TK_BITOR_ASSIGN, TK_XOR_ASSIGN, TK_BITAND_ASSIGN, TK_INCR, TK_DECR)))
     {
         parser->is_store = false; // Reset the store state
-        return true;              // Return true as the token is an assignment operator
+        parser->force_store = false;
+        return true; // Return true as the token is an assignment operator
     }
     return false; // Return false if no assignment operator is found
+}
+
+static bool has_accessContinuation(parser_t *parser, token_t token)
+{
+    return peek(parser).line == token.line &&
+           check_n(parser, 3, TK_DOT, TK_LBRACKET, TK_LPAREN);
 }
 
 /**
@@ -408,6 +417,7 @@ parser_t *init_parser(compiler_t *comp, token_t *tokens, ParserMode mode)
     parser->access = false;   // Indicates whether access is allowed
     parser->current = 0;      // Start at the first token
     parser->is_store = false; // Store flag set to false
+    parser->force_store = false;
     parser->is_return = false;
     parser->has_walrus = false;
 
@@ -1733,13 +1743,12 @@ static void unary_expr(parser_t *parser)
             return;
         }
 
-        // Pre-increment / Pre-decrement or other unary ops
-        current = parser->current;
-        member_expr(parser);
-        set_pos(parser, op_token);
-
         if (op == TK_INCR || op == TK_DECR)
         {
+            current = parser->current;
+            member_expr(parser);
+            set_pos(parser, op_token);
+
             token_t target = previous(parser);
 
             // Disallow applying ++ or -- to literals
@@ -1754,10 +1763,16 @@ static void unary_expr(parser_t *parser)
 
             parser->current = current;
             parser->is_store = true;
+            parser->force_store = true;
             member_expr(parser);
+            parser->is_store = false;
+            parser->force_store = false;
         }
         else
         {
+            member_expr(parser);
+            set_pos(parser, op_token);
+
             int type = -1;
             switch (op)
             {
@@ -1798,21 +1813,30 @@ static void unary_expr(parser_t *parser)
             op = previous(parser).type;
             token_t op_token = previous(parser);
 
-            if (operand.type == TK_NUM || operand.type == TK_STR || operand.type == TK_TRUE ||
-                operand.type == TK_FALSE || operand.type == TK_NIL)
-                p_error("Increment/Decrement operations cannot be applied to literals.",
-                        operand.line, operand.column);
+            if (op_token.line != operand.line)
+            {
+                // A new line starts a prefix expression instead of a postfix one.
+                parser->current--;
+            }
+            else
+            {
+                if (operand.type == TK_NUM || operand.type == TK_STR || operand.type == TK_TRUE ||
+                    operand.type == TK_FALSE || operand.type == TK_NIL)
+                    p_error("Increment/Decrement operations cannot be applied to literals.",
+                            operand.line, operand.column);
 
-            emit(parser->comp, OP_DUP_TOP);
-            set_pos(parser, op_token);
+                emit(parser->comp, OP_DUP_TOP);
+                set_pos(parser, op_token);
 
-            int type = (op == TK_INCR) ? 5 : 6;
-            emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
+                int type = (op == TK_INCR) ? 5 : 6;
+                emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
 
-            parser->current = current;
-            parser->is_store = true;
-            member_expr(parser);
-            advance(parser); // Skip over the ++ or --
+                parser->current = current;
+                parser->is_store = true;
+                member_expr(parser);
+                advance(parser); // Skip over the ++ or --
+                parser->is_store = false;
+            }
         }
     }
 }
@@ -1908,7 +1932,10 @@ static void member_expr(parser_t *parser)
             int index = store_const(parser->comp, new_value(name)); // Store the property name as a constant
             emit_16u(parser->comp, OP_LOAD_CONST, token_value(name), index);
 
-            if (is_assign(parser))
+            bool is_chained_access = parser->is_store && parser->force_store &&
+                                     has_accessContinuation(parser, name);
+
+            if (!is_chained_access && is_assign(parser))
                 emit(parser->comp, OP_SET_ITEM); // Emit bytecode to set the property value
             else
                 emit(parser->comp, OP_GET_ITEM); // Emit bytecode to get the property value
@@ -1919,14 +1946,15 @@ static void member_expr(parser_t *parser)
             bool is_slice = slice_expr(parser); // Parse the index expression
             consume(parser, TK_RBRACKET, "Expect ']' after list index expression");
 
-            if (is_slice && is_assign(parser))
+            bool is_chained_access = parser->is_store && parser->force_store &&
+                                     has_accessContinuation(parser, previous(parser));
+            bool assign = !is_chained_access && is_assign(parser);
+
+            if (is_slice && assign)
                 p_error("Cannot assign to slice", peek(parser).line, peek(parser).column);
 
             if (!is_slice)
-            {
-                bool assign = is_assign(parser);
                 emit(parser->comp, assign ? OP_SET_ITEM : OP_GET_ITEM);
-            }
         }
 
         // handle function call
@@ -2199,7 +2227,10 @@ static void primary(parser_t *parser)
         }
         else
         {
-            if (is_assign(parser))
+            bool is_chained_access = parser->is_store && parser->force_store &&
+                                     has_accessContinuation(parser, previous(parser));
+
+            if (!is_chained_access && is_assign(parser))
                 store_variable(parser->comp, name); // Handle variable assignment
             else                                    // Load variable value
                 load_variable(parser->comp, name);
