@@ -6,9 +6,9 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "string.h"
+#include "pi_string.h"
 #include "pi_token.h"
-#include "list.h"
+#include "pi_list.h"
 
 typedef struct Object Object;
 

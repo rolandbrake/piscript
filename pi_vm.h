@@ -7,7 +7,7 @@
 #include "pi_compiler.h"
 #include "pi_table.h"
 #include "pi_stack.h"
-#include "list.h"
+#include "pi_list.h"
 #include "pi_object.h"
 #include "screen.h"
 #include "pi_frame.h"

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "pi_table.h"
 #include "pi_value.h"
-#include "string.h"
+#include "pi_string.h"
 #include "common.h"
 
 /**

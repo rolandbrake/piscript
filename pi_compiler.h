@@ -11,7 +11,7 @@
 #include "pi_opcode.h"
 #include "pi_value.h"
 #include "common.h"
-#include "list.h"
+#include "pi_list.h"
 #include "pi_table.h"
 
 // Represents a local variable in the current scope

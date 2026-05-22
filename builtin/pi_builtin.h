@@ -2,7 +2,7 @@
 #define PI_BUILTIN_H
 
 #include "pi_math.h"   // Math functions
-#include "pi_string.h" // String functions
+#include "_pi_string.h" // String functions
 #include "pi_io.h"     // Input/Output functions
 #include "pi_sys.h"    // System-related functions
 #include "pi_plot.h"   // Graphics functions

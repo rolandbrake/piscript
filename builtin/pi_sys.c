@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include "pi_sys.h"
 #include "../pi_value.h"
-#include "../list.h"
+#include "../pi_list.h"
 #include "../pi_lex.h"
 #include "../pi_parser.h"
 #include "../pi_compiler.h"

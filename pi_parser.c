@@ -8,7 +8,7 @@
 #include "pi_compiler.h"
 #include "pi_opcode.h"
 #include "pi_object.h"
-#include "string.h"
+#include "pi_string.h"
 
 char *comp_ops[] = {"==", "!=", ">", "<", ">=", "<=", "in"};
 char *bin_ops[] = {"+", "-", "*", "/", "%", "&&", "||", "**", "&", "|", "^", "<<", ">>", ">>>", ".", "is"};
@@ -21,6 +21,8 @@ static void var_decl(parser_t *parser);
 static void func_decl(parser_t *parser);
 static void statement(parser_t *parser);
 static void expr_state(parser_t *parser);
+static void destructure_varDecl(parser_t *parser);
+static void destructure_assignStatement(parser_t *parser);
 static void block(parser_t *parser);
 static void if_stmt(parser_t *parser);
 static void while_stmt(parser_t *parser);
@@ -176,6 +178,38 @@ static bool match(parser_t *parser, tk_type type)
         return true;
     }
     return false;
+}
+
+static bool is_destructureAssign(parser_t *parser)
+{
+    if (!check(parser, TK_LBRACKET))
+        return false;
+
+    int current = parser->current;
+    next(parser);
+
+    if (check(parser, TK_RBRACKET))
+    {
+        parser->current = current;
+        return false;
+    }
+
+    while (true)
+    {
+        if (!check(parser, TK_ID))
+        {
+            parser->current = current;
+            return false;
+        }
+
+        next(parser);
+        if (!match(parser, TK_COMMA))
+            break;
+    }
+
+    bool is_assign = match(parser, TK_RBRACKET) && check(parser, TK_ASSIGN);
+    parser->current = current;
+    return is_assign;
 }
 
 /**
@@ -552,11 +586,64 @@ static void declaration(parser_t *parser)
  */
 static void var_decl(parser_t *parser)
 {
+    if (check(parser, TK_LBRACKET))
+    {
+        destructure_varDecl(parser);
+        consume_ifExist(parser, 1, TK_SEMICOLON);
+        return;
+    }
+
     do
     {
         variable(parser);
     } while (match(parser, TK_COMMA));
     consume_ifExist(parser, 1, TK_SEMICOLON);
+}
+
+static void destructure_varDecl(parser_t *parser)
+{
+    list_t *targets = list_create(sizeof(char *));
+
+    consume(parser, TK_LBRACKET, "Expect '[' to start destructuring declaration.");
+    if (check(parser, TK_RBRACKET))
+        p_error("Expect at least one variable in destructuring declaration.",
+                peek(parser).line, peek(parser).column);
+
+    do
+    {
+        token_t name_tok = consume(parser, TK_ID, "Expect variable name in destructuring declaration.");
+        char *name = token_value(name_tok);
+        list_add(targets, &name);
+    } while (match(parser, TK_COMMA) && !check(parser, TK_RBRACKET));
+
+    consume(parser, TK_RBRACKET, "Expect ']' after destructuring variables.");
+    consume(parser, TK_ASSIGN, "Expect '=' after destructuring variables.");
+
+    int size = list_size(targets);
+    for (int i = 0; i < size; i++)
+    {
+        char *name = *(char **)list_getAt(targets, i);
+
+        // Declare every target before evaluating the RHS so local stores have slots.
+        emit(parser->comp, OP_PUSH_NIL);
+        add_variable(parser->comp, name);
+    }
+
+    assignment(parser, true);
+
+    for (int i = 0; i < size; i++)
+    {
+        char *name = *(char **)list_getAt(targets, i);
+        int index = store_const(parser->comp, NEW_NUM(i));
+
+        emit(parser->comp, OP_DUP_TOP);
+        emit_16u(parser->comp, OP_LOAD_CONST, name, index);
+        emit(parser->comp, OP_GET_ITEM);
+        store_variable(parser->comp, name);
+    }
+
+    emit(parser->comp, OP_POP);
+    list_free(targets);
 }
 
 /**
@@ -728,7 +815,9 @@ static void debug(parser_t *parser)
  */
 static void statement(parser_t *parser)
 {
-    if (match(parser, TK_LBRACE))
+    if (is_destructureAssign(parser))
+        destructure_assignStatement(parser);
+    else if (match(parser, TK_LBRACE))
     {
         // Look ahead to check if it's an object literal (key: value format)
         int current = parser->current; // Save current position
@@ -762,6 +851,41 @@ static void statement(parser_t *parser)
         debug(parser);
     else
         expr_state(parser);
+}
+
+static void destructure_assignStatement(parser_t *parser)
+{
+    list_t *targets = list_create(sizeof(char *));
+
+    consume(parser, TK_LBRACKET, "Expect '[' to start destructuring assignment.");
+    do
+    {
+        token_t name_tok = consume(parser, TK_ID, "Expect identifier in destructuring assignment.");
+        char *name = token_value(name_tok);
+        list_add(targets, &name);
+    } while (match(parser, TK_COMMA) && !check(parser, TK_RBRACKET));
+
+    consume(parser, TK_RBRACKET, "Expect ']' after destructuring targets.");
+    consume(parser, TK_ASSIGN, "Expect '=' after destructuring targets.");
+    expr(parser);
+
+    int size = list_size(targets);
+    for (int i = 0; i < size; i++)
+    {
+        char *name = *(char **)list_getAt(targets, i);
+        int index = store_const(parser->comp, NEW_NUM(i));
+
+        emit(parser->comp, OP_DUP_TOP);
+        emit_16u(parser->comp, OP_LOAD_CONST, name, index);
+        emit(parser->comp, OP_GET_ITEM);
+        store_variable(parser->comp, name);
+    }
+
+    emit(parser->comp, OP_POP);
+    list_free(targets);
+
+    if (need_delimiter(parser))
+        p_error("Expected delemiter between statements.", peek(parser).line, peek(parser).column);
 }
 
 /**
@@ -1911,6 +2035,9 @@ static void member_expr(parser_t *parser)
     while (true)
     {
         token_t token = previous(parser);
+
+        if (token.line < peek(parser).line)
+            break;
 
         set_pos(parser, token);
         if (match(parser, TK_DOT))

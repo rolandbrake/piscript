@@ -5,7 +5,7 @@
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
-#include "list.h"
+#include "pi_list.h"
 
 // Screen dimensions
 #define SCREEN_WIDTH 128  // Width of the screen in pixels

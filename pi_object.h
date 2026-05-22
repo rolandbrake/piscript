@@ -5,7 +5,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
 #include "pi_value.h"
-#include "list.h"
+#include "pi_list.h"
 #include "pi_table.h"
 #include "common.h"
 #include "audio.h"

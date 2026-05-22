@@ -3,7 +3,7 @@
  tracing algorithm the code development still in progress */
 
 #include "gc.h"
-#include "list.h"
+#include "pi_list.h"
 #include "pi_vm.h"
 #include "pi_func.h"
 // Forward declarations

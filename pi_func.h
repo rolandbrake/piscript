@@ -1,7 +1,7 @@
 #ifndef PI_FUNC_H
 #define PI_FUNC_H
 
-#include "list.h"
+#include "pi_list.h"
 #include "pi_object.h"
 #include "pi_value.h"
 #include "pi_vm.h"

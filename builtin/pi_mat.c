@@ -1,5 +1,5 @@
 #include "pi_mat.h"
-#include "../list.h"
+#include "../pi_list.h"
 
 /**
  * @brief Returns the size of a matrix.
