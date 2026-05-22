@@ -1770,9 +1770,6 @@ static void unary_expr(parser_t *parser)
         }
         else
         {
-            member_expr(parser);
-            set_pos(parser, op_token);
-
             int type = -1;
             switch (op)
             {
@@ -1797,6 +1794,9 @@ static void unary_expr(parser_t *parser)
             default:
                 break;
             }
+
+            unary_expr(parser);
+            set_pos(parser, op_token);
             if (type != -1)
                 emit_8u(parser->comp, OP_UNARY, unary_ops[type], type);
         }
