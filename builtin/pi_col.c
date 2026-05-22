@@ -773,59 +773,25 @@ Value pi_copy(vm_t *vm, int argc, Value *argv)
 
 Value pi_slice(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 3)
-        vm_error(vm, "[slice] expects 3 arguments at least: collection, start, end.");
+    if (argc != 2 && argc != 3)
+        vm_error(vm, "[slice] expects start, end, and an optional step.");
 
-    Value collection = argv[0];
-    Value start = argv[1];
-    Value end = argv[2];
+    if (!IS_NUM(argv[0]) || !IS_NUM(argv[1]))
+        vm_error(vm, "[slice] start and end must be numbers.");
 
-    if (!IS_LIST(collection) && !IS_STRING(collection))
-        vm_error(vm, "[slice] first argument must be a list or a string.");
-
-    if (!IS_NUM(start) || !IS_NUM(end))
-        vm_error(vm, "[slice] second and third arguments must be numbers.");
-
-    int len = COL_LENGTH(collection);
-    int start_index = get_index(as_number(start), len);
-    int end_index = get_index(as_number(end), len);
-
-    if (start_index > end_index)
-        vm_error(vm, "[slice] start index must be less than or equal to end index.");
-
-    if (IS_LIST(collection))
+    double step = 1.0;
+    if (argc == 3)
     {
-        PiList *list = AS_LIST(collection);
+        if (!IS_NUM(argv[2]))
+            vm_error(vm, "[slice] step must be a number.");
 
-        list_t *sliced_items = list_create(sizeof(Value));
-        for (int i = start_index; i <= end_index; i++)
-        {
-            Value *item = (Value *)list_getAt(list->items, i);
-            list_add(sliced_items, item);
-        }
-
-        PiList *result = (PiList *)new_list(sliced_items);
-        result->is_numeric = list->is_numeric;
-        result->is_matrix = list->is_matrix;
-
-        return NEW_OBJ(result);
-    }
-    else if (IS_STRING(collection))
-    {
-        PiString *str = AS_STRING(collection);
-
-        char *sliced_chars = malloc(end_index - start_index + 1);
-        for (int i = start_index; i <= end_index; i++)
-            sliced_chars[i - start_index] = str->chars[i];
-
-        sliced_chars[end_index - start_index + 1] = '\0';
-
-        return NEW_OBJ(new_pistring(sliced_chars));
+        step = as_number(argv[2]);
     }
 
-    vm_error(vm, "[slice] only works with lists or strings.");
+    if (step == 0)
+        vm_error(vm, "[slice] step cannot be zero.");
 
-    return NEW_NIL(); // unreachable
+    return NEW_OBJ(new_slice(as_number(argv[0]), as_number(argv[1]), step));
 }
 
 Value pi_len(vm_t *vm, int argc, Value *argv)

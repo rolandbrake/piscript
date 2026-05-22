@@ -1,2 +1,8 @@
-l = [1,2,3,4]
-log(1 in l)
+let nums = [0, 1, 2, 3, 4]
+
+println(nums[1:4])          // Expected output: [1, 2, 3]
+println(nums[0::2])         // Expected output: [0, 2, 4]
+println(nums[slice(0, INF, 2)])  // Expected output: [0, 2, 4]
+println("piscript"[2:])     // Expected output: 'script'
+draw()
+sleep(1000)

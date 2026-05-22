@@ -389,6 +389,17 @@ Object *new_range(double start, double end, double step)
     return (Object *)range;
 }
 
+Object *new_slice(double start, double end, double step)
+{
+    PiSlice *slice = CREATE_OBJ(PiSlice, OBJ_SLICE);
+
+    slice->start = start;
+    slice->end = end;
+    slice->step = step;
+
+    return (Object *)slice;
+}
+
 /**
  * Resets the given iterable object to its initial state.
  *

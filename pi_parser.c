@@ -1852,56 +1852,46 @@ static bool slice_expr(parser_t *parser)
 {
     int index;
     bool is_slice = false;
-    token_t token = peek(parser); // position marking for error reporting
+    token_t token = peek(parser);
 
-    // Handle the start of the slice
     if (check(parser, TK_COLON))
     {
-        // If the start is missing, assume 0
-        index = store_const(parser->comp, NEW_NUM(0));
-        emit_16u(parser->comp, OP_LOAD_CONST, "0", index);
+        // Missing start uses infinity so get_slice can choose the bound from step direction.
+        emit_16u(parser->comp, OP_LOAD_CONST, "inf", 1);
         is_slice = true;
+        next(parser); // consume the leading ':'
     }
     else
-        cond_expr(parser); // Parse start expression
+        cond_expr(parser);
 
-    // Check for the first colon (start:end)
-    if (match(parser, TK_COLON))
+    // Check match() only when the leading ':' did not already consume it.
+    if (is_slice || match(parser, TK_COLON))
     {
         is_slice = true;
         token = previous(parser);
 
-        // Handle the end expression
-        if (!check(parser, TK_RBRACKET) && !check(parser, TK_COLON))
+        if (!check(parser, TK_RBRACKET) && !check(parser, TK_COLON) && !check(parser, TK_COMMA))
             cond_expr(parser);
         else
-        {
-            // If the end is missing, assume infinity
             emit_16u(parser->comp, OP_LOAD_CONST, "inf", 1);
-        }
 
-        // Check for the second colon (start:end:step)
         if (match(parser, TK_COLON))
         {
-            // Handle the step expression
-            if (!check(parser, TK_RBRACKET))
+            if (!check(parser, TK_RBRACKET) && !check(parser, TK_COMMA))
                 cond_expr(parser);
             else
             {
-                // If the step is missing, assume 1
                 index = store_const(parser->comp, NEW_NUM(1));
                 emit_16u(parser->comp, OP_LOAD_CONST, "1", index);
             }
         }
         else
         {
-            // If step colon is missing, assume 1
             index = store_const(parser->comp, NEW_NUM(1));
             emit_16u(parser->comp, OP_LOAD_CONST, "1", index);
         }
 
-        set_pos(parser, token); // Set the position to the start of the slice
-        // Emit the slice operation
+        set_pos(parser, token);
         emit(parser->comp, OP_PUSH_SLICE);
     }
 
@@ -1953,8 +1943,7 @@ static void member_expr(parser_t *parser)
             if (is_slice && assign)
                 p_error("Cannot assign to slice", peek(parser).line, peek(parser).column);
 
-            if (!is_slice)
-                emit(parser->comp, assign ? OP_SET_ITEM : OP_GET_ITEM);
+            emit(parser->comp, assign ? OP_SET_ITEM : OP_GET_ITEM);
         }
 
         // handle function call

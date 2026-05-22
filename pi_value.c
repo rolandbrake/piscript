@@ -565,6 +565,19 @@ char *as_string(Value val)
             return result;
         }
         case OBJ_RANGE:
+        {
+            PiRange *range = AS_RANGE(val);
+            char *result = (char *)malloc(96);
+            sprintf(result, "[%g..%g:%g]", range->start, range->end, range->step);
+            return result;
+        }
+        case OBJ_SLICE:
+        {
+            PiSlice *slice = AS_SLICE(val);
+            char *result = (char *)malloc(96);
+            sprintf(result, "[%g:%g:%g]", slice->start, slice->end, slice->step);
+            return result;
+        }
         case OBJ_CODE:
             break;
         }
@@ -742,6 +755,12 @@ void print_value(Value val, bool is_root)
             printf("[%f..%f:%f]", r->start, r->end, r->step);
             break;
         }
+        case OBJ_SLICE:
+        {
+            PiSlice *s = AS_SLICE(val);
+            printf("[%g:%g:%g]", s->start, s->end, s->step);
+            break;
+        }
         case OBJ_FUN:
         {
             Function *fn = AS_FUN(val);
@@ -789,6 +808,8 @@ char *type_name(Value val)
             return "map";
         case OBJ_RANGE:
             return "range";
+        case OBJ_SLICE:
+            return "slice";
         case OBJ_FUN:
             return "function";
         case OBJ_CODE:

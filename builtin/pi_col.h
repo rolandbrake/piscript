@@ -45,7 +45,7 @@ Value pi_shuffle(vm_t *vm, int argc, Value *argv);
 // Returns a shallow copy of a list or string.
 Value pi_copy(vm_t *vm, int argc, Value *argv);
 
-// Returns a slice of a list or string.
+// Returns a slice value from start, end, and an optional step.
 Value pi_slice(vm_t *vm, int argc, Value *argv);
 
 // Returns the length of a list, string, or map.

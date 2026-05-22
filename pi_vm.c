@@ -1772,7 +1772,6 @@ void run(vm_t *vm)
 
         case OP_PUSH_SLICE:
         {
-            // Pop the slice values from the stack
             Value step = pop_stack(vm);
             Value end = pop_stack(vm);
             Value start = pop_stack(vm);
@@ -1780,21 +1779,13 @@ void run(vm_t *vm)
             if (!IS_NUM(start) || !IS_NUM(end))
                 vm_error(vm, "Slice [start] and [end] must be numbers.");
 
-            // Create a new slice object
             if (!IS_NIL(step) && !IS_NUM(step))
                 vm_error(vm, "Slice [step] must be nil or a number.");
             else
             {
-                Value sequence = pop_stack(vm);
-                if (IS_SEQUENCE(sequence))
-                {
-                    double end_num = as_number(end);
-                    Value slice = get_slice(AS_OBJ(sequence), as_number(start), as_number(end),
-                                            IS_NIL(step) ? 1.0 : as_number(step));
-                    push_stack(vm, slice); // Push the slice onto the stack
-                }
-                else
-                    vm_error(vm, "Slice operand must be a list or string.");
+                Object *slice = add_obj(vm, new_slice(as_number(start), as_number(end),
+                                                       IS_NIL(step) ? 1.0 : as_number(step)));
+                push_stack(vm, NEW_OBJ(slice));
             }
 
             break;
@@ -1807,6 +1798,20 @@ void run(vm_t *vm)
 
             if (!IS_OBJ(container))
                 vm_error(vm, "Unsupported operand type for get item operator.\n");
+
+            if (IS_SLICE(index))
+            {
+                PiSlice *slice = AS_SLICE(index);
+
+                if (!IS_SEQUENCE(container))
+                    vm_error(vm, "Slice operand must be a list or string.");
+
+                Value sliced = get_slice(AS_OBJ(container), slice->start, slice->end, slice->step);
+                if (IS_OBJ(sliced))
+                    sliced = NEW_OBJ(add_obj(vm, AS_OBJ(sliced)));
+                push_stack(vm, sliced);
+                break;
+            }
 
             switch (OBJ_TYPE(container))
             {

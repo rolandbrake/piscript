@@ -192,6 +192,10 @@ void mark_object(Object *obj)
         break;
     }
 
+    case OBJ_SLICE:
+        // Slices only carry numeric bounds and have no child objects to mark.
+        break;
+
     default:
         break;
     }
@@ -332,6 +336,9 @@ void free_object(Object *obj)
         free(sprite->data);
         break;
     }
+    case OBJ_SLICE:
+        // PiSlice has no heap-owned payload beyond the object itself.
+        break;
 
     default:
         // Handle other object types if needed

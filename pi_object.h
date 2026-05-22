@@ -19,6 +19,7 @@
 #define IS_MAP(o) IS_OBJ_TYPE(o, OBJ_MAP)
 #define IS_FUN(o) IS_OBJ_TYPE(o, OBJ_FUN)
 #define IS_RANGE(o) IS_OBJ_TYPE(o, OBJ_RANGE)
+#define IS_SLICE(o) IS_OBJ_TYPE(o, OBJ_SLICE)
 #define IS_MODEL(o) IS_OBJ_TYPE(o, OBJ_MODEL3D)
 #define IS_IMAGE(o) IS_OBJ_TYPE(o, OBJ_IMAGE)
 #define IS_SPRITE(o) IS_OBJ_TYPE(o, OBJ_SPRITE)
@@ -31,6 +32,7 @@
 #define AS_LIST(o) ((PiList *)AS_OBJ(o))
 #define AS_MAP(o) ((PiMap *)AS_OBJ(o))
 #define AS_RANGE(o) ((PiRange *)AS_OBJ(o))
+#define AS_SLICE(o) ((PiSlice *)AS_OBJ(o))
 #define AS_FUN(o) ((Function *)AS_OBJ(o))
 #define AS_CODE(o) ((ObjCode *)AS_OBJ(o))
 #define AS_FILE(o) ((ObjFile *)AS_OBJ(o))
@@ -56,6 +58,7 @@ typedef enum
     OBJ_LIST,
     OBJ_MAP,
     OBJ_RANGE,
+    OBJ_SLICE,
     OBJ_FUN,
     OBJ_CODE,
     OBJ_FILE,
@@ -102,6 +105,14 @@ typedef struct
 
     double current; // Iterator state: current value in the range
 } PiRange;
+
+typedef struct
+{
+    Object object;
+    double start;
+    double end;
+    double step;
+} PiSlice;
 
 typedef struct
 {
@@ -204,6 +215,7 @@ bool map_has(PiMap *map, Value key);
 int map_size(PiMap *map);
 
 Object *new_range(double start, double end, double step);
+Object *new_slice(double start, double end, double step);
 
 uint32_t code_hash(uint8_t *code);
 Object *new_code(list_t *code);
