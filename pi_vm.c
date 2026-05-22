@@ -767,6 +767,13 @@ void run(vm_t *vm)
             Value right = pop_stack(vm);
             Value left = pop_stack(vm);
 
+            if (op == 6) // "in"
+            {
+                Value args[] = {right, left};
+                push_stack(vm, pi_contains(vm, 2, args));
+                break;
+            }
+
             bool result = false;
             int cmp = compare(left, right);
 
