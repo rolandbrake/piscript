@@ -80,7 +80,7 @@ typedef struct
     Uint32 clear_color;     // Last resolved color used by screen_clear
     bool dirty;             // Tracks whether pixel buffer changed since last present
 
-    bool CRT_mode; // Flag indicating whether CRT mode is enabled
+    
 
 } Screen;
 

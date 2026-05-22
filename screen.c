@@ -35,7 +35,7 @@ const char *characters[CHAR_COUNT] = {
     "1110 0010 0110 0010 1110 0000", // 3
     "1010 1010 1110 0010 0010 0000", // 4
     "1110 1000 1110 0010 1110 0000", // 5
-    "1000 1000 1110 1010 1110 0000", // 6
+    "1110 1000 1110 1010 1110 0000", // 6
     "1110 0010 0010 0010 0010 0000", // 7
     "1110 1010 1110 1010 1110 0000", // 8
     "1110 1010 1110 0010 1110 0000", // 9
@@ -267,105 +267,6 @@ static Uint32 blend_color(Uint32 dst, Uint32 src, double opacity)
     return (255u << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | b;
 }
 
-/**
- * Enables or disables the CRT-style phosphor glow effect for text rendering.
- *
- * When enabled, each lit pixel in screen_print will be surrounded by
- * progressively fading halo pixels to simulate old CRT terminal bloom.
- *
- * @param screen  The screen to configure.
- * @param enabled true to enable glow, false to disable.
- */
-void set_CRTMode(Screen *screen, bool enabled)
-{
-    screen->CRT_mode = enabled;
-}
-
-/**
- * Applies a CRT bloom/glow as a post-process on the full framebuffer.
- * Performs a separable box blur then additively blends the result
- * back over the original — bright pixels bleed light onto neighbours.
- *
- * Works on a scratch buffer so screen->pixels is never modified.
- *
- * @param src       Original pixel buffer (read-only).
- * @param dst       Output buffer to write the bloomed result into.
- */
-static void apply_CRTEffect(const Uint32 *src, Uint32 *dst, int radius, float intensity)
-{
-    static Uint32 h_pass[SCREEN_WIDTH * SCREEN_HEIGHT]; // horizontal blur temp
-
-    const int RADIUS = radius;          // blur spread in pixels
-    const float INTENSITY = intensity; // additive blend strength (0=off, 1=full)
-
-    /*  horizontal blur pass  */
-    for (int y = 0; y < SCREEN_HEIGHT; y++)
-    {
-        for (int x = 0; x < SCREEN_WIDTH; x++)
-        {
-            int r = 0, g = 0, b = 0, n = 0;
-            for (int dx = -RADIUS; dx <= RADIUS; dx++)
-            {
-                int nx = x + dx;
-                if ((unsigned)nx < SCREEN_WIDTH)
-                {
-                    Uint32 p = src[y * SCREEN_WIDTH + nx];
-                    r += (p >> 16) & 0xFF;
-                    g += (p >> 8) & 0xFF;
-                    b += p & 0xFF;
-                    n++;
-                }
-            }
-            h_pass[y * SCREEN_WIDTH + x] =
-                (255u << 24) | ((r / n) << 16) | ((g / n) << 8) | (b / n);
-        }
-    }
-
-    /*  vertical blur pass + additive composite  */
-    for (int y = 0; y < SCREEN_HEIGHT; y++)
-    {
-        for (int x = 0; x < SCREEN_WIDTH; x++)
-        {
-            int r = 0, g = 0, b = 0, n = 0;
-            for (int dy = -RADIUS; dy <= RADIUS; dy++)
-            {
-                int ny = y + dy;
-                if ((unsigned)ny < SCREEN_HEIGHT)
-                {
-                    Uint32 p = h_pass[ny * SCREEN_WIDTH + x];
-                    r += (p >> 16) & 0xFF;
-                    g += (p >> 8) & 0xFF;
-                    b += p & 0xFF;
-                    n++;
-                }
-            }
-
-            /* blurred colour */
-            int br = r / n, bg = g / n, bb = b / n;
-
-            /* original colour */
-            Uint32 orig = src[y * SCREEN_WIDTH + x];
-            int or_ = (orig >> 16) & 0xFF;
-            int og = (orig >> 8) & 0xFF;
-            int ob = orig & 0xFF;
-
-            /* additive blend: original + blurred * intensity, clamped */
-            int fr = or_ + (int)(br * INTENSITY);
-            if (fr > 255)
-                fr = 255;
-            int fg = og + (int)(bg * INTENSITY);
-            if (fg > 255)
-                fg = 255;
-            int fb = ob + (int)(bb * INTENSITY);
-            if (fb > 255)
-                fb = 255;
-
-            dst[y * SCREEN_WIDTH + x] =
-                (255u << 24) | (fr << 16) | (fg << 8) | fb;
-        }
-    }
-}
-
 Screen *screen_init(Uint32 color)
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
@@ -433,7 +334,6 @@ Screen *screen_init(Uint32 color)
     screen->cursor_y = 1;
     screen->text_color = COLOR_WHITE;
     screen->dirty = true;
-    screen->CRT_mode = false;
 
     screen_clear(screen, color);
     screen_update(screen);
@@ -483,18 +383,8 @@ void screen_update(Screen *screen)
     if (!screen->dirty)
         return;
 
-    if (screen->CRT_mode)
-    {
-        /* bloom into a scratch buffer — screen->pixels stays clean */
-        static Uint32 CRT_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
-        apply_CRTEffect(screen->pixels, CRT_buffer, 2, 0.22f);
-        SDL_UpdateTexture(screen->texture, NULL, CRT_buffer, SCREEN_WIDTH * sizeof(Uint32));
-    }
-    else
-    {
-        // Update the texture with the current pixel data
-        SDL_UpdateTexture(screen->texture, NULL, screen->pixels, SCREEN_WIDTH * sizeof(Uint32));
-    }
+    // Update the texture with the current pixel data
+    SDL_UpdateTexture(screen->texture, NULL, screen->pixels, SCREEN_WIDTH * sizeof(Uint32));
 
     // Copy the texture to the rendering target
     SDL_RenderCopy(screen->renderer, screen->texture, NULL, NULL);
@@ -835,8 +725,7 @@ void screen_print(Screen *screen, const char *text, int x, int y, Uint32 color)
 {
     screen->cursor_x = x;
     screen->cursor_y = y;
-
-    bool CRT_mode = screen->CRT_mode;
+    
 
     for (const char *c = text; *c; c++)
     {

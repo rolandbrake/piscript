@@ -284,7 +284,7 @@ Value pi_printf(vm_t *vm, int argc, Value *argv)
  * @param argv The argument values; expects the first argument to be a string.
  * @return A nil value indicating completion.
  */
-Value pi_log(vm_t *vm, int argc, Value *argv)
+Value pi_writeln(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1)
         vm_error(vm, "[log] expects message.");

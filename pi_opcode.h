@@ -47,6 +47,7 @@ typedef enum
     OP_UNARY = 0x29,
     OP_DEBUG = 0x2a,
     OP_POP_ITER = 0x2b,
+    OP_CALL_FUNCTION_KW = 0x2c,
     OP_CLOSE_UPVALUE = 0x3c,
 } OpCode;
 

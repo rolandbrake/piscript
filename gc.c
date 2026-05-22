@@ -178,6 +178,7 @@ void mark_object(Object *obj)
         Function *fn = (Function *)obj;
 
         mark_list(fn->params);
+        mark_list(fn->param_names);
 
         if (fn->body)
             mark_object((Object *)fn->body);

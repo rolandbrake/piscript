@@ -15,7 +15,8 @@ typedef struct Function
     Object object; // Base object
 
     char *name;     // Function name
-    list_t *params; // PiList of parameters    
+    list_t *params;      // PiList of parameter defaults
+    list_t *param_names; // PiList of parameter names
     ObjCode *body;
 
     UpValue **upvalues; // PiList of upvalues used in the function body
@@ -28,9 +29,11 @@ typedef struct Function
 } Function;
 
 // Object *new_func(char *name, list_t *body, list_t *params, UpValue **upvalues, Object *instance);
-Object *new_func(char *name, ObjCode *body, list_t *params, UpValue **upvalues, Object *instance);
+Object *new_func(char *name, ObjCode *body, list_t *params, list_t *param_names,
+                 UpValue **upvalues, Object *instance);
 Value *new_native(const char *name, native_func func);
 Value call_func(vm_t *vm, Function *function, size_t argc, Value *argv);
+Value call_func_kw(vm_t *vm, Function *function, size_t argc, Value *argv, PiMap *kwargs);
 Value call_funcv(vm_t *vm, Function *function, size_t argc, ...);
 
 void free_func(Function *fn);

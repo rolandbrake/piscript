@@ -30,6 +30,7 @@ typedef struct
     list_t *code;     // PiList of bytecode instructions
     list_t *instrs;   // PiList of instruction metadata (e.g., debug info)
     list_t *upvalues; // PiList of upvalues used in the function
+    list_t *param_names; // Names used to bind keyword arguments.
     stack_t *locals;  // Stack of local variables
     int depth;        // Current scope depth
 } context_t;

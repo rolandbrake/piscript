@@ -157,7 +157,7 @@ BuiltinFunc builtin_functions[] = {
     {"println", pi_println},
     {"print", pi_print},
     {"printf", pi_printf},
-    {"log", pi_log},
+    {"writeln", pi_writeln},
     {"key", pi_key},    
     {"typed", pi_typed},
     {"input", pi_input},

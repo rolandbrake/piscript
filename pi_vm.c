@@ -595,7 +595,7 @@ static Value bind(vm_t *vm, Function *function, Object *instance)
 {
     // Copy the function object to keep the original intact
     Object *fn = new_func(function->name, function->body,
-                          function->params, NULL, instance);
+                          function->params, function->param_names, NULL, instance);
 
     // Set the is_method flag to true
     ((Function *)fn)->is_method = true;
@@ -1514,6 +1514,34 @@ void run(vm_t *vm)
             break;
         }
 
+        case OP_CALL_FUNCTION_KW:
+        {
+            uint8_t num_args = code[pc++];
+            Value kwargs_value = pop_stack(vm);
+            if (!IS_MAP(kwargs_value))
+                vm_error(vm, "Keyword arguments must be a map.");
+
+            Value args[num_args];
+            for (int i = num_args - 1; i >= 0; i--)
+                args[i] = pop_stack(vm);
+
+            Value callee = pop_stack(vm);
+            if (IS_FUN(callee))
+            {
+                vm->function = AS_OBJ(callee);
+                vm->pc = pc;
+                Value result = call_func_kw(vm, AS_FUN(callee), num_args, args,
+                                            AS_MAP(kwargs_value));
+                if (IS_OBJ(result))
+                    add_obj(vm, AS_OBJ(result));
+                push_stack(vm, result);
+            }
+            else
+                vm_error(vm, "Keyword arguments require a function call.");
+
+            break;
+        }
+
         case OP_PUSH_ITER:
         {
             // Pop the iterable object from the stack
@@ -1737,6 +1765,14 @@ void run(vm_t *vm)
             int numParams = code[pc++];
 
             ObjCode *body = AS_CODE(pop_stack(vm));
+            list_t *param_names = list_create(sizeof(Value));
+            Value names[STACK_MAX];
+            for (int i = numParams - 1; i >= 0; i--)
+            {
+                names[i] = pop_stack(vm);
+            }
+            for (int i = 0; i < numParams; i++)
+                list_add(param_names, &names[i]);
             char *name = AS_CSTRING(pop_stack(vm));
 
             list_t *defaults = list_create(sizeof(Value));
@@ -1752,7 +1788,7 @@ void run(vm_t *vm)
             }
 
             // Create a new function object
-            Object *function = new_func(name, body, defaults, NULL, NULL);
+            Object *function = new_func(name, body, defaults, param_names, NULL, NULL);
 
             // Push the new function onto the stack
             push_stack(vm, NEW_OBJ(add_obj(vm, function)));
@@ -1785,6 +1821,14 @@ void run(vm_t *vm)
             upvalues[numUpvalues] = NULL;
 
             ObjCode *body = AS_CODE(pop_stack(vm));
+            list_t *param_names = list_create(sizeof(Value));
+            Value names[STACK_MAX];
+            for (int i = numParams - 1; i >= 0; i--)
+            {
+                names[i] = pop_stack(vm);
+            }
+            for (int i = 0; i < numParams; i++)
+                list_add(param_names, &names[i]);
             char *name = AS_CSTRING(pop_stack(vm));
 
             list_t *defaults = list_create(sizeof(Value));
@@ -1799,7 +1843,7 @@ void run(vm_t *vm)
                 list_add(defaults, &param);
             }
 
-            Object *fun_obj = new_func(name, body, defaults, upvalues, NULL);
+            Object *fun_obj = new_func(name, body, defaults, param_names, upvalues, NULL);
 
             // Push the new closure onto the stack
             push_stack(vm, NEW_OBJ(add_obj(vm, fun_obj)));

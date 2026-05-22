@@ -430,7 +430,7 @@ static void remove_upvalue(vm_t *vm, int index)
 static Value bind(vm_t *vm, Function *function, Object *instance)
 {
     Object *fn = new_func(function->name, function->body,
-                          function->params, NULL, instance);
+                          function->params, function->param_names, NULL, instance);
 
     ((Function *)fn)->is_method = true;
     add_obj(vm, fn);
@@ -1485,7 +1485,7 @@ void run(vm_t *vm)
                 list_add(defaults, &param);
             }
 
-            Object *function = new_func(name, body, defaults, NULL, NULL);
+            Object *function = new_func(name, body, defaults, NULL, NULL, NULL);
             set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, function)));
             break;
         }
@@ -1530,7 +1530,7 @@ void run(vm_t *vm)
                 list_add(defaults, &param);
             }
 
-            Object *fun_obj = new_func(name, body, defaults, upvalues, NULL);
+            Object *fun_obj = new_func(name, body, defaults, NULL, upvalues, NULL);
             set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, fun_obj)));
             break;
         }

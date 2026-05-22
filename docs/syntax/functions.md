@@ -11,16 +11,20 @@ Defined using the `fun` keyword.
 ```piscript
 fun f(a = 0, b = 1) {
   println(args)  // Built-in variable holding arguments as list
+  println(kw_args)  // Named arguments passed to this call as a map
   return a + b
 }
 
-f(3, 4)  # 7
+f(3, b = 4)  # 7
 ```
 
 ### Features:
 
 * Default parameter values (`a = 0`, `b = 1`)
-* `args` refers to the list of arguments passed
+* Named arguments can bind parameters in any order (`f(b = 4, a = 3)`)
+* Positional arguments must appear before named arguments
+* `args` refers to the positional arguments passed
+* `kw_args` refers to the named arguments passed
 * `return` is optional (last expression is returned implicitly)
 
 ---

@@ -745,11 +745,13 @@ static void func_decl(parser_t *parser)
         token = previous(parser);
 
         push_function(parser->comp, name);
+        parser->comp->current->param_names = params;
 
         // Add parameters as locals
         for (int i = 0; i < size; i++)
             add_local(parser->comp, string_get(params, i));
         add_local(parser->comp, "args");
+        add_local(parser->comp, "kw_args");
 
         bool hit_finalReturn = false;
 
@@ -2080,22 +2082,46 @@ static void member_expr(parser_t *parser)
         else if (match(parser, TK_LPAREN))
         {
             int args = 0;
-            // Handle function call
-            // Call expression logic goes here
+            int named = 0;
+            bool saw_named = false;
+
             if (!check(parser, TK_RPAREN))
             {
-                expr(parser);
-                args++;
-                while (match(parser, TK_COMMA))
+                do
                 {
-                    expr(parser);
-                    args++;
-                }
+                    if (check(parser, TK_ID) && peek_next(parser).type == TK_ASSIGN)
+                    {
+                        token_t key = consume(parser, TK_ID, "Expect named argument name.");
+                        consume(parser, TK_ASSIGN, "Expect '=' after named argument.");
+
+                        saw_named = true;
+                        expr(parser);
+
+                        char *key_name = token_value(key);
+                        int index = store_const(parser->comp, NEW_OBJ(new_pistring(key_name)));
+                        emit_16u(parser->comp, OP_LOAD_CONST, key_name, index);
+                        named++;
+                    }
+                    else
+                    {
+                        if (saw_named)
+                            p_error("Positional arguments must come before named arguments.",
+                                    peek(parser).line, peek(parser).column);
+                        expr(parser);
+                        args++;
+                    }
+                } while (match(parser, TK_COMMA));
             }
             token_t _token = consume(parser, TK_RPAREN, "Expect ')' after function call");
             set_pos(parser, _token);
             char *name = strcmp(token_value(token), ")") == 0 ? "<FUN>" : token_value(token);
-            emit_8u(parser->comp, OP_CALL_FUNCTION, name, (byte)args);
+            if (named > 0)
+            {
+                emit_16u(parser->comp, OP_PUSH_MAP, "", named);
+                emit_8u(parser->comp, OP_CALL_FUNCTION_KW, name, (byte)args);
+            }
+            else
+                emit_8u(parser->comp, OP_CALL_FUNCTION, name, (byte)args);
         }
         else
             break; // Exit the loop if no member expression is found
@@ -2244,6 +2270,7 @@ static void primary(parser_t *parser)
                 consume(parser, TK_RARROW, "Expect '->' after function parameters.");
 
                 push_function(parser->comp, NULL);
+                parser->comp->current->param_names = params;
 
                 if (is_object(parser->comp))
                     add_local(parser->comp, "this");
@@ -2251,6 +2278,7 @@ static void primary(parser_t *parser)
                 for (int i = 0; i < size; i++)
                     add_local(parser->comp, string_get(params, i));
                 add_local(parser->comp, "args");
+                add_local(parser->comp, "kw_args");
 
                 arrow_func(parser);
 
@@ -2310,12 +2338,16 @@ static void primary(parser_t *parser)
                 emit(parser->comp, OP_PUSH_NIL);
 
             push_function(parser->comp, NULL);
+            list_t *params = list_create(sizeof(String));
+            list_add(params, new_string(name));
+            parser->comp->current->param_names = params;
 
             if (is_object(parser->comp))
                 add_local(parser->comp, "this");
 
             add_local(parser->comp, name);
             add_local(parser->comp, "args");
+            add_local(parser->comp, "kw_args");
 
             arrow_func(parser);
 
@@ -2442,6 +2474,7 @@ static void primary(parser_t *parser)
                     consume(parser, TK_LBRACE, "Expect '{' before function body.");
 
                     push_function(parser->comp, key);
+                    parser->comp->current->param_names = params;
 
                     if (is_object(parser->comp))
                         add_local(parser->comp, "this");
@@ -2449,6 +2482,7 @@ static void primary(parser_t *parser)
                     for (int i = 0; i < size; i++)
                         add_local(parser->comp, string_get(params, i));
                     add_local(parser->comp, "args");
+                    add_local(parser->comp, "kw_args");
 
                     // if (check(parser, TK_RBRACE))
                     if (match(parser, TK_RBRACE))
@@ -2518,6 +2552,7 @@ static void primary(parser_t *parser)
         consume(parser, TK_LBRACE, "Expect '{' before function body.");
 
         push_function(comp, NULL); // Push the function onto the stack
+        comp->current->param_names = params;
 
         if (is_object(comp))
             add_local(comp, "this"); // Add the "this" variable to the local scope
@@ -2526,6 +2561,7 @@ static void primary(parser_t *parser)
         for (int i = 0; i < size; i++)
             add_local(comp, string_get(params, i));
         add_local(comp, "args"); // Add the "args" variable to the local scope
+        add_local(comp, "kw_args");
 
         if (match(parser, TK_RBRACE))
         {

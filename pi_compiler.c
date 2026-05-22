@@ -53,6 +53,7 @@ static const char *op_names[] = {
     [0x29] = "UNARY_OP",
     [0x2a] = "DEBUG_OP",
     [0x2b] = "POP_ITER",
+    [0x2c] = "CALL_FUNCTION_KW",
     [0x3c] = "CLOSE_UPVALUE",
 };
 
@@ -73,6 +74,7 @@ static context_t *create_context(bool is_function, list_t *code, char *fun_name)
     context->upvalues = list_create(sizeof(upvalue_t));
     context->locals = stack_create(sizeof(local_t));
     context->instrs = list_create(sizeof(instr_t));
+    context->param_names = NULL;
 
     context->is_function = is_function;
     context->depth = 0;
@@ -1036,6 +1038,7 @@ void pop_function(compiler_t *comp, int params)
         int uv_size = list_size(comp->current->upvalues);
         list_t *upvalues = comp->current->upvalues;
 
+        list_t *param_names = comp->current->param_names;
         ObjCode *code = (ObjCode *)new_code(comp->code);
         int c_index = store_const(comp, NEW_OBJ(code));
 
@@ -1053,6 +1056,20 @@ void pop_function(compiler_t *comp, int params)
 
         char code_descr[32];
         snprintf(code_descr, sizeof(code_descr), "<code: 0x%04X>", code->hash);
+
+        int named_params = param_names ? list_size(param_names) : 0;
+        for (int i = named_params; i < params; i++)
+        {
+            int p_index = store_const(comp, NEW_OBJ(new_pistring("this")));
+            emit_16u(comp, OP_LOAD_CONST, "this", p_index);
+        }
+
+        for (int i = 0; param_names && i < named_params; i++)
+        {
+            char *param_name = string_get(param_names, i);
+            int p_index = store_const(comp, NEW_OBJ(new_pistring(param_name)));
+            emit_16u(comp, OP_LOAD_CONST, param_name, p_index);
+        }
 
         emit_16u(comp, OP_LOAD_CONST, code_descr, c_index);
 
@@ -1353,6 +1370,7 @@ void dis(compiler_t *comp)
             case OP_UNARY:
             case OP_POP_N:
             case OP_CALL_FUNCTION:
+            case OP_CALL_FUNCTION_KW:
             case OP_PUSH_FUNCTION:
                 snprintf(line_buf, sizeof(line_buf),
                          "\033[38;2;107;107;107m%-4d\033[0m: "

@@ -11,10 +11,10 @@ SRC := \
     pi_token.c \
     pi_lex.c \
     pi_min.c \
-    list.c \
+    pi_list.c \
     pi_stack.c \
     pi_table.c \
-    string.c \
+    pi_string.c \
     pi_value.c \
     pi_object.c \
     pi_compiler.c \
@@ -29,7 +29,7 @@ SRC := \
     builtin/pi_math.c \
     builtin/pi_plot.c \
     builtin/pi_time.c \
-    builtin/pi_string.c \
+    builtin/_pi_string.c \
     builtin/pi_io.c \
     builtin/pi_sys.c \
     builtin/pi_audio.c \

@@ -15,7 +15,8 @@
  * @param instance The bound instance for methods, or NULL for standalone functions.
  * @return A pointer to the newly created function object.
  */
-Object *new_func(char *name, ObjCode *body, list_t *params, UpValue **upvalues, Object *instance)
+Object *new_func(char *name, ObjCode *body, list_t *params, list_t *param_names,
+                 UpValue **upvalues, Object *instance)
 {
 
     // Allocate and verify memory
@@ -35,6 +36,7 @@ Object *new_func(char *name, ObjCode *body, list_t *params, UpValue **upvalues, 
 
     // Handle parameters
     fn->params = params ? params : list_create(sizeof(Value));
+    fn->param_names = param_names ? param_names : list_create(sizeof(Value));
 
     // Set function body
     fn->body = body;
@@ -89,6 +91,7 @@ Value *new_native(const char *name, native_func func)
     fn->name = strdup(name); // Allocate and copy name string
 
     fn->params = NULL;
+    fn->param_names = NULL;
     fn->body = NULL;
 
     fn->is_native = true;
@@ -110,7 +113,7 @@ Value *new_native(const char *name, native_func func)
  * @param argv The arguments to pass to the function.
  * @return The return value of the function.
  */
-Value call_func(vm_t *vm, Function *function, size_t argc, Value *argv)
+Value call_func_kw(vm_t *vm, Function *function, size_t argc, Value *argv, PiMap *kwargs)
 {
     // If the function is a native function, call it directly
     if (function->is_native)
@@ -159,16 +162,40 @@ Value call_func(vm_t *vm, Function *function, size_t argc, Value *argv)
         vm->stack[vm->bp + i] = _default;
     }
 
+    if (kwargs && function->param_names)
+    {
+        int param_count = list_size(function->param_names);
+        for (int i = 0; i < param_count; i++)
+        {
+            Value name = *(Value *)list_getAt(function->param_names, i);
+            if (map_has(kwargs, name))
+            {
+                if (i < argc)
+                    vm_error(vm, "Parameter already received a positional argument.");
+
+                vm->stack[vm->bp + i] = map_get(kwargs, name);
+            }
+        }
+    }
+
     vm->stack[vm->sp] = NEW_OBJ(add_obj(vm, new_list(_args)));
+    if (!kwargs)
+        kwargs = (PiMap *)add_obj(vm, new_map(ht_create(sizeof(Value)), false));
+    vm->stack[vm->sp + 1] = NEW_OBJ(add_obj(vm, (Object *)kwargs));
 
     // Start executing the function body
-    vm->sp++;
+    vm->sp += 2;
 
     run(vm);
 
     // Pop the return value from the stack
     vm->sp--;
     return vm->stack[vm->sp];
+}
+
+Value call_func(vm_t *vm, Function *function, size_t argc, Value *argv)
+{
+    return call_func_kw(vm, function, argc, argv, NULL);
 }
 
 /**
@@ -211,4 +238,5 @@ void free_func(Function *fn)
 {
     free(fn->name);        // Free the function name
     list_free(fn->params); // Free the parameter list
+    list_free(fn->param_names);
 }

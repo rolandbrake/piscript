@@ -1,15 +1,5 @@
-obj = load3d("./objs/monkey.obj");
-
-
-angle = 0
-color = COLOR_VIVID_RED
-while true {
-  clear(COLOR_SKY_BLUE)
-  print("FPS: " + fps(),2, 2,  COLOR_WHITE);
-  p_obj = proj3d(rot3d(obj, 0, angle * 1.2, 0), 20, 12)  
-  rend3d(p_obj, color, true)
-  
-  draw()
-  angle = angle + 1
-  sleep(20)  
+fun greet(name, message) {
+  println(message + ", " + name + "!")
 }
+
+greet(message = "Hello", name = "Alice")
