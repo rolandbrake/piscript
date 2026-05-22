@@ -31,6 +31,21 @@ char *source = NULL;
 
 bool paused = false;
 
+static void web_error_handler(const char *message, int line, int column)
+{
+    if (line >= 0 && column >= 0)
+        fprintf(stderr, "[PiScript Error] at line %d, column %d: %s\n",
+                line, column, message);
+    else
+        fprintf(stderr, "[PiScript Error] %s\n", message);
+
+    if (vm)
+    {
+        vm->running = false;
+        paused = false;
+    }
+}
+
 void main_loop()
 {
     Uint32 frame_start = SDL_GetTicks();
@@ -381,6 +396,7 @@ int main(int argc, char *argv[])
     }
 
     init_audio();
+    set_errorHandler(web_error_handler);
 
     init_scanner(source);
     token_t *tokens = scan();

@@ -487,6 +487,9 @@ void parse(parser_t *parser)
 
     // Emit HALT bytecode to indicate the end of the program
     emit(parser->comp, OP_HALT);
+
+    // Runtime diagnostics need top-level instruction metadata.
+    ht_put(parser->comp->instrs, "<global>", parser->comp->current->instrs);
 }
 
 /**

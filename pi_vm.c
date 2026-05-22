@@ -27,6 +27,13 @@ static bool poll_stop(vm_t *vm)
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_QUIT, SDL_QUIT) > 0)
         vm->running = false;
 
+    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_KEYDOWN, SDL_KEYDOWN) > 0)
+    {
+        if (event.key.keysym.sym == SDLK_c &&
+            (event.key.keysym.mod & KMOD_CTRL))
+            vm->running = false;
+    }
+
     return !vm->running;
 }
 #endif
@@ -291,13 +298,14 @@ void vm_error(vm_t *vm, const char *message)
         else
             snprintf(buffer, sizeof(buffer), "%s", message);
 
-        global_errorHandler(buffer, instr ? instr->line : -1, 0);
+        global_errorHandler(buffer, instr ? instr->line : -1, instr ? instr->column : -1);
         return;
     }
 
     if (instr)
     {
-        fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR] at line %d", instr->line);
+        fprintf(stderr, "\n\033[1;31m[RUNTIME ERROR] at line %d, column %d",
+                instr->line, instr->column);
         if (instr->fun_name)
             fprintf(stderr, " in function '%s'", instr->fun_name);
         fprintf(stderr, ":\033[0m %s\n\n", message);

@@ -124,6 +124,7 @@ while true {
     let hit = false
     for i in 0..len(asteroids) {
       let a = asteroids[i]
+      if a == null continue
       if distance(b.x, b.y, a.x, a.y) < a.size {
         score += 10
         if a.size > 6 {
