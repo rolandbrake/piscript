@@ -87,8 +87,8 @@ while true {
   drawBall()  
   drawPaddle(6, playerY)
   drawPaddle(WIDTH - 10, aiY)  
-  text(30, 8, playerScore, COLOR_COOL_LIGHT_GRAY)
-  text(90, 8, aiScore, COLOR_COOL_LIGHT_GRAY)
+  print(playerScore, 30, 8, COLOR_COOL_LIGHT_GRAY)
+  print(aiScore, 90, 8, COLOR_COOL_LIGHT_GRAY)
 
   draw()
   sleep(30)

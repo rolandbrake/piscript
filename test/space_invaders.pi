@@ -177,10 +177,10 @@ while true {
   drawPlayer()
   drawEnemies()
   drawBullets()
-  text(2, 2, "Score: " + score)
+  print("Score: " + score, 2, 2)
 
   if game_over {
-    text(40, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
+    print("GAME OVER", 40, 60, COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break

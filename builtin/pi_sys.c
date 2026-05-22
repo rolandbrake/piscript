@@ -133,7 +133,7 @@ static void run_script(vm_t *vm, char *source, const char *path)
     free_compiler(comp);
 }
 
-static char *resolve_run_path(vm_t *vm, const char *path)
+static char *resolve_runPath(vm_t *vm, const char *path)
 {
     char *resolved = resolve_sourcePath(vm->source_path, path);
     if (!resolved)
@@ -293,7 +293,7 @@ Value pi_run(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[pi_run] expects one file path string.");
 
     const char *path = AS_CSTRING(argv[0]);
-    char *resolved = resolve_run_path(vm, path);
+    char *resolved = resolve_runPath(vm, path);
     char *source = read_source(vm, resolved);
     run_script(vm, source, resolved);
     free(source);

@@ -27,22 +27,22 @@ fun draw_playGround() {
 
 fun draw_startScreen() {
     draw_playGround()
-    text(36, 20, "SNAKE")
-    text(16, 34, "ARROWS: MOVE")
-    text(16, 44, "NO 180 TURN")
-    text(16, 54, "SPACE: START")
-    text(16, 64, "HIT BODY = GAME OVER")
-    text(16, 74, "WRAP: LEFT/RIGHT/TOP/BOTTOM")
+    print("SNAKE", 36, 20)
+    print("ARROWS: MOVE", 16, 34)
+    print("NO 180 TURN", 16, 44)
+    print("SPACE: START", 16, 54)
+    print("HIT BODY = GAME OVER", 16, 64)
+    print("WRAP: LEFT/RIGHT/TOP/BOTTOM", 16, 74)
 
     circ(34, 92, r, COLOR_PINK_ROSE, true)
-    text(44, 88, "YELLOW FOOD")
-    text(44, 96, "+10 POINTS")
+    print("YELLOW FOOD", 44, 88)
+    print("+10 POINTS", 44, 96)
 
     circ(34, 108, r, COLOR_VIVID_RED, true)
-    text(44, 104, "RED FOOD")
-    text(44, 112, "+20 POINTS")
+    print("RED FOOD", 44, 104)
+    print("+20 POINTS", 44, 112)
 
-    text(16, 122, "PRESS SPACE TO START")
+    print("PRESS SPACE TO START", 16, 122)
     draw()
 }
 
@@ -123,7 +123,7 @@ while (!game_over) {
 
     let food_color = food_type == 1 ? COLOR_VIVID_RED : COLOR_PINK_ROSE
     circ(food.x, food.y, r, food_color, true)
-    text("SCORE: " + score)
+    print("SCORE: " + score)
 
     draw()
     sleep(100)
@@ -131,6 +131,6 @@ while (!game_over) {
 
 // Game over screen
 rect(0, 0, 128, 7, COLOR_SKY_BLUE, true)
-text(36, 56, "GAME OVER")
-text(36, 72, "SCORE: " + score)
+print("GAME OVER", 36, 56)
+print("SCORE: " + score, 36, 72)
 draw()

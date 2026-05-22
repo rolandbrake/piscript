@@ -229,6 +229,19 @@ bool screen_colorFromNumber(double number, Uint32 *color)
     return true;
 }
 
+bool screen_paletteColor(int index, Uint32 *color)
+{
+    if (color == NULL || index < 0 || index >= PALETTE_SIZE)
+        return false;
+
+    SDL_Color entry = palette[index];
+    *color = ((Uint32)entry.a << 24) |
+             ((Uint32)entry.r << 16) |
+             ((Uint32)entry.g << 8) |
+             (Uint32)entry.b;
+    return true;
+}
+
 static Uint32 blend_color(Uint32 dst, Uint32 src, double opacity)
 {
     if (opacity <= 0.0)
@@ -503,6 +516,8 @@ void screen_update(Screen *screen)
 void screen_clear(Screen *screen, Uint32 color)
 {
     const Uint32 _color = screen_resolveColor(color);
+    screen->clear_color = _color;
+
     // Total number of pixels on the screen
     const int size = SCREEN_WIDTH * SCREEN_HEIGHT;
 

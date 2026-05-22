@@ -135,6 +135,7 @@ BuiltinFunc builtin_functions[] = {
     {"rect", pi_rect},
     {"poly", pi_poly},
     {"color", pi_color},
+    {"palette", pi_palette},
     {"sprite", pi_sprite},
 
     // Image

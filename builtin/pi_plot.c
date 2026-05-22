@@ -403,3 +403,26 @@ Value pi_color(vm_t *vm, int argc, Value *argv)
     int palette_index = get_colorIndex(pixel_color);
     return NEW_NUM((double)palette_index);
 }
+
+/**
+ * Returns a default palette entry as a packed 0xAARRGGBB color.
+ */
+Value pi_palette(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 || !IS_NUM(argv[0]))
+        vm_error(vm, "[palette] expects one numeric palette index.");
+
+    double raw_index = AS_NUM(argv[0]);
+    double rounded_index = round(raw_index);
+    if (!isfinite(raw_index) || raw_index != rounded_index)
+        vm_error(vm, "[palette] palette index must be an integer.");
+
+    if (raw_index < 0 || raw_index >= PALETTE_SIZE)
+        vm_error(vm, "[palette] palette index out of bounds (0-79).");
+
+    Uint32 color = 0;
+    if (!screen_paletteColor((int)raw_index, &color))
+        vm_error(vm, "[palette] could not read palette color.");
+
+    return NEW_NUM((double)color);
+}

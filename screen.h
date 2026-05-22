@@ -22,7 +22,7 @@ typedef enum
     COLOR_DARK_GREEN,
     COLOR_BROWN,
     COLOR_DARK_GRAY,
-    // COLOR_LIGHT_GRAY, // skipped in palette
+    COLOR_LIGHT_GRAY, // skipped in palette
     COLOR_WHITE,
     COLOR_VERY_LIGHT_PINK,
     COLOR_BRIGHT_RED,
@@ -77,6 +77,7 @@ typedef struct
     int cursor_x;           // Current x position of the text cursor
     int cursor_y;           // Current y position of the text cursor
     Uint32 text_color;      // Current palette index or packed ARGB text color
+    Uint32 clear_color;     // Last resolved color used by screen_clear
     bool dirty;             // Tracks whether pixel buffer changed since last present
 
     bool CRT_mode; // Flag indicating whether CRT mode is enabled
@@ -132,6 +133,7 @@ void screen_print(Screen *screen, const char *text, int x, int y, Uint32 color);
 // Resolves legacy palette indices (0..PALETTE_SIZE-1) and packed 0xAARRGGBB colors.
 Uint32 screen_resolveColor(Uint32 color);
 bool screen_colorFromNumber(double number, Uint32 *color);
+bool screen_paletteColor(int index, Uint32 *color);
 
 int get_colorIndex(Uint32 pixel_color);
 

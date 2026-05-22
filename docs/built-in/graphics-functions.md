@@ -35,6 +35,22 @@ draw()                // Apply all pixel changes to the screen
 ```
 ---
 
+### palette(index)
+
+**Description:**
+Returns the default palette entry at `index` as a packed `0xAARRGGBB` color.
+
+**Arguments:**
+- `index` *(int)* - A default palette index from `0` to `79`.
+
+**Examples:**
+```piscript
+let warmBrown = palette(4)
+rect(8, 8, 48, 32, warmBrown, true)
+draw()
+```
+---
+
 ### line(x0, y0, x1, y1, color)
 
 **Description:**  

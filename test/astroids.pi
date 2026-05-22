@@ -165,10 +165,10 @@ while true {
   drawShip()
   drawAsteroids()
   drawBullets()
-  text(2, 2, "SCORE " + score)
+  print("SCORE " + score, 2, 2)
 
   if game_over {
-    text(44, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
+    print("GAME OVER", 44, 60, COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break

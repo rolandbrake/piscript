@@ -30,9 +30,10 @@ fun render(px, py) {
     let hx=dx*t
     let hy=dy*t
     let hz=-3+dz*t
-    if(t<5)
+    if(t<5) {
         let shade = floor(abs(4 + 5 * (hx + (time() - start) / 2000)))
         return SPHERE_COLORS[shade % len(SPHERE_COLORS)]
+    }
     else
         return COLOR_SOFT_BLACK
 }

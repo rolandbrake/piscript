@@ -125,7 +125,7 @@ while true {
   drawBall()
 
   if game_over {
-    text(40, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
+    print("GAME OVER", 40, 60, COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break
@@ -133,7 +133,7 @@ while true {
 
   checkWin()
   if win {
-    text(44, 60, "YOU WIN!", COLOR_WARM_YELLOW)
+    print("YOU WIN!", 44, 60, COLOR_WARM_YELLOW)
     draw()
     sleep(1000)
     break

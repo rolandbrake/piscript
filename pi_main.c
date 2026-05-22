@@ -411,6 +411,7 @@ int main(int argc, char *argv[])
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "pi_compiler.h"
 #include "pi_vm.h"
 #include "screen.h"
@@ -456,6 +457,32 @@ static char *load_file(const char *path)
     return buffer;
 }
 
+static void wait_for_exit(Screen *screen)
+{
+    SDL_Event event;
+    const char *message = "Done. CTRL+C or close.";
+
+    screen->offset_x = 0;
+    screen->offset_y = 0;
+    draw_fillRect(screen, 0, SCREEN_HEIGHT - CHAR_HEIGHT - 1,
+                  SCREEN_WIDTH - 1, CHAR_HEIGHT, screen->clear_color);
+    screen_print(screen, message, 1, SCREEN_HEIGHT - CHAR_HEIGHT, COLOR_WHITE);
+    screen_update(screen);
+
+    while (SDL_WaitEvent(&event))
+    {
+        if (event.type == SDL_QUIT)
+            return;
+
+        if (event.type != SDL_KEYDOWN)
+            continue;
+
+        if (event.key.keysym.sym == SDLK_c &&
+            (event.key.keysym.mod & KMOD_CTRL))
+            return;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if (argc < 2)
@@ -492,7 +519,13 @@ int main(int argc, char *argv[])
     vm_t *vm = init_vm(comp, screen);
     vm->source_path = strdup(argv[1]);
     vm->running = true;
+    clock_t start_time = clock();
     run(vm);
+    clock_t end_time = clock();
+    double time_taken = ((double)(end_time - start_time)) * 1000.0 / CLOCKS_PER_SEC;
+    printf("Execution Time: %.4f ms\n", time_taken);
+    fflush(stdout);
+    wait_for_exit(screen);
 
     free_parser(parser);
     free(source);

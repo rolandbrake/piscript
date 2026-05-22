@@ -13,4 +13,6 @@ Value pi_rect(vm_t *vm, int argc, Value *argv);
 Value pi_poly(vm_t *vm, int argc, Value *argv);
 Value pi_sprite(vm_t *vm, int argc, Value *argv);
 Value pi_color(vm_t *vm, int argc, Value *argv);
+Value pi_palette(vm_t *vm, int argc, Value *argv);
+
 #endif // PI_PLOT_H

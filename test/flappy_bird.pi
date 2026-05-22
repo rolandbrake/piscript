@@ -108,7 +108,7 @@ while (true) {
         draw_bird()
 
         // Draw score
-        text("SCORE: " + score)
+        print("SCORE: " + score)
 
         draw()
         sleep(30)
@@ -116,10 +116,10 @@ while (true) {
     } else {
     // Game over screen
     rect(0, 0, 128, 7, COLOR_SKY_BLUE, true)
-    text(36, 50, "GAME OVER")
-    text(46, 64, "SCORE: " + score)
-    text(30, 80, "PRESS SPACE")
-    text(32, 90, "TO RESTART")
+    print("GAME OVER", 36, 50)
+    print("SCORE: " + score, 46, 64)
+    print("PRESS SPACE", 30, 80)
+    print("TO RESTART", 32, 90)
     draw()
     if(key('KEY_SPACE')) {
         game_over = false
