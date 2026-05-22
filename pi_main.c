@@ -541,7 +541,8 @@ int main(int argc, char *argv[])
     double time_taken = ((double)(end_time - start_time)) * 1000.0 / CLOCKS_PER_SEC;
     printf("Execution Time: %.4f ms\n", time_taken);
     fflush(stdout);
-    wait_for_exit(screen);
+    if (!vm->close_requested)
+        wait_for_exit(screen);
 
     free_parser(parser);
     free(source);

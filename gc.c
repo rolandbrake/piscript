@@ -192,6 +192,14 @@ void mark_object(Object *obj)
         break;
     }
 
+    case OBJ_MODEL3D:
+    {
+        ObjModel3d *model = (ObjModel3d *)obj;
+        if (model->texture)
+            mark_object((Object *)model->texture);
+        break;
+    }
+
     case OBJ_SLICE:
         // Slices only carry numeric bounds and have no child objects to mark.
         break;

@@ -1,4 +1,5 @@
 #include <math.h>
+#include <limits.h>
 #include <stdint.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 
 #define GC_MIN_THRESHOLD 4096
 #define GC_MAX_THRESHOLD (1024 * 1024 * 8)
+#define GC_PRESSURE_UNIT 1024
 
 #ifndef __EMSCRIPTEN__
 static bool poll_stop(vm_t *vm)
@@ -25,13 +27,19 @@ static bool poll_stop(vm_t *vm)
 
     SDL_PumpEvents();
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_QUIT, SDL_QUIT) > 0)
+    {
         vm->running = false;
+        vm->close_requested = true;
+    }
 
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_KEYDOWN, SDL_KEYDOWN) > 0)
     {
         if (event.key.keysym.sym == SDLK_c &&
             (event.key.keysym.mod & KMOD_CTRL))
+        {
             vm->running = false;
+            vm->close_requested = true;
+        }
     }
 
     return !vm->running;
@@ -126,6 +134,7 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     vm->screen = screen;
 
     vm->running = true;
+    vm->close_requested = false;
 
     vm->fps = TARGET_FPS;
 
@@ -184,6 +193,7 @@ void vm_reset(vm_t *vm, compiler_t *comp)
     vm->frame_sp = 0;
 
     vm->running = true;
+    vm->close_requested = false;
 
     // Reset GC stats to trigger collection sooner if needed
     vm->counter = 0;
@@ -210,6 +220,42 @@ void vm_reset(vm_t *vm, compiler_t *comp)
  * @param obj The object to add to the object list.
  * @return The newly added object.
  */
+static int object_gcPressure(Object *obj)
+{
+    size_t bytes = sizeof(Object);
+
+    switch (obj->type)
+    {
+    case OBJ_STRING:
+        bytes = sizeof(PiString) + ((PiString *)obj)->length + 1;
+        break;
+    case OBJ_IMAGE:
+    {
+        ObjImage *image = (ObjImage *)obj;
+        size_t pixels = (size_t)image->width * (size_t)image->height;
+        bytes = sizeof(ObjImage) + pixels + (image->alpha ? pixels : 0);
+        break;
+    }
+    case OBJ_SPRITE:
+    {
+        ObjSprite *sprite = (ObjSprite *)obj;
+        bytes = sizeof(ObjSprite) + (size_t)sprite->width * (size_t)sprite->height;
+        break;
+    }
+    case OBJ_MODEL3D:
+    {
+        ObjModel3d *model = (ObjModel3d *)obj;
+        bytes = sizeof(ObjModel3d) + (size_t)model->count * sizeof(triangle);
+        break;
+    }
+    default:
+        break;
+    }
+
+    size_t pressure = 1 + bytes / GC_PRESSURE_UNIT;
+    return pressure > INT_MAX ? INT_MAX : (int)pressure;
+}
+
 inline Object *add_obj(vm_t *vm, Object *obj)
 {
     if (obj->in_gcList)
@@ -223,7 +269,12 @@ inline Object *add_obj(vm_t *vm, Object *obj)
     // Add to the front of the list
     obj->next = vm->objects;
     vm->objects = obj;
-    vm->counter++; // Track new allocations (GC trigger is allocation-driven).
+
+    int pressure = object_gcPressure(obj);
+    if (vm->counter > INT_MAX - pressure)
+        vm->counter = INT_MAX;
+    else
+        vm->counter += pressure;
 
     return obj;
 }
@@ -2022,6 +2073,14 @@ void free_vm(vm_t *vm)
         cart_free(vm->cart);
     }
     free(vm->source_path);
+
+    while (vm->objects)
+    {
+        Object *next = vm->objects->next;
+        free_object(vm->objects);
+        vm->objects = next;
+    }
+
     // Free the memory allocated for the global hash table
     ht_free(vm->globals);
 

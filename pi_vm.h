@@ -54,6 +54,7 @@ typedef struct
     Screen *screen; // Pointer to the screen object, used for rendering graphics.
 
     bool running;         // Flag indicating whether the VM is currently executing code.
+    bool close_requested; // Native window close/Ctrl+C should skip the finished-screen wait.
     pthread_mutex_t lock; // Mutex for thread synchronization.
 
     double fps; // Frames per second (used for performance measurement in graphical applications).
