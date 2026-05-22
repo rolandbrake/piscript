@@ -86,10 +86,10 @@ let vertices = [
         flat_vertices += vertex[1];
       }
   
-      poly(flat_vertices, 6);
+      poly(flat_vertices, COLOR_COOL_LIGHT_GRAY);
     }
   
     draw();
-    clear(12);
+    clear(COLOR_SKY_BLUE);
   }
   

@@ -1,4 +1,16 @@
 
+PALETTE = [COLOR_SOFT_BLACK, COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA,
+           COLOR_DEEP_GREEN, COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY,
+           COLOR_COOL_LIGHT_GRAY, COLOR_SOFT_IVORY, COLOR_VIVID_RED,
+           COLOR_AMBER_ORANGE, COLOR_WARM_YELLOW, COLOR_NEON_GREEN,
+           COLOR_SKY_BLUE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
+           COLOR_LIGHT_PEACH, COLOR_DARK_COCOA, COLOR_MIDNIGHT_BLUE,
+           COLOR_PLUM, COLOR_OCEAN_TEAL, COLOR_BRICK_RED, COLOR_MUTED_MAUVE,
+           COLOR_WARM_STONE, COLOR_PALE_YELLOW, COLOR_DEEP_PINK,
+           COLOR_ORANGE_RED, COLOR_LIME_YELLOW, COLOR_EMERALD,
+           COLOR_BRIGHT_COBALT, COLOR_DUSTY_VIOLET, COLOR_CORAL,
+           COLOR_SOFT_SALMON]
+
 c = 0
 s = 8
 // for the complete set of palette of 32 colors
@@ -7,8 +19,8 @@ l = 0
 while(l <= 128) {
   clear()
 for(i in 0..128 : s) {
-    rect(i + s, 0, i + s, l, c, true)            
-    c++ 
+    rect(i + s, 0, i + s, l, PALETTE[c], true)            
+    c = (c + 1) % len(PALETTE)
 }
 draw()
   l += 2

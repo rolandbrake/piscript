@@ -1,9 +1,184 @@
 #include <math.h>
+#include <ctype.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "pi_sys.h"
 #include "../pi_value.h"
 #include "../list.h"
+#include "../pi_lex.h"
+#include "../pi_parser.h"
+#include "../pi_compiler.h"
 #include "pi_plot.h"
+
+typedef struct
+{
+    int pc;
+    int sp;
+    int bp;
+    int ip;
+    int iter_sp;
+    int frame_sp;
+    int counter;
+    int next_gc;
+    bool running;
+    Uint32 frame_interval;
+    Uint32 last_draw_ticks;
+    list_t *code;
+    list_t *constants;
+    list_t *names;
+    table_t *instrs;
+    Object *function;
+    UpValue *open_upvalues;
+    Value stack[STACK_MAX];
+    Frame *frames[STACK_MAX];
+    Object *iters[STACK_MAX];
+} nested_vm_t;
+
+static void save_vm(vm_t *vm, nested_vm_t *state)
+{
+    state->pc = vm->pc;
+    state->sp = vm->sp;
+    state->bp = vm->bp;
+    state->ip = vm->ip;
+    state->iter_sp = vm->iter_sp;
+    state->frame_sp = vm->frame_sp;
+    state->counter = vm->counter;
+    state->next_gc = vm->next_gc;
+    state->running = vm->running;
+    state->frame_interval = vm->frameInterval_ms;
+    state->last_draw_ticks = vm->last_drawTicks;
+    state->code = vm->code;
+    state->constants = vm->constants;
+    state->names = vm->names;
+    state->instrs = vm->instrs;
+    state->function = vm->function;
+    state->open_upvalues = vm->openUpvalues;
+
+    memcpy(state->stack, vm->stack, sizeof(state->stack));
+    memcpy(state->frames, vm->frames, sizeof(state->frames));
+    memcpy(state->iters, vm->iters, sizeof(state->iters));
+}
+
+static void restore_vm(vm_t *vm, const nested_vm_t *state)
+{
+    vm->pc = state->pc;
+    vm->sp = state->sp;
+    vm->bp = state->bp;
+    vm->ip = state->ip;
+    vm->iter_sp = state->iter_sp;
+    vm->frame_sp = state->frame_sp;
+    vm->counter = state->counter;
+    vm->next_gc = state->next_gc;
+    vm->running = state->running;
+    vm->frameInterval_ms = state->frame_interval;
+    vm->last_drawTicks = state->last_draw_ticks;
+    vm->code = state->code;
+    vm->constants = state->constants;
+    vm->names = state->names;
+    vm->instrs = state->instrs;
+    vm->function = state->function;
+    vm->openUpvalues = state->open_upvalues;
+
+    memcpy(vm->stack, state->stack, sizeof(state->stack));
+    memcpy(vm->frames, state->frames, sizeof(state->frames));
+    memcpy(vm->iters, state->iters, sizeof(state->iters));
+}
+
+static Value eval_expr(vm_t *vm, char *expr)
+{
+    nested_vm_t caller;
+    save_vm(vm, &caller);
+
+    init_scanner(expr);
+    token_t *tokens = scan();
+    compiler_t *comp = init_compiler();
+    parser_t *parser = init_parser(comp, tokens, MODE_REPL);
+    parse(parser);
+
+    vm_reset(vm, comp);
+    run(vm);
+
+    Value result = NEW_NIL();
+    if (vm->sp > vm->bp)
+        result = vm->stack[vm->sp - 1];
+
+    restore_vm(vm, &caller);
+    free_parser(parser);
+    free_compiler(comp);
+    return result;
+}
+
+static void run_script(vm_t *vm, char *source, const char *path)
+{
+    nested_vm_t caller;
+    save_vm(vm, &caller);
+
+    init_scanner(source);
+    token_t *tokens = scan();
+    compiler_t *comp = init_compiler();
+    parser_t *parser = init_parser(comp, tokens, MODE_FILE);
+    parse(parser);
+
+    char *caller_path = vm->source_path;
+    vm->source_path = strdup(path);
+
+    vm_reset(vm, comp);
+    run(vm);
+
+    free(vm->source_path);
+    vm->source_path = caller_path;
+    restore_vm(vm, &caller);
+    free_parser(parser);
+    free_compiler(comp);
+}
+
+static char *resolve_run_path(vm_t *vm, const char *path)
+{
+    char *resolved = resolve_sourcePath(vm->source_path, path);
+    if (!resolved)
+        vm_error(vm, "[pi_run] not enough memory to resolve path.");
+
+    return resolved;
+}
+
+static char *read_source(vm_t *vm, const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if (!file)
+        vm_errorf(vm, "[pi_run] could not open file: %s", path);
+
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        fclose(file);
+        vm_errorf(vm, "[pi_run] could not read file: %s", path);
+    }
+
+    long length = ftell(file);
+    if (length < 0 || fseek(file, 0, SEEK_SET) != 0)
+    {
+        fclose(file);
+        vm_errorf(vm, "[pi_run] could not read file: %s", path);
+    }
+
+    char *source = malloc((size_t)length + 1);
+    if (!source)
+    {
+        fclose(file);
+        vm_error(vm, "[pi_run] not enough memory to read source.");
+    }
+
+    size_t read = fread(source, 1, (size_t)length, file);
+    fclose(file);
+    if (read != (size_t)length)
+    {
+        free(source);
+        vm_errorf(vm, "[pi_run] could not read file: %s", path);
+    }
+
+    source[length] = '\0';
+    return source;
+}
 
 Value pi_fps(vm_t *vm, int argc, Value *argv)
 {
@@ -56,7 +231,12 @@ Value pi_cursor(vm_t *vm, int argc, Value *argv)
     vm->screen->cursor_y = y;
 
     if (argc >= 3 && IS_NUM(argv[2]))
-        vm->screen->text_color = (Color)AS_NUM(argv[2]);
+    {
+        Uint32 text_color = 0;
+        if (!screen_colorFromNumber(AS_NUM(argv[2]), &text_color))
+            vm_error(vm, "[cursor] text color must be a palette index or packed 0xAARRGGBB number.");
+        vm->screen->text_color = text_color;
+    }
 
     return NEW_NIL();
 }
@@ -97,6 +277,46 @@ Value pi_mouse(vm_t *vm, int argc, Value *argv)
     list_add(list, &NEW_NUM(y));
 
     return NEW_OBJ(new_list(list));
+}
+
+Value pi_eval(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 || !IS_STRING(argv[0]))
+        vm_error(vm, "[pi_eval] expects one string expression.");
+
+    return eval_expr(vm, AS_CSTRING(argv[0]));
+}
+
+Value pi_run(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 || !IS_STRING(argv[0]))
+        vm_error(vm, "[pi_run] expects one file path string.");
+
+    const char *path = AS_CSTRING(argv[0]);
+    char *resolved = resolve_run_path(vm, path);
+    char *source = read_source(vm, resolved);
+    run_script(vm, source, resolved);
+    free(source);
+    free(resolved);
+    return NEW_NIL();
+}
+
+Value pi_dis(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 || !IS_STRING(argv[0]))
+        vm_error(vm, "[pi_dis] expects one code string.");
+
+    init_scanner(AS_CSTRING(argv[0]));
+    token_t *tokens = scan();
+    compiler_t *comp = init_compiler();
+    parser_t *parser = init_parser(comp, tokens, MODE_FILE);
+    parse(parser);
+
+    dis(comp);
+
+    free_parser(parser);
+    free_compiler(comp);
+    return NEW_NIL();
 }
 
 Value pi_zen(vm_t *vm, int argc, Value *argv)

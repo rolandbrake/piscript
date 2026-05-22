@@ -20,3 +20,5 @@ fun rot13(message = '') {
 }
 
 println(rot13("YsREgKcTNODgGwvChyXqDgFJwCVQGmJpAAZUAAHLpMjmtdPVScwoKUctXbYeCHFFJwECJuLODFdssPQhdxxOyMXBDAYUDGtjnr"));
+draw();
+sleep(5000);

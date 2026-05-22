@@ -15,11 +15,11 @@ playerScore = 0
 aiScore = 0
 
 fun drawPaddle(x, y) {
-  rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT, 7, true)
+  rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT, COLOR_SOFT_IVORY, true)
 }
 
 fun drawBall() {
-  circ(ballX, ballY, BALL_SIZE, 8, true)
+  circ(ballX, ballY, BALL_SIZE, COLOR_VIVID_RED, true)
 }
 
 fun resetBall() {
@@ -31,8 +31,8 @@ fun resetBall() {
 
 while true {
   clear()
-  rect(4, 4, WIDTH - 8, HEIGHT - 8, 6)
-  line(64, 4, 64, 123, 6)
+  rect(4, 4, WIDTH - 8, HEIGHT - 8, COLOR_COOL_LIGHT_GRAY)
+  line(64, 4, 64, 123, COLOR_COOL_LIGHT_GRAY)
 
   // Move player
   if key("KEY_UP") && playerY > 10
@@ -87,8 +87,8 @@ while true {
   drawBall()  
   drawPaddle(6, playerY)
   drawPaddle(WIDTH - 10, aiY)  
-  text(30, 8, playerScore, 6)
-  text(90, 8, aiScore, 6)
+  text(30, 8, playerScore, COLOR_COOL_LIGHT_GRAY)
+  text(90, 8, aiScore, COLOR_COOL_LIGHT_GRAY)
 
   draw()
   sleep(30)

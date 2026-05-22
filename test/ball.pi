@@ -6,7 +6,7 @@ dy = 2
 d = 30
 r = d / 2
 
-c = 8
+c = COLOR_VIVID_RED
 
 width = 128
 height = 128
@@ -21,9 +21,9 @@ while true {
   if y + r > height || y - r < 0 dy = dy * -1
 
 
-  clear(12)
+  clear(COLOR_SKY_BLUE)
   circ(x, y, r, c, true)
-  circ(x, y, r, 0)
+  circ(x, y, r, COLOR_SOFT_BLACK)
   draw()  
   sleep(100)
   

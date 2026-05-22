@@ -32,7 +32,8 @@ let height = 128;
 let fov = 150.0;
 let viewer_distance = 200.0;
 
-let colors = [1, 2, 3, 4, 5, 8];
+let colors = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+              COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_VIVID_RED];
 
 while (true) {  
   // Increment angles for smooth rotation
@@ -123,11 +124,11 @@ while (true) {
     }
 
     poly(flat_vertices, color, true);
-    poly(flat_vertices, 0);
+    poly(flat_vertices, COLOR_SOFT_BLACK);
   }
   
   sleep(20);
   draw();
-  clear(12);
+  clear(COLOR_SKY_BLUE);
 }
 

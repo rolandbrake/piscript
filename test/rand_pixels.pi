@@ -1,9 +1,15 @@
+PALETTE = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+           COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_COOL_LIGHT_GRAY,
+           COLOR_SOFT_IVORY, COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+           COLOR_WARM_YELLOW, COLOR_NEON_GREEN, COLOR_SKY_BLUE,
+           COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE, COLOR_LIGHT_PEACH]
+
 let width = 128;
 let height = 128;
 while(true) {
   for (x in 0..width) 
       for (y in 0..height) 
-          pixel(x, y, floor(rand() * 16) + 1);
+          pixel(x, y, PALETTE[floor(rand() * len(PALETTE))]);
 
   draw();
 }

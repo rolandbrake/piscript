@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
 #include "common.h"
 
 error_handlerFn global_errorHandler = NULL;
@@ -62,6 +64,61 @@ void error(const char *format, ...)
 
     va_end(args);
     exit(EXIT_FAILURE);
+}
+
+static bool is_abs_path(const char *path)
+{
+    if (!path || !path[0])
+        return false;
+
+    if (path[0] == '/' || path[0] == '\\')
+        return true;
+
+    return isalpha((unsigned char)path[0]) && path[1] == ':';
+}
+
+static const char *last_path_sep(const char *path)
+{
+    const char *slash = strrchr(path, '/');
+    const char *backslash = strrchr(path, '\\');
+    if (!slash)
+        return backslash;
+    if (!backslash)
+        return slash;
+    return slash > backslash ? slash : backslash;
+}
+
+static bool path_exists(const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if (!file)
+        return false;
+
+    fclose(file);
+    return true;
+}
+
+char *resolve_sourcePath(const char *source_path, const char *path)
+{
+    if (!path)
+        return NULL;
+
+    if (is_abs_path(path) || path_exists(path) || !source_path)
+        return strdup(path);
+
+    const char *sep = last_path_sep(source_path);
+    if (!sep)
+        return strdup(path);
+
+    size_t base_len = (size_t)(sep - source_path) + 1;
+    size_t path_len = strlen(path);
+    char *resolved = malloc(base_len + path_len + 1);
+    if (!resolved)
+        return NULL;
+
+    memcpy(resolved, source_path, base_len);
+    memcpy(resolved + base_len, path, path_len + 1);
+    return resolved;
 }
 
 extern const SDL_Color palette[PALETTE_SIZE];

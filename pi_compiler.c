@@ -1295,22 +1295,34 @@ void dis(compiler_t *comp)
 
     printf("disassembling...\n");
 
-    // Ensure global scope instructions are in the hash table
+    list_t *global_instrs = NULL;
     if (stack_size(comp->contexts) > 0)
     {
         context_t *global_ctx = (context_t *)stack_getAt(comp->contexts, 0);
-        ht_put(comp->instrs, "<global>", global_ctx->instrs);
+        global_instrs = global_ctx->instrs;
     }
 
     // Get all function names in order
     char **scope_names = ht_keys(comp->instrs);
 
-    int size = ht_length(comp->instrs);
+    int scope_count = ht_length(comp->instrs);
+    int size = scope_count + (global_instrs ? 1 : 0);
 
     for (int i = 0; i < size; i++)
     {
-        char *scope_name = scope_names[i];
-        list_t *instrs = ht_get(comp->instrs, scope_name);
+        char *scope_name;
+        list_t *instrs;
+        if (global_instrs && i == 0)
+        {
+            scope_name = "<global>";
+            instrs = global_instrs;
+        }
+        else
+        {
+            int scope_index = i - (global_instrs ? 1 : 0);
+            scope_name = scope_names[scope_index];
+            instrs = ht_get(comp->instrs, scope_name);
+        }
 
         printf("\n\033[1;36m== Disassembly of %s ==\033[0m\n\n",
                strcmp(scope_name, "<global>") == 0 ? "global scope" : scope_name);
@@ -1541,7 +1553,6 @@ void free_compiler(compiler_t *comp)
             free_instr(instr);
         }
         list_free(instr_list);
-        free(key); // Free the key string from the hash table
     }
     ht_free(comp->instrs);
 

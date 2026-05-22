@@ -150,18 +150,19 @@ static Value make_imageResult(vm_t *vm, const ImageSource *src, int w, int h, ui
  * @param argv The arguments: file path (string).
  * @return A new image object.
  */
-Value pi_image(vm_t *vm, int argc, Value *argv)
+static ObjImage *load_image(vm_t *vm, const char *path)
 {
-    // Validate the input argument
-    if (argc < 1 || !IS_STRING(argv[0]))
-        vm_error(vm, "[image] expects a file path string as its first argument.");
+    char *resolved = resolve_sourcePath(vm->source_path, path);
+    if (!resolved)
+        vm_error(vm, "[image] memory allocation failed while resolving the path.");
 
-    const char *path = AS_CSTRING(argv[0]);
-
-    // Load the image using SDL_image library
-    SDL_Surface *surface = IMG_Load(path);
+    SDL_Surface *surface = IMG_Load(resolved);
     if (!surface)
-        vm_errorf(vm, "[image] failed to load: %s", IMG_GetError());
+    {
+        free(resolved);
+        vm_errorf(vm, "[image] failed to load '%s': %s", path, IMG_GetError());
+    }
+    free(resolved);
 
     // Convert the loaded surface to 32-bit RGBA format
     SDL_Surface *formatted = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
@@ -200,8 +201,37 @@ Value pi_image(vm_t *vm, int argc, Value *argv)
     SDL_FreeSurface(formatted);
 
     // Create a new image object from the pixel data
-    ObjImage *img = new_image(w, h, pixels, alpha);
-    return NEW_OBJ(img);
+    return new_image(w, h, pixels, alpha);
+}
+
+Value pi_image(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1 || !IS_STRING(argv[0]))
+        vm_error(vm, "[image] expects a file path string as its first argument.");
+
+    return NEW_OBJ(load_image(vm, AS_CSTRING(argv[0])));
+}
+
+Value pi_spriteFile(vm_t *vm, const char *path)
+{
+    ObjImage *img = load_image(vm, path);
+    if (img->width > UINT16_MAX || img->height > UINT16_MAX)
+        vm_error(vm, "[sprite] image exceeds max sprite size 65535x65535.");
+
+    int size = img->width * img->height;
+    uint8_t *data = malloc(size);
+    if (!data)
+        vm_error(vm, "[sprite] memory allocation failed.");
+
+    for (int i = 0; i < size; i++)
+        data[i] = img->alpha[i] == 0 ? 0 : img->pixels[i];
+
+    uint16_t width = (uint16_t)img->width;
+    uint16_t height = (uint16_t)img->height;
+    free(img->pixels);
+    free(img->alpha);
+    free(img);
+    return NEW_OBJ(new_sprite(width, height, data));
 }
 
 /**
@@ -359,7 +389,7 @@ Value pi_rend2d(vm_t *vm, int argc, Value *argv)
                 continue;
 
             // Set the pixel color and alpha
-            set_pixel_alpha(vm->screen, screen_x, screen_y, color, alpha);
+            set_pixelAlpha(vm->screen, screen_x, screen_y, color, alpha);
         }
     }
 

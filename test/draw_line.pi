@@ -18,6 +18,12 @@ fun draw_line(x1, y1, x2, y2, color) {
     draw()
   }
   
+  PALETTE = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+             COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_COOL_LIGHT_GRAY,
+             COLOR_SOFT_IVORY, COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+             COLOR_WARM_YELLOW, COLOR_NEON_GREEN, COLOR_SKY_BLUE,
+             COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE, COLOR_LIGHT_PEACH]
+
   let start = time()
   let current = time()
   let frame_rate = 0
@@ -29,5 +35,5 @@ fun draw_line(x1, y1, x2, y2, color) {
     }
     frame_rate++
     draw_line(floor(rand() * 128), floor(rand() * 128), floor(rand() * 128), 
-    floor(rand() * 128), floor(rand() * 32)) 
+    floor(rand() * 128), PALETTE[floor(rand() * len(PALETTE))]) 
   }

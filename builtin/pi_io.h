@@ -21,6 +21,7 @@ Value pi_text(vm_t *vm, int argc, Value *argv);
 Value pi_log(vm_t *vm, int argc, Value *argv);
 
 Value pi_key(vm_t *vm, int argc, Value *argv);
+Value pi_typed(vm_t *vm, int argc, Value *argv);
 Value pi_input(vm_t *vm, int argc, Value *argv);
 
 // open file and return file handle

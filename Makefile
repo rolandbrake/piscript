@@ -1,8 +1,9 @@
 # ===== Compiler Settings =====
 CC       := gcc
 EMCC     := emcc
-TARGET   := pishell
+TARGET   := piscript
 WEB_OUT  := piscript.html
+SCRIPT   ?= test.pi
 
 # ===== Source Files =====
 SRC := \
@@ -24,8 +25,6 @@ SRC := \
     pi_func.c \
     pi_frame.c \
     gc.c \
-    pi_shell.c \
-    commands.c \
     cart.c \
     builtin/pi_math.c \
     builtin/pi_plot.c \
@@ -41,10 +40,10 @@ SRC := \
     builtin/pi_obj.c \
     builtin/pi_render.c \
     builtin/pi_img.c \
+    builtin/pi_ui.c \
     builtin/pi_builtin.c
 
-# Emscripten excludes shell/commands
-EM_SRC := $(filter-out pi_shell.c commands.c, $(SRC))
+EM_SRC := $(SRC)
 
 # ===== Common Flags =====
 CSTD := -std=c99
@@ -97,7 +96,7 @@ emscripten:
 
 # ===== Run =====
 run: release
-	./$(TARGET).exe
+	./$(TARGET).exe $(SCRIPT)
 
 # ===== Clean =====
 clean:

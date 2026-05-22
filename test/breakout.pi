@@ -20,7 +20,9 @@ game_over = false
 win = false
 
 
-colors = [2, 3, 8, 9, 13, 14, 19]
+colors = [COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN, COLOR_VIVID_RED,
+          COLOR_AMBER_ORANGE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
+          COLOR_OCEAN_TEAL]
 
 // Initialize brick grid
 bricks = [0] * ROWS
@@ -40,11 +42,11 @@ fun drawBricks() {
 }
 
 fun drawPaddle() {
-  rect(paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT, 7, true)
+  rect(paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT, COLOR_SOFT_IVORY, true)
 }
 
 fun drawBall() {
-  circ(ballX, ballY, BALL_SIZE, 8, true)
+  circ(ballX, ballY, BALL_SIZE, COLOR_VIVID_RED, true)
 }
 
 fun resetBall() {
@@ -84,7 +86,7 @@ fun checkWin() {
 }
 
 while true {
-  clear(0)
+  clear(COLOR_SOFT_BLACK)
 
   // Player input
   if key("KEY_LEFT") && paddleX > 0
@@ -123,7 +125,7 @@ while true {
   drawBall()
 
   if game_over {
-    text(40, 60, "GAME OVER", 6)
+    text(40, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break
@@ -131,7 +133,7 @@ while true {
 
   checkWin()
   if win {
-    text(44, 60, "YOU WIN!", 10)
+    text(44, 60, "YOU WIN!", COLOR_WARM_YELLOW)
     draw()
     sleep(1000)
     break

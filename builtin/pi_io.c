@@ -9,6 +9,15 @@
 #include "../common.h"
 #include "../screen.h"
 
+static Uint32 text_color_arg(vm_t *vm, Value value, const char *fn_name)
+{
+    Uint32 color = 0;
+    if (!IS_NUM(value) || !screen_colorFromNumber(AS_NUM(value), &color))
+        vm_errorf(vm, "[%s] text color must be a palette index or packed 0xAARRGGBB number.", fn_name);
+
+    return color;
+}
+
 /**
  * @brief Appends a string to the given buffer.
  *
@@ -79,7 +88,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
 
     int x = vm->screen->cursor_x;
     int y = vm->screen->cursor_y;
-    int color = vm->screen->text_color;
+    Uint32 color = vm->screen->text_color;
 
     // Optional arguments
     if (argc >= 3)
@@ -89,7 +98,7 @@ Value pi_print(vm_t *vm, int argc, Value *argv)
     }
 
     if (argc >= 4 && IS_NUM(argv[3]))
-        color = (int)AS_NUM(argv[3]);
+        color = text_color_arg(vm, argv[3], "print");
 
     screen_print(vm->screen, text, x, y, color);
     free(text);
@@ -128,7 +137,7 @@ Value pi_println(vm_t *vm, int argc, Value *argv)
     int y = vm->screen->cursor_y;
 
     // Get the text color index
-    int color = vm->screen->text_color;
+    Uint32 color = vm->screen->text_color;
 
     // Parse optional arguments
     if (argc >= 3)
@@ -143,7 +152,7 @@ Value pi_println(vm_t *vm, int argc, Value *argv)
     if (argc >= 4 && IS_NUM(argv[3]))
     {
         // Get the text color index
-        color = (int)AS_NUM(argv[3]);
+        color = text_color_arg(vm, argv[3], "println");
     }
 
     // Print the text
@@ -206,7 +215,7 @@ Value pi_printf(vm_t *vm, int argc, Value *argv)
             int index = *p - '0';
             p++;
 
-            int color = vm->screen->text_color;
+            Uint32 color = vm->screen->text_color;
 
             if (*p == ':')
             {
@@ -349,6 +358,8 @@ static SDL_Scancode get_keyCode(const char *keyname)
         return SDL_SCANCODE_SPACE;
     if (strcmp(key, "ENTER") == 0)
         return SDL_SCANCODE_RETURN;
+    if (strcmp(key, "BACKSPACE") == 0)
+        return SDL_SCANCODE_BACKSPACE;
     if (strcmp(key, "ESC") == 0)
         return SDL_SCANCODE_ESCAPE;
     if (strcmp(key, "UP") == 0)
@@ -425,21 +436,46 @@ Value pi_key(vm_t *vm, int argc, Value *argv)
 
     if (once)
     {
-        // Detect key press only once
-        static bool prev_pressed = false;
-        if (pressed && !prev_pressed)
+        // Track each scancode independently so polling several keys in one
+        // frame does not suppress later key presses.
+        static bool prev_pressed[SDL_NUM_SCANCODES] = {false};
+        if (pressed && !prev_pressed[scancode])
         {
-            prev_pressed = true;
+            prev_pressed[scancode] = true;
             return NEW_BOOL(true);
         }
         else if (!pressed)
-            prev_pressed = false;
+            prev_pressed[scancode] = false;
 
         return NEW_BOOL(false);
     }
     else
         // Detect key press continuously
         return NEW_BOOL(pressed);
+}
+
+Value pi_typed(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 0)
+        vm_error(vm, "[typed] expects no arguments.");
+
+    static bool text_input_started = false;
+    char buffer[BUFFER_SIZE];
+    int offset = 0;
+    SDL_Event event;
+
+    if (!text_input_started)
+    {
+        SDL_StartTextInput();
+        text_input_started = true;
+    }
+
+    SDL_PumpEvents();
+    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_TEXTINPUT, SDL_TEXTINPUT) > 0)
+        append(buffer, &offset, event.text.text);
+
+    buffer[offset] = '\0';
+    return NEW_OBJ(add_obj(vm, new_pistring(strdup(buffer))));
 }
 
 /**

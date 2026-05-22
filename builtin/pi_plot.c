@@ -3,8 +3,18 @@
 #include <string.h> // For memcpy
 
 #include "pi_plot.h"
+#include "pi_img.h"
 #include "../screen.h"
 #include "../common.h"
+
+static Uint32 color_arg(vm_t *vm, Value value, const char *fn_name)
+{
+    Uint32 color = 0;
+    if (!IS_NUM(value) || !screen_colorFromNumber(AS_NUM(value), &color))
+        vm_errorf(vm, "[%s] color must be a palette index or packed 0xAARRGGBB number.", fn_name);
+
+    return color;
+}
 
 /**
  * Draws a pixel on the screen at the specified coordinates with a given color and optional alpha transparency.
@@ -30,7 +40,7 @@ Value pi_pixel(vm_t *vm, int argc, Value *argv)
 
     int x = (int)round(AS_NUM(argv[0]));
     int y = (int)round(AS_NUM(argv[1]));
-    int color = (int)round(AS_NUM(argv[2]));
+    Uint32 color = color_arg(vm, argv[2], "pixel");
     float alpha = (argc == 4) ? AS_NUM(argv[3]) : 1.0f;
 
     if (alpha < 0.0f)
@@ -38,7 +48,7 @@ Value pi_pixel(vm_t *vm, int argc, Value *argv)
     if (alpha > 1.0f)
         alpha = 1.0f;
 
-    set_pixel_alpha(vm->screen, x, y, color, alpha);
+    set_pixelAlpha(vm->screen, x, y, color, alpha);
     return NEW_NIL();
 }
 
@@ -69,7 +79,7 @@ Value pi_line(vm_t *vm, int argc, Value *argv)
     int y1 = (int)round(AS_NUM(argv[1]));
     int x2 = (int)round(AS_NUM(argv[2]));
     int y2 = (int)round(AS_NUM(argv[3]));
-    int color = ((int)round(AS_NUM(argv[4])) % 32);
+    Uint32 color = color_arg(vm, argv[4], "line");
 
     Screen *screen = vm->screen; // Assume vm has a Screen reference
 
@@ -137,9 +147,9 @@ Value pi_draw(vm_t *vm, int argc, Value *argv)
  */
 Value pi_clear(vm_t *vm, int argc, Value *argv)
 {
-    int color = 12;
+    Uint32 color = 12;
     if (argc == 1 && argv[0].type == VAL_NUM)
-        color = (int)round(AS_NUM(argv[0])) % 32;
+        color = color_arg(vm, argv[0], "clear");
     screen_clear(vm->screen, color);
     return NEW_NIL();
 }
@@ -170,7 +180,7 @@ Value pi_circ(vm_t *vm, int argc, Value *argv)
     int x = (int)round(AS_NUM(argv[0]));
     int y = (int)round(AS_NUM(argv[1]));
     int radius = (int)round(AS_NUM(argv[2]));
-    int color = ((int)round(AS_NUM(argv[3])) % 32);
+    Uint32 color = color_arg(vm, argv[3], "circ");
 
     Screen *screen = vm->screen; // Assume vm has a Screen reference
 
@@ -217,7 +227,7 @@ Value pi_rect(vm_t *vm, int argc, Value *argv)
     int y = (int)round(AS_NUM(argv[1]));
     int width = (int)round(AS_NUM(argv[2]));
     int height = (int)round(AS_NUM(argv[3]));
-    int color = ((int)round(AS_NUM(argv[4])) % 32);
+    Uint32 color = color_arg(vm, argv[4], "rect");
 
     Screen *screen = vm->screen; // Assume vm has a Screen reference
     if (filled)
@@ -247,7 +257,7 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
     Screen *screen = vm->screen; // Assume vm has a Screen reference
     list_t *points = AS_LIST(argv[0])->items;
 
-    int color = ((int)round(AS_NUM(argv[1])) % 32);
+    Uint32 color = color_arg(vm, argv[1], "poly");
 
     bool filled = false;
     if (argc > 2)
@@ -264,6 +274,7 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
 /**
  * Sprite constructor/draw overloads:
  *  - sprite(index) -> returns a sprite object copied from the cartridge sprite sheet.
+ *  - sprite(path) -> returns a sprite object loaded from an image file.
  *  - sprite(index, x, y) -> draws a cartridge sprite by index.
  *  - sprite(index, x, y, centered) -> draws cartridge sprite centered at (x, y) when centered is true.
  *  - sprite(spriteObject, x, y) -> draws a sprite object.
@@ -272,7 +283,10 @@ Value pi_poly(vm_t *vm, int argc, Value *argv)
 Value pi_sprite(vm_t *vm, int argc, Value *argv)
 {
     if (argc != 1 && argc != 3 && argc != 4)
-        vm_error(vm, "[sprite] expects sprite(index) or sprite(index|sprite, x, y [, centered]).");
+        vm_error(vm, "[sprite] expects sprite(index|imagePath) or sprite(index|sprite, x, y [, centered]).");
+
+    if (argc == 1 && IS_STRING(argv[0]))
+        return pi_spriteFile(vm, AS_CSTRING(argv[0]));
 
     if (IS_NUM(argv[0]))
     {

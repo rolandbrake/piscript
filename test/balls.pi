@@ -1,4 +1,10 @@
 // Bouncing Balls
+PALETTE = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+           COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_COOL_LIGHT_GRAY,
+           COLOR_SOFT_IVORY, COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+           COLOR_WARM_YELLOW, COLOR_NEON_GREEN, COLOR_SKY_BLUE,
+           COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE, COLOR_LIGHT_PEACH]
+
 let Circle = {
     constructor(x, y, r, c, dx, dy) {
         this.x = x
@@ -36,7 +42,7 @@ fun update_circle(c) {
 // Draws circle on the screen
 fun draw_circle(c) {
     circ(c.x, c.y, c.r, c.c, true)
-    circ(c.x, c.y, c.r, 0)
+    circ(c.x, c.y, c.r, COLOR_SOFT_BLACK)
 }
 
 
@@ -47,14 +53,14 @@ for(i in 0..500)
         rand() * 100 + 14, // avoid edges
         rand() * 100 + 14,
         rand() * 10 + 10,
-        rand() * 16,
+        PALETTE[floor(rand() * len(PALETTE))],
         rand_vel(),
         rand_vel()
     )
 
 // Main loop
 while true {
-    clear(0)
+    clear(COLOR_SOFT_BLACK)
 
     for i in 0..#circles {
         update_circle(circles[i])

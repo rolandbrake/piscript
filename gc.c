@@ -374,9 +374,6 @@ void mark_roots(vm_t *vm)
     for (int i = 0; i < vm->sp; i++)
         mark_value(vm->stack[i]);
 
-    // If your VM has global variables or other roots (e.g. open upvalues, etc.),
-    // mark them here as well.
-
     for (int i = 0; i < vm->frame_sp; i++)
     {
         Frame *frame = vm->frames[i];

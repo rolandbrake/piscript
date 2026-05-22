@@ -6,6 +6,12 @@ height = 128
 let A = 0.0, B = 0.0
 let R1 = 15, R2 = 40, K2 = 100
 K1 = width * K2 * 3 / (8 * (R1 + R2))
+SHADES = [COLOR_SOFT_BLACK, COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA,
+          COLOR_DEEP_GREEN, COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY,
+          COLOR_COOL_LIGHT_GRAY, COLOR_SOFT_IVORY, COLOR_VIVID_RED,
+          COLOR_AMBER_ORANGE, COLOR_WARM_YELLOW, COLOR_NEON_GREEN,
+          COLOR_SKY_BLUE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
+          COLOR_LIGHT_PEACH]
 
 while (true) {
     let zBuffer = [-1000] * (width * height)
@@ -41,7 +47,7 @@ while (true) {
                         color = max([0, min([15, color])])  // Clamp to 0-15
 
                         zBuffer[idx] = ooz
-                        pixel(xp, yp, color)
+                        pixel(xp, yp, SHADES[color])
                     }
                 }
             }
@@ -52,6 +58,6 @@ while (true) {
     draw()
     A += 0.04
     B += 0.08
-    clear(0)
+    clear(COLOR_SOFT_BLACK)
     sleep(30)
 }

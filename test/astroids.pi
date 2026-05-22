@@ -46,20 +46,20 @@ fun drawShip() {
   let x3 = x + cos(a - 2.5) * 6
   let y3 = y + sin(a - 2.5) * 6
 
-  line(x1, y1, x2, y2, 15)
-  line(x2, y2, x3, y3, 15)
-  line(x3, y3, x1, y1, 15)
+  line(x1, y1, x2, y2, COLOR_LIGHT_PEACH)
+  line(x2, y2, x3, y3, COLOR_LIGHT_PEACH)
+  line(x3, y3, x1, y1, COLOR_LIGHT_PEACH)
 }
 
 fun drawAsteroids() {
   for a in asteroids {      
-    circ(a.x, a.y, a.size, 8)
+    circ(a.x, a.y, a.size, COLOR_VIVID_RED)
   }
 }
 
 fun drawBullets() {
   for b in bullets {
-    rect(b.x, b.y, 1, 1, 15)
+    rect(b.x, b.y, 1, 1, COLOR_LIGHT_PEACH)
   }
 }
 
@@ -168,7 +168,7 @@ while true {
   text(2, 2, "SCORE " + score)
 
   if game_over {
-    text(44, 60, "GAME OVER", 6)
+    text(44, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break

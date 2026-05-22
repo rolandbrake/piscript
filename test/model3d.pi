@@ -990,7 +990,7 @@ for(f in fs) {
 }
 
 while(true) {
-    clear(0)
+    clear(COLOR_SOFT_BLACK)
 
     let cosa = cos(angle)
     let sina = sin(angle)
@@ -1006,7 +1006,7 @@ while(true) {
     for(e in edges) {
         let p1 = sverts[e[0]]
         let p2 = sverts[e[1]]
-        line(p1.x, p1.y, p2.x, p2.y, 11)
+        line(p1.x, p1.y, p2.x, p2.y, COLOR_NEON_GREEN)
     }
 
     draw()

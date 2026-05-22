@@ -1,3 +1,8 @@
+SPHERE_COLORS = [COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY,
+                 COLOR_COOL_LIGHT_GRAY, COLOR_SOFT_IVORY,
+                 COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+                 COLOR_WARM_YELLOW, COLOR_SKY_BLUE]
+
 start = time()
 fun log2(x) {
  return log(x)/log(2)
@@ -26,13 +31,14 @@ fun render(px, py) {
     let hy=dy*t
     let hz=-3+dz*t
     if(t<5)
-        return 4+5*(hx+(time() - start)/2000)
+        let shade = floor(abs(4 + 5 * (hx + (time() - start) / 2000)))
+        return SPHERE_COLORS[shade % len(SPHERE_COLORS)]
     else
-        return 0
+        return COLOR_SOFT_BLACK
 }
 
 while(true) {    
-  clear(0)
+  clear(COLOR_SOFT_BLACK)
   for(x in 0..128)
     for(y in 0..128)         
         pixel(x,y,render(x,y))

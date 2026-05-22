@@ -1,7 +1,7 @@
-clear(0)
+clear(COLOR_SOFT_BLACK)
 for x in 0..128
     for y in 0..128
         if ((x ^ y) & 8)
-            pixel(x, y, 7)
+            pixel(x, y, COLOR_SOFT_IVORY)
 
 draw()

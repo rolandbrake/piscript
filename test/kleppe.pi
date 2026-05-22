@@ -1,7 +1,7 @@
-clear(0)
+clear(COLOR_SOFT_BLACK)
 for(x in 0..128)
   for(y in 0..128) {
     if(((x-64) * 32) % (y-64))
-      pixel(x, y, 7)
+      pixel(x, y, COLOR_SOFT_IVORY)
   }
 draw()

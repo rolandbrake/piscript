@@ -18,7 +18,6 @@
 #define CLAMP(v, min, max) ((v) < (min) ? (min) : (v) > (max) ? (max) \
                                                               : (v))
 
-#define PALETTE_SIZE 32
 
 #define ERROR_COMPARE -2
 
@@ -70,6 +69,7 @@ typedef struct
 char *itos(int num);
 void error(const char *format, ...);
 int find_paletteColor(uint8_t r, uint8_t g, uint8_t b);
+char *resolve_sourcePath(const char *source_path, const char *path);
 
 // Error handler callback definition
 typedef void (*error_handlerFn)(const char *message, int line, int column);

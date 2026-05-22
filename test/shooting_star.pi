@@ -2,10 +2,10 @@ start = time()
 while true {    
     draw()
     for i in 0..2000
-     pixel(rand() * 128,rand() * 128,12)    
+     pixel(rand() * 128,rand() * 128,COLOR_SKY_BLUE)    
     t=(time() - start)  / 500   
     r=50
     x=64 + r * cos(3*t)
     y=64 + r * sin(4*t)
-    circ(x,y,7,6, true)            
+    circ(x,y,7,COLOR_COOL_LIGHT_GRAY, true)            
 }

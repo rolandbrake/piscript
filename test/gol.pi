@@ -8,7 +8,7 @@ fun initBoard() {
     for(x in 0..width) {
         for(y in 0..height) {
             board[x + y * width] = rand() < 0.5 ? 1 : 0;
-            pixel(x, y, board[x + y * width] * 6);
+            pixel(x, y, board[x + y * width] == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SOFT_BLACK);
         }
     }
 }
@@ -47,7 +47,7 @@ fun update() {
             
             // Only update changed pixels
             if(newBoard[idx] != board[idx])
-                pixel(x, y, newBoard[idx] * 6);
+                pixel(x, y, newBoard[idx] == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SOFT_BLACK);
         }
     }
     

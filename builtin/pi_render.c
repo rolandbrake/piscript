@@ -56,7 +56,12 @@ Value pi_load3d(vm_t *vm, int argc, Value *argv)
         vm_error(vm,"[load3d] expects at least 1 argument: file path");
 
     const char *filename = AS_CSTRING(argv[0]);
-    FILE *file = fopen(filename, "r");
+    char *resolved = resolve_sourcePath(vm->source_path, filename);
+    if (!resolved)
+        vm_error(vm,"[load3d] not enough memory to resolve path");
+
+    FILE *file = fopen(resolved, "r");
+    free(resolved);
     if (!file)
         vm_errorf(vm,"[load3d] can't open file: %s", filename);
 
@@ -474,7 +479,7 @@ bool is_triangleVisible(triangle t)
  * @param y2 Third y-coordinate of the triangle.
  * @param color The color of the triangle outline.
  */
-void draw_triangle(Screen *screen, float x0, float y0, float x1, float y1, float x2, float y2, int color)
+void draw_triangle(Screen *screen, float x0, float y0, float x1, float y1, float x2, float y2, Uint32 color)
 {
     // Draw three lines to form the triangle outline
     draw_line(screen, (int)x0, (int)y0, (int)x1, (int)y1, color);
@@ -495,10 +500,10 @@ void draw_triangle(Screen *screen, float x0, float y0, float x1, float y1, float
  * @param color The color of the triangle to draw.
  * @param brightness Adjusts the brightness of the triangle by scaling the color's RGB values.
  */
-void draw_fillTriangle(Screen *screen, float x0, float y0, float x1, float y1, float x2, float y2, int color, float brightness)
+void draw_fillTriangle(Screen *screen, float x0, float y0, float x1, float y1, float x2, float y2, Uint32 color, float brightness)
 {
     // Approximate shading by darkening base color
-    int _color = color;
+    Uint32 _color = color;
 
     int minY = (int)fminf(y0, fminf(y1, y2));
     int maxY = (int)fmaxf(y0, fmaxf(y1, y2));
@@ -536,7 +541,7 @@ void draw_fillTriangle(Screen *screen, float x0, float y0, float x1, float y1, f
 
             // Draw the triangle line
             for (int x = x_start; x <= x_end; x++)
-                set_pixel_shaded(screen, x, y, _color, brightness);
+                set_pixelShade(screen, x, y, _color, brightness);
         }
     }
 }
@@ -631,7 +636,7 @@ void draw_texturedTriangle(
 
             uint8_t color_index = texture->pixels[ty * texture->width + tx];
 
-            set_pixel_shaded(screen, x, y, color_index, brightness);
+            set_pixelShade(screen, x, y, color_index, brightness);
         }
     }
 }
@@ -689,9 +694,12 @@ Value pi_render3d(vm_t *vm, int argc, Value *argv)
 
     ObjModel3d *model = (ObjModel3d *)AS_OBJ(argv[0]);
 
-    int color = 6; // Default color
+    Uint32 color = 6; // Default color
     if (argc > 1 && IS_NUM(argv[1]))
-        color = ((int)round(AS_NUM(argv[1]))) % 32;
+    {
+        if (!screen_colorFromNumber(AS_NUM(argv[1]), &color))
+            vm_error(vm,"[render] color must be a palette index or packed 0xAARRGGBB number");
+    }
 
     bool filled = false;
     if (argc > 2)
@@ -708,9 +716,7 @@ Value pi_render3d(vm_t *vm, int argc, Value *argv)
         if (!is_triangleVisible(t))
             continue;
 
-        // Apply solid color if no texture
-        if (!model->texture && t.color == -1)
-            t.color = color;
+        Uint32 draw_color = t.color == -1 ? color : (Uint32)t.color;
 
         if (filled)
         {
@@ -734,7 +740,7 @@ Value pi_render3d(vm_t *vm, int argc, Value *argv)
                     t.v[0].x, t.v[0].y,
                     t.v[1].x, t.v[1].y,
                     t.v[2].x, t.v[2].y,
-                    t.color,
+                    draw_color,
                     t.brightness);
             }
         }
@@ -746,7 +752,7 @@ Value pi_render3d(vm_t *vm, int argc, Value *argv)
                 t.v[0].x, t.v[0].y,
                 t.v[1].x, t.v[1].y,
                 t.v[2].x, t.v[2].y,
-                t.color);
+                draw_color);
         }
     }
 

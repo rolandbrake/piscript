@@ -1,3 +1,9 @@
+PALETTE = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+           COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_COOL_LIGHT_GRAY,
+           COLOR_SOFT_IVORY, COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+           COLOR_WARM_YELLOW, COLOR_NEON_GREEN, COLOR_SKY_BLUE,
+           COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE, COLOR_LIGHT_PEACH]
+
 fun drawRect(x, y, width, height, color) {
     let h = x + height - 1;
     let w = y + width - 1;
@@ -14,7 +20,7 @@ fun drawRect(x, y, width, height, color) {
 fun drawRects() {
     for(i in 0..16)
         for(j in 0..16){
-            drawRect(i*8, j*8, 8, 8, floor(rand() * 32));
+            drawRect(i*8, j*8, 8, 8, PALETTE[floor(rand() * len(PALETTE))]);
         }    
 }
 

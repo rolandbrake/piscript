@@ -221,7 +221,7 @@ fun run() {
 
 // Main loop
 fun loop() {
-    clear(0)    
+    clear(COLOR_SOFT_BLACK)    
     while(true) {
         run()
         _draw()
@@ -235,10 +235,10 @@ fun loop() {
 }
 
 fun _draw() {
-  clear(0)
+  clear(COLOR_SOFT_BLACK)
   for(row in 0..height) 
     for(col in 0..width)  {
-      let color = display[row * width + col] == 1 ? 6 : 0
+      let color = display[row * width + col] == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SOFT_BLACK
       pixel(col + 32, row + 48, color)    
     }
   draw()

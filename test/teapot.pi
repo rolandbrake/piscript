@@ -2,9 +2,9 @@ obj = load3d("../objs/teapot.obj");
 
 
 angle = 0
-color = 6
+color = COLOR_COOL_LIGHT_GRAY
 while true {
-  clear(12)
+  clear(COLOR_SKY_BLUE)
   p_obj = proj3d(tran3d(rot3d(obj, angle * 0.2, angle * 1.2, angle * 0.1),0, -1.5, 0), 30, 16)  
   rend3d(p_obj, color, true)
   

@@ -1,0 +1,9 @@
+clear(COLOR_SOFT_BLACK)
+
+rect(8, 8, 48, 32, COLOR_NEON_GREEN, true)
+rect(24, 20, 48, 32, 0x8000ffff, true)
+line(0, 0, 127, 127, 0xffff00ff)
+pixel(64, 64, 0xffffffff, 0.5)
+
+print("ARGB", 4, 116, 0xffffee30)
+draw()

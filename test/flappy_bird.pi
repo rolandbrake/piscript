@@ -16,12 +16,21 @@ fun filter(list, predicate) {
 
 // Flappy Bird game implementation
 birdspr = [[0,0,0,0,0,0,17,17,17,17,17,17,0,0,0,0],[0,0,0,0,17,17,23,23,23,17,6,6,17,0,0,0],[0,0,0,17,23,23,9,9,17,6,6,6,6,17,0,0],[0,0,17,23,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,9,9,9,9,9,9,17,13,6,17,6,17,0,0],[0,17,17,17,17,9,9,9,9,17,13,6,6,17,0,0],[17,7,7,7,7,17,9,9,9,1,1,1,1,1,1,0],[17,23,7,7,23,17,9,9,1,8,8,8,8,8,8,1],[17,17,17,17,17,9,9,1,8,1,1,1,1,1,1,0],[0,1,25,25,25,25,25,25,1,8,8,8,8,8,1,0],[0,0,1,1,25,25,25,25,25,1,1,1,1,1,0,0],[0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0]]
+BIRD_COLORS = [COLOR_SOFT_BLACK, COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA,
+               COLOR_DEEP_GREEN, COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY,
+               COLOR_COOL_LIGHT_GRAY, COLOR_SOFT_IVORY, COLOR_VIVID_RED,
+               COLOR_AMBER_ORANGE, COLOR_WARM_YELLOW, COLOR_NEON_GREEN,
+               COLOR_SKY_BLUE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
+               COLOR_LIGHT_PEACH, COLOR_DARK_COCOA, COLOR_MIDNIGHT_BLUE,
+               COLOR_PLUM, COLOR_OCEAN_TEAL, COLOR_BRICK_RED, COLOR_MUTED_MAUVE,
+               COLOR_WARM_STONE, COLOR_PALE_YELLOW, COLOR_DEEP_PINK,
+               COLOR_ORANGE_RED]
 
 fun draw_bird() {
     for(i in 0..len(bird))
         for(j in 0..len(bird[0]))
             if(birdspr[i][j] > 0)
-            pixel(j + bird.x, i + bird.y, bird[i][j]);
+            pixel(j + bird.x, i + bird.y, BIRD_COLORS[birdspr[i][j]]);
 }
 
 bird = {x: 40, y: 64, vy: 0}
@@ -39,7 +48,7 @@ game_over = false
 // Main game loop
 while (true) {
     if(!game_over) {
-        clear(12)
+        clear(COLOR_SKY_BLUE)
         
         // Handle input
         if (key('KEY_SPACE') || key('KEY_UP')) {
@@ -90,12 +99,12 @@ while (true) {
 
         // Draw pipes
         for (p in pipes) {
-            rect(p.x, 7, pipe_width, p.gap_y - 7, 3, true)  // Upper pipe
-            rect(p.x, p.gap_y + pipe_gap, pipe_width, 128 - (p.gap_y + pipe_gap), 3, true)  // Lower pipe
+            rect(p.x, 7, pipe_width, p.gap_y - 7, COLOR_DEEP_GREEN, true)  // Upper pipe
+            rect(p.x, p.gap_y + pipe_gap, pipe_width, 128 - (p.gap_y + pipe_gap), COLOR_DEEP_GREEN, true)  // Lower pipe
         }
 
         // Draw bird
-        // rect(bird.x, bird.y, 6, 6, 9, true)
+        // rect(bird.x, bird.y, 6, 6, COLOR_AMBER_ORANGE, true)
         draw_bird()
 
         // Draw score
@@ -106,7 +115,7 @@ while (true) {
         frame += 1
     } else {
     // Game over screen
-    rect(0, 0, 128, 7, 12, true)
+    rect(0, 0, 128, 7, COLOR_SKY_BLUE, true)
     text(36, 50, "GAME OVER")
     text(46, 64, "SCORE: " + score)
     text(30, 80, "PRESS SPACE")

@@ -11,8 +11,8 @@
 #define SCREEN_WIDTH 128  // Width of the screen in pixels
 #define SCREEN_HEIGHT 128 // Height of the screen in pixels
 #define SCALE 4           // Scale factor for rendering (affects window size)
-#define PALETTE_SIZE 32   // Number of colors in the palette
-#define NUM_COLORS 32     // Maximum number of colors supported
+#define PALETTE_SIZE 80   // Number of colors in the palette
+#define NUM_COLORS 80     // Maximum number of colors supported
 
 typedef enum
 {
@@ -72,18 +72,20 @@ typedef struct
     SDL_Renderer *renderer; // Pointer to the SDL renderer
     SDL_Texture *texture;   // Texture used for pixel rendering
     Uint32 *pixels;         // Array storing pixel colors
-    int offset_x;      // Global x-offset applied to drawing operations
-    int offset_y;      // Global y-offset applied to drawing operations
+    int offset_x;           // Global x-offset applied to drawing operations
+    int offset_y;           // Global y-offset applied to drawing operations
     int cursor_x;           // Current x position of the text cursor
     int cursor_y;           // Current y position of the text cursor
-    Color text_color;       // Current text color
+    Uint32 text_color;      // Current palette index or packed ARGB text color
     bool dirty;             // Tracks whether pixel buffer changed since last present
+
+    bool CRT_mode; // Flag indicating whether CRT mode is enabled
 
 } Screen;
 
 // Initializes the screen and SDL components
 // Returns a pointer to the newly created Screen instance
-Screen *screen_init(Color color);
+Screen *screen_init(Uint32 color);
 
 // Closes the screen and releases allocated resources
 void screen_close(Screen *screen);
@@ -92,40 +94,44 @@ void screen_close(Screen *screen);
 void screen_update(Screen *screen);
 
 // Clears the screen with a specific color
-void screen_clear(Screen *screen, Color color);
+void screen_clear(Screen *screen, Uint32 color);
 
 // Sets a single pixel at (x, y) to a specified color
-void set_pixel(Screen *screen, int x, int y, Color color);
+void set_pixel(Screen *screen, int x, int y, Uint32 color);
 
 // Draws a single pixel at (x, y) with a specified color and specified alpha
-void set_pixel_alpha(Screen *screen, int x, int y, Color color, double alpha);
+void set_pixelAlpha(Screen *screen, int x, int y, Uint32 color, double alpha);
 
 // Draws a single pixel at (x, y) with a specified color and specified shade/brightness
-void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightness);
+void set_pixelShade(Screen *screen, int x, int y, Uint32 color, float brightness);
 
 // Draws a line from (x0, y0) to (x1, y1) with a specified color
-void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color);
+void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Uint32 color);
 
 // Draws an unfilled rectangle with top-left corner (x, y), width w, height h
-void draw_rect(Screen *screen, int x, int y, int w, int h, Color color);
+void draw_rect(Screen *screen, int x, int y, int w, int h, Uint32 color);
 
 // Draws a filled rectangle with top-left corner (x, y), width w, height h
-void draw_fillRect(Screen *screen, int x, int y, int w, int h, Color color);
+void draw_fillRect(Screen *screen, int x, int y, int w, int h, Uint32 color);
 
 // Draws an unfilled circle with center (x0, y0) and a given radius
-void draw_circle(Screen *screen, int x0, int y0, int radius, Color color);
+void draw_circle(Screen *screen, int x0, int y0, int radius, Uint32 color);
 
 // Draws a filled circle with center (x0, y0) and a given radius
-void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Color color);
+void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Uint32 color);
 
 // Draws an unfilled polygon using a list of points
-void draw_polygon(Screen *screen, list_t *points, Color color);
+void draw_polygon(Screen *screen, list_t *points, Uint32 color);
 
 // Draws a filled polygon using a list of points
-void draw_fillPolygon(Screen *screen, list_t *points, Color color);
+void draw_fillPolygon(Screen *screen, list_t *points, Uint32 color);
 
 // Renders text on the screen at position (x, y) with a specified color
-void screen_print(Screen *screen, const char *text, int x, int y, Color color);
+void screen_print(Screen *screen, const char *text, int x, int y, Uint32 color);
+
+// Resolves legacy palette indices (0..PALETTE_SIZE-1) and packed 0xAARRGGBB colors.
+Uint32 screen_resolveColor(Uint32 color);
+bool screen_colorFromNumber(double number, Uint32 *color);
 
 int get_colorIndex(Uint32 pixel_color);
 

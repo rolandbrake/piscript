@@ -15,7 +15,7 @@ fun spawn_food() {
 }
 
 fun draw_playGround() {
-    let colors = [3, 11]
+    let colors = [COLOR_DEEP_GREEN, COLOR_NEON_GREEN]
     let index
     for x in 0..128:16 {
         for y in 0..128:16 {
@@ -34,11 +34,11 @@ fun draw_startScreen() {
     text(16, 64, "HIT BODY = GAME OVER")
     text(16, 74, "WRAP: LEFT/RIGHT/TOP/BOTTOM")
 
-    circ(34, 92, r, 14, true)
+    circ(34, 92, r, COLOR_PINK_ROSE, true)
     text(44, 88, "YELLOW FOOD")
     text(44, 96, "+10 POINTS")
 
-    circ(34, 108, r, 8, true)
+    circ(34, 108, r, COLOR_VIVID_RED, true)
     text(44, 104, "RED FOOD")
     text(44, 112, "+20 POINTS")
 
@@ -117,11 +117,11 @@ while (!game_over) {
     }
 
     for (i in 0..len(snake)) {        
-        let color = i % 2 == 0 ? 6 : 8
+        let color = i % 2 == 0 ? COLOR_COOL_LIGHT_GRAY : COLOR_VIVID_RED
         rect(snake[i].x, snake[i].y, s, s, color, true)
     }
 
-    let food_color = food_type == 1 ? 8 : 14
+    let food_color = food_type == 1 ? COLOR_VIVID_RED : COLOR_PINK_ROSE
     circ(food.x, food.y, r, food_color, true)
     text("SCORE: " + score)
 
@@ -130,7 +130,7 @@ while (!game_over) {
 }
 
 // Game over screen
-rect(0, 0, 128, 7, 12, true)
+rect(0, 0, 128, 7, COLOR_SKY_BLUE, true)
 text(36, 56, "GAME OVER")
 text(36, 72, "SCORE: " + score)
 draw()

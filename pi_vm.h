@@ -71,6 +71,9 @@ typedef struct
 
     Cart *cart; // Pointer to the loaded cartridge, if any.
 
+    // Path of the Pi script currently used as the base for relative script runs.
+    char *source_path;
+
     Uint32 frameInterval_ms; // Target frame interval for draw pacing (0 = uncapped)
     Uint32 last_drawTicks;   // Last draw timestamp used for frame pacing
 

@@ -14,6 +14,9 @@ This function **does not immediately render** the pixel — changes are only vis
 - Color is an integer in the range `0–31`, representing a color in the 32-color palette.
 
 **Arguments:**
+- Colors may also be named `COLOR_*` palette constants or packed `0xAARRGGBB`
+  values. In packed colors the high byte is alpha, so `0xff00ffff` is opaque
+  cyan and `0x8000ffff` is translucent cyan.
 - `x` *(int)* – The horizontal position (0 ≤ x < 128)
 - `y` *(int)* – The vertical position (0 ≤ y < 128)
 - `color` *(int)* – The color index (0–31)
@@ -27,6 +30,7 @@ This function **does not immediately render** the pixel — changes are only vis
 ```piscript
 pixel(10, 20, 7)   // Set pixel at (10, 20) to color 7
 pixel(64, 64, 15)  // Set center pixel to color 15
+pixel(24, 24, 0x8000ffff) // Blend translucent cyan
 draw()                // Apply all pixel changes to the screen
 ```
 ---
@@ -216,6 +220,19 @@ Rendering is deferred until `draw()` is called.
 sprite(0, 10, 20)     // Draw sprite with ID 0 at position (10, 20)
 sprite(5, 64, 64)     // Draw sprite with ID 5 at center of the screen
 draw()             // Renders all sprite drawings to the screen
+```
+
+`sprite(source)` also creates sprite objects. `source` can be a cartridge
+sprite index or an image file path such as `sprite("assets/player.png")`.
+Relative image paths follow the running `.pi` file when they are not already
+found from the current working directory. The returned sprite object can be
+drawn with `sprite(player, x, y)` or centered with
+`sprite(player, x, y, true)`.
+
+```piscript
+player = sprite("assets/player.png")
+sprite(player, 64, 64, true)
+draw()
 ```
 ---
 ### color(x, y)

@@ -45,21 +45,21 @@ fun spawnEnemies() {
 spawnEnemies()
 
 fun drawPlayer() {
-  rect(player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT, 15, true)
+  rect(player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT, COLOR_LIGHT_PEACH, true)
 }
 
 fun drawEnemies() {
   for e in enemies {
     if e.alive
-      rect(e.x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT, 10, true)
+      rect(e.x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT, COLOR_WARM_YELLOW, true)
   }
 }
 
 fun drawBullets() {
   for b in playerBullets
-    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, 7, true)
+    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, COLOR_SOFT_IVORY, true)
   for b in enemyBullets
-    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, 2, true)
+    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, COLOR_DARK_MAGENTA, true)
 }
 
 fun moveEnemies() {
@@ -180,7 +180,7 @@ while true {
   text(2, 2, "Score: " + score)
 
   if game_over {
-    text(40, 60, "GAME OVER", 6)
+    text(40, 60, "GAME OVER", COLOR_COOL_LIGHT_GRAY)
     draw()
     sleep(1000)
     break

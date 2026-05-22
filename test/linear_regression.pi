@@ -38,7 +38,7 @@ clear()
 for i in 0..128 {
     yi = predict(i)
     if yi >= 0 && yi < 128 {
-        pixel(i, 128 - yi, 8)
+        pixel(i, 128 - yi, COLOR_VIVID_RED)
     }
 }
 
@@ -46,7 +46,7 @@ for i in 0..128 {
 for i in 0..n {    
     px = x[i]
     py = 128 - y[i]  // Flip y for screen coordinates    
-    pixel(px, py, 6)
+    pixel(px, py, COLOR_COOL_LIGHT_GRAY)
 }
 
 // Optionally print slope and intercept

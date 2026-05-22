@@ -300,15 +300,21 @@ void scan_token()
                 // Hexadecimal Numbers
                 if (match_s("xX"))
                 {
-                    do
+                    if (!is_hexDigit(peek(0)))
+                        l_error("invalid hexadecimal literal");
+
+                    while (is_hexDigit(peek(0)))
+                        scanner->ch = next();
+
+                    while (match('_'))
                     {
                         if (!is_hexDigit(peek(0)))
                             l_error("invalid hexadecimal literal");
-                        do
-                        {
+
+                        while (is_hexDigit(peek(0)))
                             scanner->ch = next();
-                        } while (is_hexDigit(peek(0)));
-                    } while (match('_'));
+                    }
+
                     add_token(TK_NUM);
                 }
                 else if (match_s("oO"))

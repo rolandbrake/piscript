@@ -118,44 +118,242 @@ const char *characters[CHAR_COUNT] = {
 
 // colors palette (extended)
 const SDL_Color palette[PALETTE_SIZE] = {
-    {0, 0, 0, 255},     // Black (0)
-    {29, 43, 83, 255},  // Dark Blue (1)
-    {126, 37, 83, 255}, // Dark Magenta (2)
-    {0, 135, 81, 255},  // Dark Green (3)
-    {171, 82, 54, 255}, // Brown (4)
-    {95, 87, 79, 255},  // Dark Gray (5)
-    // {194, 195, 199, 255}, // Light Gray
-    {255, 255, 255, 255}, // White (6)
-    {255, 241, 232, 255}, // Very Light Pink (7)
-    {255, 0, 77, 255},    // Bright Red (8)
-    {255, 163, 0, 255},   // Bright Orange (9)
-    {255, 236, 39, 255},  // Bright Yellow (10)
-    {0, 228, 54, 255},    // Bright Green  (11)
-    {41, 173, 255, 255},  // Bright Blue (12)
-    {131, 118, 156, 255}, // Soft Purple (13)
-    {255, 119, 168, 255}, // Bright Pink (14)
-    {255, 204, 170, 255}, // Peach (15)
-    {41, 24, 20, 255},    // Dark Brown (16)
-    {17, 29, 53, 255},    // Navy Blue (17)
-    {66, 33, 54, 255},    // Deep Purple (18)
-    {18, 83, 89, 255},    // Teal (19)
-    {116, 47, 41, 255},   // Rust Red (20)
-    {73, 51, 59, 255},    // Muted Purple (21)
-    {162, 136, 121, 255}, // Warm Gray (22)
-    {243, 239, 125, 255}, // Pale Lime (23)
-    {190, 18, 80, 255},   // Dark Pink (24)
-    {255, 108, 36, 255},  // Orange Red (25)
-    {168, 231, 46, 255},  // Lime Green (26)
-    {0, 181, 67, 255},    // Emerald Green (27)
-    {6, 90, 181, 255},    // Cobalt Blue (28)
-    {117, 70, 101, 255},  // Dusky Purple (29)
-    {255, 110, 89, 255},  // Coral (30)
-    {255, 157, 129, 255}, // Light Salmon (31)
+
+    // pi palette
+    {2, 4, 6, 255},       // #020406 Soft Black (0)
+    {34, 48, 96, 255},    // #223060 Deep Blue (1)
+    {134, 42, 90, 255},   // #862a5a Dark Magenta (2)
+    {4, 140, 90, 255},    // #048c5a Deep Green (3)
+    {176, 88, 60, 255},   // #b0583c Warm Brown (4)
+    {100, 92, 84, 255},   // #645c54 Charcoal Gray (5)
+    {200, 202, 206, 255}, // #c8cace Cool Light Gray (6)
+    {255, 244, 236, 255}, // #fff4ec Soft Ivory (7)
+    {255, 12, 90, 255},   // #ff0c5a Vivid Red (8)
+    {255, 168, 12, 255},  // #ffa80c Amber Orange (9)
+    {255, 238, 48, 255},  // #ffee30 Warm Yellow (10)
+    {12, 232, 64, 255},   // #0ce840 Neon Green (11)
+    {48, 180, 255, 255},  // #30b4ff Sky Blue (12)
+    {138, 124, 164, 255}, // #8a7ca4 Dusty Purple (13)
+    {255, 126, 176, 255}, // #ff7eb0 Pink Rose (14)
+    {255, 210, 176, 255}, // #ffd2b0 Light Peach (15)
+
+    // pi palette extended
+    {46, 28, 24, 255},    // #2e1c18 Dark Cocoa (16)
+    {22, 36, 60, 255},    // #16243c Midnight Blue (17)
+    {72, 38, 60, 255},    // #48263c Plum (18)
+    {24, 90, 96, 255},    // #185a60 Ocean Teal (19)
+    {124, 54, 48, 255},   // #7c3630 Brick Red (20)
+    {80, 58, 66, 255},    // #503a42 Muted Mauve (21)
+    {168, 142, 128, 255}, // #a88e80 Warm Stone (22)
+    {246, 242, 136, 255}, // #f6f288 Pale Yellow (23)
+    {198, 26, 92, 255},   // #c61a5c Deep Pink (24)
+    {255, 116, 44, 255},  // #ff742c Orange Red (25)
+    {176, 236, 56, 255},  // #b0ec38 Lime Yellow (26)
+    {4, 188, 80, 255},    // #04bc50 Emerald (27)
+    {12, 96, 190, 255},   // #0c60be Bright Cobalt (28)
+    {124, 78, 110, 255},  // #7c4e6e Dusty Violet (29)
+    {255, 120, 96, 255},  // #ff7860 Coral (30)
+    {255, 164, 140, 255}, // #ffa48c Soft Salmon (31)
+
+    // gameboy
+    {208, 208, 88, 255},  // #d0d058 Light Olive (32)
+    {160, 168, 64, 255},  // #a0a840 Olive (33)
+    {112, 128, 40, 255},  // #708028 Dark Olive (34)
+    {64, 80, 16, 255},    // #405010 Deep Olive (35)
+    {51, 44, 80, 255},    // #332c50 Indigo Gray (36)
+    {70, 135, 143, 255},  // #46878f Desaturated Cyan (37)
+    {148, 227, 68, 255},  // #94e344 Bright Lime (38)
+    {226, 243, 228, 255}, // #e2f3e4 Pale Mint (39)
+    {33, 30, 32, 255},    // #211e20 Almost Black (40)
+    {85, 85, 104, 255},   // #555568 Slate Gray (41)
+    {160, 160, 139, 255}, // #a0a08b Dusty Gray (42)
+    {233, 239, 236, 255}, // #e9efec Soft White (43)
+    {124, 63, 88, 255},   // #7c3f58 Muted Rose (44)
+    {235, 107, 111, 255}, // #eb6b6f Soft Red (45)
+    {249, 168, 117, 255}, // #f9a875 Apricot (46)
+    {255, 246, 211, 255}, // #fff6d3 Cream (47)
+
+    // nes
+    {194, 198, 48, 255},  // #c2c630 Yellow Green (48)
+    {63, 161, 48, 255},   // #3fa130 Grass Green (49)
+    {78, 88, 23, 255},    // #4e5817 Moss Green (50)
+    {52, 43, 25, 255},    // #342b19 Dark Earth (51)
+    {255, 211, 123, 255}, // #ffd37b Sand (52)
+    {225, 135, 52, 255},  // #e18734 Pumpkin (53)
+    {195, 78, 41, 255},   // #c34e29 Clay Red (54)
+    {99, 72, 5, 255},     // #634805 Dark Gold (55)
+    {193, 61, 149, 255},  // #c13d95 Fuchsia (56)
+    {141, 21, 35, 255},   // #8d1523 Blood Red (57)
+    {255, 255, 255, 255}, // #ffffff White (58)
+    {173, 173, 203, 255}, // #adadcb Pale Lavender (59)
+    {89, 110, 120, 255},  // #596e78 Blue Gray (60)
+    {114, 179, 255, 255}, // #72b3ff Sky Blue (61)
+    {61, 101, 182, 255},  // #3d65b6 Royal Blue (62)
+    {36, 68, 73, 255},    // #244449 Dark Teal (63)
+
+    // sega
+    {43, 18, 13, 255},    // #2b120d Dark Brown (64)
+    {159, 18, 17, 255},   // #9f1211 Deep Red (65)
+    {252, 20, 0, 255},    // #fc1400 Bright Red (66)
+    {252, 106, 0, 255},   // #fc6a00 Orange (67)
+    {252, 252, 0, 255},   // #fcfc00 Yellow (68)
+    {156, 12, 156, 255},  // #9c0c9c Purple (69)
+    {255, 9, 157, 255},   // #ff099d Magenta (70)
+    {0, 7, 44, 255},      // #00072c Very Dark Blue (71)
+    {0, 0, 255, 255},     // #0000ff Blue (72)
+    {103, 205, 252, 255}, // #67cdfc Light Blue (73)
+    {0, 72, 73, 255},     // #004849 Teal (74)
+    {0, 201, 8, 255},     // #00c908 Green (75)
+    {82, 255, 0, 255},    // #52ff00 Lime (76)
+    {173, 89, 80, 255},   // #ad5950 Muted Red Brown (77)
+    {252, 180, 72, 255},  // #fcb448 Light Orange (78)
+    {221, 217, 230, 255}, // #ddd9e6 Light Lavender Gray (79)
 };
 
-static Uint32 colors[NUM_COLORS]; // Precomputed colors
+static Uint32 colors[NUM_COLORS]; // Precomputed palette colors
 
-Screen *screen_init(Color color)
+Uint32 screen_resolveColor(Uint32 color)
+{
+    if (color < PALETTE_SIZE)
+        return colors[color];
+
+    return color;
+}
+
+bool screen_colorFromNumber(double number, Uint32 *color)
+{
+    if (!isfinite(number) || number < 0.0 || number > 4294967295.0)
+        return false;
+
+    *color = (Uint32)round(number);
+    return true;
+}
+
+static Uint32 blend_color(Uint32 dst, Uint32 src, double opacity)
+{
+    if (opacity <= 0.0)
+        return dst;
+    if (opacity > 1.0)
+        opacity = 1.0;
+
+    double src_alpha = ((src >> 24) & 0xff) / 255.0;
+    double alpha = src_alpha * opacity;
+    if (alpha <= 0.0)
+        return dst;
+
+    Uint8 r1 = (dst >> 16) & 0xff;
+    Uint8 g1 = (dst >> 8) & 0xff;
+    Uint8 b1 = dst & 0xff;
+    Uint8 r2 = (src >> 16) & 0xff;
+    Uint8 g2 = (src >> 8) & 0xff;
+    Uint8 b2 = src & 0xff;
+
+    Uint8 r = (Uint8)(r2 * alpha + r1 * (1.0 - alpha));
+    Uint8 g = (Uint8)(g2 * alpha + g1 * (1.0 - alpha));
+    Uint8 b = (Uint8)(b2 * alpha + b1 * (1.0 - alpha));
+    return (255u << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | b;
+}
+
+/**
+ * Enables or disables the CRT-style phosphor glow effect for text rendering.
+ *
+ * When enabled, each lit pixel in screen_print will be surrounded by
+ * progressively fading halo pixels to simulate old CRT terminal bloom.
+ *
+ * @param screen  The screen to configure.
+ * @param enabled true to enable glow, false to disable.
+ */
+void set_CRTMode(Screen *screen, bool enabled)
+{
+    screen->CRT_mode = enabled;
+}
+
+/**
+ * Applies a CRT bloom/glow as a post-process on the full framebuffer.
+ * Performs a separable box blur then additively blends the result
+ * back over the original — bright pixels bleed light onto neighbours.
+ *
+ * Works on a scratch buffer so screen->pixels is never modified.
+ *
+ * @param src       Original pixel buffer (read-only).
+ * @param dst       Output buffer to write the bloomed result into.
+ */
+static void apply_CRTEffect(const Uint32 *src, Uint32 *dst, int radius, float intensity)
+{
+    static Uint32 h_pass[SCREEN_WIDTH * SCREEN_HEIGHT]; // horizontal blur temp
+
+    const int RADIUS = radius;          // blur spread in pixels
+    const float INTENSITY = intensity; // additive blend strength (0=off, 1=full)
+
+    /*  horizontal blur pass  */
+    for (int y = 0; y < SCREEN_HEIGHT; y++)
+    {
+        for (int x = 0; x < SCREEN_WIDTH; x++)
+        {
+            int r = 0, g = 0, b = 0, n = 0;
+            for (int dx = -RADIUS; dx <= RADIUS; dx++)
+            {
+                int nx = x + dx;
+                if ((unsigned)nx < SCREEN_WIDTH)
+                {
+                    Uint32 p = src[y * SCREEN_WIDTH + nx];
+                    r += (p >> 16) & 0xFF;
+                    g += (p >> 8) & 0xFF;
+                    b += p & 0xFF;
+                    n++;
+                }
+            }
+            h_pass[y * SCREEN_WIDTH + x] =
+                (255u << 24) | ((r / n) << 16) | ((g / n) << 8) | (b / n);
+        }
+    }
+
+    /*  vertical blur pass + additive composite  */
+    for (int y = 0; y < SCREEN_HEIGHT; y++)
+    {
+        for (int x = 0; x < SCREEN_WIDTH; x++)
+        {
+            int r = 0, g = 0, b = 0, n = 0;
+            for (int dy = -RADIUS; dy <= RADIUS; dy++)
+            {
+                int ny = y + dy;
+                if ((unsigned)ny < SCREEN_HEIGHT)
+                {
+                    Uint32 p = h_pass[ny * SCREEN_WIDTH + x];
+                    r += (p >> 16) & 0xFF;
+                    g += (p >> 8) & 0xFF;
+                    b += p & 0xFF;
+                    n++;
+                }
+            }
+
+            /* blurred colour */
+            int br = r / n, bg = g / n, bb = b / n;
+
+            /* original colour */
+            Uint32 orig = src[y * SCREEN_WIDTH + x];
+            int or_ = (orig >> 16) & 0xFF;
+            int og = (orig >> 8) & 0xFF;
+            int ob = orig & 0xFF;
+
+            /* additive blend: original + blurred * intensity, clamped */
+            int fr = or_ + (int)(br * INTENSITY);
+            if (fr > 255)
+                fr = 255;
+            int fg = og + (int)(bg * INTENSITY);
+            if (fg > 255)
+                fg = 255;
+            int fb = ob + (int)(bb * INTENSITY);
+            if (fb > 255)
+                fb = 255;
+
+            dst[y * SCREEN_WIDTH + x] =
+                (255u << 24) | (fr << 16) | (fg << 8) | fb;
+        }
+    }
+}
+
+Screen *screen_init(Uint32 color)
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
@@ -167,7 +365,7 @@ Screen *screen_init(Color color)
     if (!screen)
         return NULL;
 
-    screen->window = SDL_CreateWindow("PI-SHELL",
+    screen->window = SDL_CreateWindow("PI-SCRIPT",
                                       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                       SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE,
                                       SDL_WINDOW_SHOWN);
@@ -222,6 +420,7 @@ Screen *screen_init(Color color)
     screen->cursor_y = 1;
     screen->text_color = COLOR_WHITE;
     screen->dirty = true;
+    screen->CRT_mode = false;
 
     screen_clear(screen, color);
     screen_update(screen);
@@ -271,8 +470,18 @@ void screen_update(Screen *screen)
     if (!screen->dirty)
         return;
 
-    // Update the texture with the current pixel data
-    SDL_UpdateTexture(screen->texture, NULL, screen->pixels, SCREEN_WIDTH * sizeof(Uint32));
+    if (screen->CRT_mode)
+    {
+        /* bloom into a scratch buffer — screen->pixels stays clean */
+        static Uint32 CRT_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
+        apply_CRTEffect(screen->pixels, CRT_buffer, 2, 0.22f);
+        SDL_UpdateTexture(screen->texture, NULL, CRT_buffer, SCREEN_WIDTH * sizeof(Uint32));
+    }
+    else
+    {
+        // Update the texture with the current pixel data
+        SDL_UpdateTexture(screen->texture, NULL, screen->pixels, SCREEN_WIDTH * sizeof(Uint32));
+    }
 
     // Copy the texture to the rendering target
     SDL_RenderCopy(screen->renderer, screen->texture, NULL, NULL);
@@ -291,10 +500,9 @@ void screen_update(Screen *screen)
  * @param screen The screen to clear.
  * @param color The color index from the palette to fill the screen with.
  */
-void screen_clear(Screen *screen, Color color)
+void screen_clear(Screen *screen, Uint32 color)
 {
-    // Calculate the actual color value using the palette
-    const Uint32 _color = colors[((unsigned)color) & (PALETTE_SIZE - 1)];
+    const Uint32 _color = screen_resolveColor(color);
     // Total number of pixels on the screen
     const int size = SCREEN_WIDTH * SCREEN_HEIGHT;
 
@@ -324,52 +532,33 @@ void screen_clear(Screen *screen, Color color)
  * @param y The y-coordinate of the pixel.
  * @param color The color of the pixel, as an index into the palette.
  */
-void inline set_pixel(Screen *screen, int x, int y, Color color)
+void inline set_pixel(Screen *screen, int x, int y, Uint32 color)
 {
     x -= screen->offset_x;
     y -= screen->offset_y;
 
     if ((unsigned)x < SCREEN_WIDTH && (unsigned)y < SCREEN_HEIGHT)
     {
-        screen->pixels[y * SCREEN_WIDTH + x] = colors[((unsigned)color) & (PALETTE_SIZE - 1)];
+        int index = y * SCREEN_WIDTH + x;
+        screen->pixels[index] = blend_color(screen->pixels[index], screen_resolveColor(color), 1.0);
         screen->dirty = true;
     }
 }
 
-void inline set_pixel_alpha(Screen *screen, int x, int y, Color color_index, double alpha)
+void inline set_pixelAlpha(Screen *screen, int x, int y, Uint32 color, double alpha)
 {
     x -= screen->offset_x;
     y -= screen->offset_y;
 
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
-        return;
-
-    if (color_index < 0 || color_index >= PALETTE_SIZE)
         return;
 
     int index = y * SCREEN_WIDTH + x;
-
-    Uint32 dst = screen->pixels[index];
-    SDL_Color src_color = palette[color_index];
-    Uint8 r1 = (dst >> 16) & 0xFF;
-    Uint8 g1 = (dst >> 8) & 0xFF;
-    Uint8 b1 = dst & 0xFF;
-
-    Uint8 r2 = src_color.r;
-    Uint8 g2 = src_color.g;
-    Uint8 b2 = src_color.b;
-
-    // Alpha blending: result = src * alpha + dst * (1 - alpha)
-    Uint8 r = (Uint8)(r2 * alpha + r1 * (1 - alpha));
-    Uint8 g = (Uint8)(g2 * alpha + g1 * (1 - alpha));
-    Uint8 b = (Uint8)(b2 * alpha + b1 * (1 - alpha));
-
-    // Set full alpha channel (255)
-    screen->pixels[index] = (255 << 24) | (r << 16) | (g << 8) | b;
+    screen->pixels[index] = blend_color(screen->pixels[index], screen_resolveColor(color), alpha);
     screen->dirty = true;
 }
 
-void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightness)
+void set_pixelShade(Screen *screen, int x, int y, Uint32 color, float brightness)
 {
     x -= screen->offset_x;
     y -= screen->offset_y;
@@ -377,18 +566,14 @@ void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightnes
     if ((unsigned)x >= SCREEN_WIDTH || (unsigned)y >= SCREEN_HEIGHT)
         return;
 
-    if (color < 0 || color >= PALETTE_SIZE)
-        return;
-
-    SDL_Color src = palette[color];
-
-    // Apply brightness to each RGB channel
-    Uint8 r = (Uint8)(src.r * brightness);
-    Uint8 g = (Uint8)(src.g * brightness);
-    Uint8 b = (Uint8)(src.b * brightness);
-
-    // Store pixel with full alpha (opaque)
-    screen->pixels[y * SCREEN_WIDTH + x] = (255 << 24) | (r << 16) | (g << 8) | b;
+    Uint32 src = screen_resolveColor(color);
+    Uint8 alpha = (src >> 24) & 0xff;
+    Uint8 r = (Uint8)(((src >> 16) & 0xff) * brightness);
+    Uint8 g = (Uint8)(((src >> 8) & 0xff) * brightness);
+    Uint8 b = (Uint8)((src & 0xff) * brightness);
+    Uint32 shaded = ((Uint32)alpha << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | b;
+    int index = y * SCREEN_WIDTH + x;
+    screen->pixels[index] = blend_color(screen->pixels[index], shaded, 1.0);
     screen->dirty = true;
 }
 
@@ -402,7 +587,7 @@ void set_pixel_shaded(Screen *screen, int x, int y, Color color, float brightnes
  * @param y1 The ending y-coordinate of the line.
  * @param color The color of the line.
  */
-void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
+void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Uint32 color)
 {
     x0 -= screen->offset_x;
     y0 -= screen->offset_y;
@@ -416,7 +601,7 @@ void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
         (y0 >= SCREEN_HEIGHT && y1 >= SCREEN_HEIGHT))
         return;
 
-    Uint32 packed = colors[color & (PALETTE_SIZE - 1)];
+    Uint32 packed = screen_resolveColor(color);
     int dx = abs(x1 - x0);     // Difference in x
     int dy = abs(y1 - y0);     // Difference in y
     int sx = x0 < x1 ? 1 : -1; // Step direction for x
@@ -428,10 +613,11 @@ void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
     {
         if ((unsigned)x0 < SCREEN_WIDTH && (unsigned)y0 < SCREEN_HEIGHT)
         {
-            screen->pixels[y0 * SCREEN_WIDTH + x0] = packed;
+            int index = y0 * SCREEN_WIDTH + x0;
+            screen->pixels[index] = blend_color(screen->pixels[index], packed, 1.0);
             wrote = true;
         }
-        if (x0 == x1 && y0 == y1)         // Check if the end of the line is reached
+        if (x0 == x1 && y0 == y1) // Check if the end of the line is reached
             break;
         int e2 = 2 * err; // Double the error term
         if (e2 > -dy)
@@ -450,7 +636,7 @@ void draw_line(Screen *screen, int x0, int y0, int x1, int y1, Color color)
         screen->dirty = true;
 }
 
-void draw_rect(Screen *screen, int x, int y, int w, int h, Color color)
+void draw_rect(Screen *screen, int x, int y, int w, int h, Uint32 color)
 {
     draw_line(screen, x, y, x + w, y, color);
     draw_line(screen, x, y, x, y + h, color);
@@ -458,7 +644,7 @@ void draw_rect(Screen *screen, int x, int y, int w, int h, Color color)
     draw_line(screen, x, y + h, x + w, y + h, color);
 }
 
-void draw_fillRect(Screen *screen, int x, int y, int w, int h, Color color)
+void draw_fillRect(Screen *screen, int x, int y, int w, int h, Uint32 color)
 {
     for (int i = 0; i < h; i++)
         draw_line(screen, x, y + i, x + w, y + i, color);
@@ -473,7 +659,7 @@ void draw_fillRect(Screen *screen, int x, int y, int w, int h, Color color)
  * @param radius The radius of the circle.
  * @param color The color of the circle.
  */
-void draw_circle(Screen *screen, int x0, int y0, int radius, Color color)
+void draw_circle(Screen *screen, int x0, int y0, int radius, Uint32 color)
 {
     int x = 0;
     int y = radius;
@@ -504,7 +690,7 @@ void draw_circle(Screen *screen, int x0, int y0, int radius, Color color)
     }
 }
 
-void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Color color)
+void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Uint32 color)
 {
     int x = 0;
     int y = radius;
@@ -530,7 +716,7 @@ void draw_fillCircle(Screen *screen, int x0, int y0, int radius, Color color)
             d = d + 4 * x + 6;
     }
 }
-void draw_polygon(Screen *screen, list_t *points, Color color)
+void draw_polygon(Screen *screen, list_t *points, Uint32 color)
 {
     int size = list_size(points);
 
@@ -561,7 +747,7 @@ static int compare_num(const void *a, const void *b)
     return x - y;
 }
 
-void draw_fillPolygon(Screen *screen, list_t *points, Color color)
+void draw_fillPolygon(Screen *screen, list_t *points, Uint32 color)
 {
     int size = list_size(points);
     if (size < 6)
@@ -630,10 +816,13 @@ void draw_matrix(Screen *screen, int x, int y, int w, int h, uint8_t matrix[h][w
             set_pixel(screen, x + i, y + j, matrix[j][i]);
 }
 
-void screen_print(Screen *screen, const char *text, int x, int y, Color color)
+void screen_print(Screen *screen, const char *text, int x, int y, Uint32 color)
 {
     screen->cursor_x = x;
     screen->cursor_y = y;
+
+    bool CRT_mode = screen->CRT_mode;
+
     for (const char *c = text; *c; c++)
     {
         unsigned char ch = (unsigned char)*c;
@@ -689,7 +878,7 @@ int get_colorIndex(Uint32 pixel_color)
 {
     Uint8 r = (pixel_color >> 16) & 0xFF;
     Uint8 g = (pixel_color >> 8) & 0xFF;
-    Uint8 b = (pixel_color >> 24) & 0xFF;
+    Uint8 b = pixel_color & 0xFF;
 
     int closest_index = 0;
     int min_diff = 256 * 256 * 4;

@@ -17,19 +17,13 @@
 
 #define GC_MIN_THRESHOLD 4096
 #define GC_MAX_THRESHOLD (1024 * 1024 * 8)
+#define REGISTER_COUNT 256
 
-#ifndef __EMSCRIPTEN__
-static bool poll_stop(vm_t *vm)
-{
-    SDL_Event event;
-
-    SDL_PumpEvents();
-    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_QUIT, SDL_QUIT) > 0)
-        vm->running = false;
-
-    return !vm->running;
-}
-#endif
+// Register file structure
+typedef struct {
+    Value regs[REGISTER_COUNT];
+    uint8_t used_regs;
+} RegisterFile;
 
 static PiMap *define_keys(vm_t *vm)
 {
@@ -81,20 +75,27 @@ static PiMap *define_keys(vm_t *vm)
 
 /**
  * Initializes the virtual machine by allocating memory and
- * setting initial values for the program counter, stack pointer,
+ * setting initial values for the program counter, register file,
  * base pointer, and other components.
  */
 vm_t *init_vm(compiler_t *comp, Screen *screen)
 {
-
     // Allocate memory for the virtual machine instance
     vm_t *vm = (vm_t *)malloc(sizeof(vm_t));
 
-    // Initialize program counter, stack pointer, and base pointer to 0
+    // Initialize program counter, register file, and base pointer
     vm->pc = 0;
-    vm->sp = 0;
     vm->bp = 0;
     vm->ip = 0;
+    
+    // Initialize register file
+    RegisterFile *regfile = (RegisterFile *)malloc(sizeof(RegisterFile));
+    memset(regfile, 0, sizeof(RegisterFile));
+    for (int i = 0; i < REGISTER_COUNT; i++) {
+        regfile->regs[i] = NEW_NIL();
+    }
+    regfile->used_regs = 0;
+    vm->regfile = regfile;
 
     // Set the code, constants, and names from the compiler to the VM
     vm->code = comp->code;
@@ -138,7 +139,6 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
     vm->gc_stack = NULL;
 
     vm->cart = NULL;
-    vm->source_path = NULL;
 
     vm->frameInterval_ms = 1000 / TARGET_FPS;
     vm->last_drawTicks = 0;
@@ -148,21 +148,19 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
 /**
  * Resets an existing virtual machine to run new code.
- *
- * This function reinitializes the VM's execution state (PC, stack, etc.)
- * and loads new bytecode from a compiler. It intentionally preserves the
- * global variables table, allowing state to persist between script runs.
- *
- * @param vm The virtual machine instance to reset.
- * @param comp The compiler containing the new code to load.
  */
 void vm_reset(vm_t *vm, compiler_t *comp)
 {
-    // Reset program counter, stack pointer, and base pointer to 0
+    // Reset program counter, register file, and base pointer
     vm->pc = 0;
-    vm->sp = 0;
     vm->bp = 0;
     vm->ip = 0;
+    
+    // Clear register file
+    for (int i = 0; i < REGISTER_COUNT; i++) {
+        vm->regfile->regs[i] = NEW_NIL();
+    }
+    vm->regfile->used_regs = 0;
 
     // Set the code, constants, and names from the compiler to the VM
     vm->code = comp->code;
@@ -194,14 +192,6 @@ void vm_reset(vm_t *vm, compiler_t *comp)
 
 /**
  * Adds an object to the VM's object list.
- *
- * This function takes in a newly allocated object and adds it to the
- * front of the list of objects in the virtual machine. It returns the
- * newly added object.
- *
- * @param vm The virtual machine instance.
- * @param obj The object to add to the object list.
- * @return The newly added object.
  */
 inline Object *add_obj(vm_t *vm, Object *obj)
 {
@@ -216,20 +206,37 @@ inline Object *add_obj(vm_t *vm, Object *obj)
     // Add to the front of the list
     obj->next = vm->objects;
     vm->objects = obj;
-    vm->counter++; // Track new allocations (GC trigger is allocation-driven).
+    vm->counter++; // Track new allocations
 
     return obj;
 }
 
 /**
+ * Register access functions
+ */
+static inline void set_register(vm_t *vm, uint8_t reg, Value value)
+{
+    if (reg >= REGISTER_COUNT)
+        vm_error(vm, "Register index out of bounds");
+    vm->regfile->regs[reg] = value;
+    if (reg >= vm->regfile->used_regs)
+        vm->regfile->used_regs = reg + 1;
+}
+
+static inline Value get_register(vm_t *vm, uint8_t reg)
+{
+    if (reg >= REGISTER_COUNT)
+        vm_error(vm, "Register index out of bounds");
+    return vm->regfile->regs[reg];
+}
+
+static inline void copy_register(vm_t *vm, uint8_t dest, uint8_t src)
+{
+    set_register(vm, dest, get_register(vm, src));
+}
+
+/**
  * Counts the number of objects in the virtual machine's object list.
- *
- * This function iterates over the linked list of objects and returns the
- * total count of objects in the list. It is used for debugging purposes
- * to track the number of objects in use.
- *
- * @param vm The virtual machine instance.
- * @return The number of objects in the object list.
  */
 static inline int count_objs(vm_t *vm)
 {
@@ -249,17 +256,7 @@ static inline int count_objs(vm_t *vm)
 
 /**
  * Reports a virtual machine error with a specified message.
- *
- * This function outputs an error message to the standard error stream,
- * indicating a critical error in the virtual machine operation. It attempts
- * to provide context by displaying the line number and function name where
- * the error occurred, if available. The program will terminate immediately
- * after displaying the error message.
- *
- * @param vm The virtual machine instance containing execution information.
- * @param message The error message to be displayed.
  */
-
 void vm_error(vm_t *vm, const char *message)
 {
     instr_t *instr = NULL;
@@ -310,104 +307,21 @@ void vm_error(vm_t *vm, const char *message)
 
 /**
  * Reports a virtual machine error with a formatted message.
- *
- * This function constructs a formatted error message using a variable
- * argument list and passes it to the vm_error function for reporting.
- *
- * @param vm The virtual machine instance containing execution information.
- * @param fmt The format string for the error message.
- * @param ... The variable arguments to be formatted into the message.
  */
 void vm_errorf(vm_t *vm, const char *fmt, ...)
 {
-    char buffer[1024]; // Buffer to hold the formatted error message
+    char buffer[1024];
     va_list args;
 
-    // Initialize the variable argument list
     va_start(args, fmt);
-
-    // Format the error message into the buffer
     vsnprintf(buffer, sizeof(buffer), fmt, args);
-
-    // Clean up the variable argument list
     va_end(args);
 
-    // Report the formatted error message
     vm_error(vm, buffer);
 }
 
 /**
- * Pops a value from the stack and returns it.
- *
- * This function retrieves the top element from the stack and
- * decrements the stack pointer. If the stack is empty, it will
- * raise an error.
- *
- * @return A Value object representing the popped value.
- */
-static inline Value pop_stack(vm_t *vm)
-{
-    if (vm->sp <= 0)
-        vm_error(vm, "Stack underflow: Attempted to pop from an empty stack");
-
-    return vm->stack[--vm->sp];
-}
-
-/**
- * Pushes a value onto the stack.
- *
- * This function adds a new value to the top of the stack and increments the
- * stack pointer. If the stack is full, it will not push the value and instead
- * raise an error.
- *
- * @param value The value to be pushed onto the stack.
- */
-static inline void push_stack(vm_t *vm, Value value)
-{
-    if (vm->sp >= STACK_MAX)
-        vm_error(vm, "Stack overflow: Attempted to push onto a full stack");
-
-    vm->stack[vm->sp++] = value;
-}
-
-/**
- * Peeks at the top element on the stack without modifying the stack pointer.
- *
- * This function returns the top element from the stack without modifying the
- * stack pointer. If the stack is empty, it will raise an error.
- *
- * @return A Value object representing the top value on the stack.
- */
-static inline Value peek_stack(vm_t *vm)
-{
-    if (vm->sp <= 0)
-        vm_error(vm, "Stack underflow: Attempted to peek at an empty stack");
-
-    return vm->stack[vm->sp - 1];
-}
-
-/**
- * Checks if the stack is empty relative to the current base pointer.
- *
- * This function compares the stack pointer to the base pointer. If the stack
- * pointer is equal to the base pointer, it means that the stack is empty.
- *
- * @return true if the stack is empty, false otherwise
- */
-static bool stack_isEmpty(vm_t *vm)
-{
-    return vm->sp == vm->bp;
-}
-
-/**
  * Pushes a frame onto the stack.
- *
- * This function increments the frame stack pointer and assigns the
- * given frame to the frame stack at the new index. If the frame
- * stack is full, it will raise an error.
- *
- * @param vm The virtual machine instance.
- * @param frame The frame to push onto the stack.
  */
 void push_frame(vm_t *vm, Frame *frame)
 {
@@ -419,11 +333,6 @@ void push_frame(vm_t *vm, Frame *frame)
 
 /**
  * Pops a frame from the stack.
- *
- * This function retrieves the top element from the stack and decrements the
- * frame stack pointer. If the stack is empty, it will raise an error.
- *
- * @return A Frame object representing the popped frame.
  */
 Frame *pop_frame(vm_t *vm)
 {
@@ -436,9 +345,6 @@ Frame *pop_frame(vm_t *vm)
 
 /**
  * Reads a name from the list of names stored in the virtual machine.
- *
- * @param index The index of the name to read from the list of names.
- * @return A C string containing the name at the specified index.
  */
 static inline char *read_name(vm_t *vm, int index)
 {
@@ -447,12 +353,6 @@ static inline char *read_name(vm_t *vm, int index)
 
 /**
  * Checks if the given value is considered false.
- *
- * This function is used to compare a value to a boolean false value.
- * It checks if the value is NULL or if the type of the value is NIL.
- *
- * @param value The value to check.
- * @return true if the value is false, false otherwise.
  */
 static inline bool is_false(vm_t *vm, Value value)
 {
@@ -461,18 +361,17 @@ static inline bool is_false(vm_t *vm, Value value)
 
 static inline int read_short(vm_t *vm)
 {
-    uint8_t *code = (uint8_t *)vm->code->data; // Access the bytecode from the VM's code
-    int high = code[vm->pc++] & 0xFF;          // Get the high byte and mask it
-    int low = code[vm->pc++] & 0xFF;           // Get the low byte and mask it
-
-    return (high << 8) | low; // Combine high and low bytes into a 16-bit short
+    uint8_t *code = (uint8_t *)vm->code->data;
+    int high = code[vm->pc++] & 0xFF;
+    int low = code[vm->pc++] & 0xFF;
+    return (high << 8) | low;
 }
 
 static inline int _read_short(uint8_t *code, int pc)
 {
-    int high = code[pc] & 0xFF;    // Get the high byte and mask it
-    int low = code[pc + 1] & 0xFF; // Get the low byte and mask it
-    return (high << 8) | low;      // Combine high and low bytes into a 16-bit short
+    int high = code[pc] & 0xFF;
+    int low = code[pc + 1] & 0xFF;
+    return (high << 8) | low;
 }
 
 static UpValue *capture_upvalue(vm_t *vm, int index)
@@ -490,7 +389,7 @@ static UpValue *capture_upvalue(vm_t *vm, int index)
         return upvalue;
 
     UpValue *_upvalue = (UpValue *)malloc(sizeof(UpValue));
-    _upvalue->value = vm->stack[index]; // Reference stack value
+    _upvalue->value = vm->regfile->regs[index];
     _upvalue->index = index;
 
     _upvalue->next = upvalue;
@@ -515,7 +414,7 @@ static void remove_upvalue(vm_t *vm, int index)
     if (upvalue != NULL && upvalue->index == index)
     {
         upvalue->index = -1;
-        upvalue->value = vm->stack[index];
+        upvalue->value = vm->regfile->regs[index];
 
         if (prev == NULL)
             vm->openUpvalues = upvalue->next;
@@ -525,91 +424,60 @@ static void remove_upvalue(vm_t *vm, int index)
 }
 
 /**
- * Bind a function to an instance. The function is returned as a new function
- * with the first argument set to the instance.
- *
- * @param function The function to bind.
- * @param instance The instance to bind to.
- * @return A new function bound to the given instance.
+ * Bind a function to an instance.
  */
 static Value bind(vm_t *vm, Function *function, Object *instance)
 {
-    // Copy the function object to keep the original intact
     Object *fn = new_func(function->name, function->body,
                           function->params, NULL, instance);
 
-    // Set the is_method flag to true
     ((Function *)fn)->is_method = true;
-    add_obj(vm, fn); // Critical - adds to GC tracking
+    add_obj(vm, fn);
 
-    // Return the new function
     return NEW_OBJ(fn);
 }
 
 /**
  * Constructs a new object instance from a given prototype map.
- *
- * This function creates a new map instance, setting the original map as its
- * prototype and copying over its key-value pairs. If a key holds a function,
- * it is bound to the new instance. The constructor function is called if it exists.
- *
- * @param vm The virtual machine instance.
- * @param map The prototype map from which to construct the object.
- * @param argc The number of arguments provided for the constructor.
- * @param argv The arguments to pass to the constructor.
- * @return A new object instance.
  */
 static Object *construct(vm_t *vm, PiMap *map, size_t argc, Value *argv)
 {
-    // Create a new table for the instance
     table_t *table = ht_create(sizeof(Value));
     char **keys = ht_keys(map->table);
     int size = ht_length(map->table);
 
-    // Create a new map instance and set its prototype
     Object *instance = new_map(table, true);
-
     ((PiMap *)instance)->proto = map;
 
-    // Iterate over the keys in the prototype map
     for (size_t i = 0; i < size; i++)
     {
-
         char *key = keys[i];
-        if (strcmp(key, "constructor") != 0) // Skip the constructor key
+        if (strcmp(key, "constructor") != 0)
         {
             Value value = *(Value *)ht_get(map->table, key);
             if (IS_FUN(value))
             {
-                // Bind function to the new instance
                 Value fn = bind(vm, AS_FUN(value), instance);
                 ht_put(table, key, &fn);
             }
             else
-                // Copy non-function values directly
                 ht_put(table, key, ht_get(map->table, key));
         }
     }
 
-    // Push the new instance onto the VM stack
-    // vm->stack[vm->sp] = NEW_OBJ(instance);
-
-    // Prepare arguments with 'this' as the first argument for the constructor
     Value *fargs = (Value *)malloc(sizeof(Value) * (argc + 1));
-    fargs[0] = NEW_OBJ(instance); // 'this' reference
+    fargs[0] = NEW_OBJ(instance);
     memcpy(fargs + 1, argv, sizeof(Value) * argc);
 
-    // Invoke the constructor if it exists
     void *item = ht_get(map->table, "constructor");
     Value constructor = item ? *(Value *)item : NEW_NIL();
 
     if (IS_FUN(constructor))
     {
-        AS_FUN(constructor)->is_method = false; // Ensure it's not a method
+        AS_FUN(constructor)->is_method = false;
         instance = AS_OBJ(call_func(vm, AS_FUN(constructor), argc + 1, fargs));
     }
 
-    // Free the allocated arguments array
     free(fargs);
     return instance;
 }
@@ -622,11 +490,11 @@ void run(vm_t *vm)
     uint8_t op;
     uint16_t index;
     int address;
+    uint8_t dest_reg, src_reg1, src_reg2;
 
     uint8_t *code = (uint8_t *)vm->code->data;
 
     Value value;
-
     Value nilValue;
 
     Object *iter = NULL;
@@ -637,51 +505,37 @@ void run(vm_t *vm)
 
     while (pc < length && vm->running)
     {
-#ifndef __EMSCRIPTEN__
-        if ((vm->ip & 0x3f) == 0 && poll_stop(vm))
-        {
-            vm->pc = pc;
-            return;
-        }
-#endif
-
         op = code[pc++];
+        vm->ip++;
 
-        vm->ip++; // Advance instruction index
-
-        // printf("OP: %d, PC: %d, IP: %d\n", op, pc, vm->ip);
-
-        // Cast the opcode to the OpCode enum
         switch ((OpCode)op)
         {
         case OP_LOAD_CONST:
         {
-            // Read a two-byte short value from the bytecode to get the constant index
             index = (code[pc++] << 8);
             index |= code[pc++];
-            // Get the constant from the constants list using the index
+            dest_reg = code[pc++];
+            
             Value constant = *(Value *)list_getAt(vm->constants, index);
-
-            // Push the constant onto the stack
-            push_stack(vm, constant);
-
+            set_register(vm, dest_reg, constant);
             break;
         }
 
         case OP_STORE_GLOBAL:
         {
             index = code[pc++];
+            src_reg = code[pc++];
             char *name = read_name(vm, index);
 
-            Value _newValue = pop_stack(vm);
-            ht_put(vm->globals, name, &_newValue); // Store directly, no malloc!
-
+            Value _newValue = get_register(vm, src_reg);
+            ht_put(vm->globals, name, &_newValue);
             break;
         }
 
         case OP_LOAD_GLOBAL:
         {
             index = code[pc++];
+            dest_reg = code[pc++];
             char *name = string_get(vm->names, index);
             Value *_value = ht_get(vm->globals, name);
             if (_value == NULL)
@@ -689,134 +543,117 @@ void run(vm_t *vm)
                 nilValue = NEW_NIL();
                 _value = &nilValue;
             }
-            push_stack(vm, *_value);
+            set_register(vm, dest_reg, *_value);
             break;
         }
 
         case OP_LOAD_LOCAL:
         {
-            op = code[pc++];
-            Value value = vm->stack[vm->bp + op];
-            push_stack(vm, value);
+            uint8_t local_index = code[pc++];
+            dest_reg = code[pc++];
+            Value value = vm->regfile->regs[vm->bp + local_index];
+            set_register(vm, dest_reg, value);
             break;
         }
 
         case OP_STORE_LOCAL:
         {
-            op = code[pc++];
-            vm->stack[vm->bp + op] = pop_stack(vm);
+            uint8_t local_index = code[pc++];
+            src_reg = code[pc++];
+            vm->regfile->regs[vm->bp + local_index] = get_register(vm, src_reg);
             break;
         }
 
-        case OP_POP:
+        case OP_MOVE:
         {
-            remove_upvalue(vm, vm->sp - 1);
-            Value value = pop_stack(vm);
+            dest_reg = code[pc++];
+            src_reg = code[pc++];
+            copy_register(vm, dest_reg, src_reg);
             break;
         }
-        case OP_POP_N:
-        {
-            op = code[pc++];
-            for (int i = 0; i < op; i++)
-            {
-                remove_upvalue(vm, vm->sp - 1);
-                pop_stack(vm);
-            }
-        }
-        break;
-
-        case OP_DUP_TOP:
-            push_stack(vm, peek_stack(vm));
-            break;
 
         case OP_JUMP_IF_FALSE:
         {
-            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]); // Signed 16-bit offset
+            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]);
+            src_reg = code[pc + 2];
 
-            Value value = pop_stack(vm);
+            Value value = get_register(vm, src_reg);
             if (!as_bool(value))
-                pc += offset - 1; // relative jump
+                pc += offset - 1;
             else
-                pc += 2;
+                pc += 3;
             break;
         }
 
         case OP_JUMP:
         {
-            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]); // Signed 16-bit offset
+            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]);
             pc += offset - 1;
             break;
         }
 
         case OP_JUMP_IF_TRUE:
         {
-            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]); // Signed 16-bit offset
+            int offset = (int16_t)((code[pc] << 8) | code[pc + 1]);
+            src_reg = code[pc + 2];
 
-            Value value = pop_stack(vm);
+            Value value = get_register(vm, src_reg);
             if (as_bool(value))
-                pc += offset - 1; // relative jump
+                pc += offset - 1;
             else
-                pc += 2;
+                pc += 3;
             break;
         }
 
         case OP_COMPARE:
         {
-            uint8_t op = code[pc++];
+            uint8_t compare_op = code[pc++];
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            dest_reg = code[pc++];
 
-            Value right = pop_stack(vm);
-            Value left = pop_stack(vm);
+            Value left = get_register(vm, src_reg1);
+            Value right = get_register(vm, src_reg2);
 
             bool result = false;
             int cmp = compare(left, right);
 
-            switch (op)
+            switch (compare_op)
             {
-            case 0: // "=="
-                result = (cmp == 0);
-                break;
-            case 1: // "!="
-                result = (cmp != 0);
-                break;
-            case 2: // ">"
-                result = (cmp > 0);
-                break;
-            case 3: // "<"
-                result = (cmp < 0);
-                break;
-            case 4: // ">="
-                result = (cmp >= 0);
-                break;
-            case 5: // "<="
-                result = (cmp <= 0);
-                break;
-            default:
-                vm_errorf(vm, "Unknown opcode: [%d]", op);
+            case 0: result = (cmp == 0); break;
+            case 1: result = (cmp != 0); break;
+            case 2: result = (cmp > 0); break;
+            case 3: result = (cmp < 0); break;
+            case 4: result = (cmp >= 0); break;
+            case 5: result = (cmp <= 0); break;
+            default: vm_errorf(vm, "Unknown opcode: [%d]", compare_op);
             }
-            push_stack(vm, NEW_BOOL(result));
-
+            set_register(vm, dest_reg, NEW_BOOL(result));
             break;
         }
+
         case OP_BINARY:
         {
-            uint8_t op = code[pc++];
+            uint8_t binary_op = code[pc++];
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            dest_reg = code[pc++];
 
-            Value right = pop_stack(vm);
-            Value left = pop_stack(vm);
+            Value left = get_register(vm, src_reg1);
+            Value right = get_register(vm, src_reg2);
 
-            switch (op)
+            switch (binary_op)
             {
             case 0: // "+"
             {
                 if (is_numeric(left) && is_numeric(right))
                 {
-                    push_stack(vm, NEW_NUM(as_number(left) + as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM(as_number(left) + as_number(right)));
                     break;
                 }
 
                 if (IS_STRING(left) || IS_STRING(right))
                 {
-                    // Coerce both to strings
                     char *l_str = as_string(left);
                     char *r_str = as_string(right);
 
@@ -828,7 +665,7 @@ void run(vm_t *vm)
                     strcpy(res, l_str);
                     strcat(res, r_str);
 
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(res))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(res))));
 
                     free(l_str);
                     free(r_str);
@@ -840,10 +677,8 @@ void run(vm_t *vm)
                     PiList *list = AS_LIST(left);
                     list_add(list->items, &right);
 
-                    // --- Matrix integrity check ---
                     if (list->rows == 1 && list->cols >= 0)
                     {
-                        // Originally a 1xN matrix, now N+1
                         if (!IS_NUM(right))
                         {
                             list->rows = -1;
@@ -851,11 +686,10 @@ void run(vm_t *vm)
                             list->is_numeric = false;
                         }
                         else
-                            list->cols++; // still a row vector
+                            list->cols++;
                     }
                     else if (list->rows > 1 && list->cols > 0)
                     {
-                        // Originally NxM matrix
                         if (!IS_LIST(right))
                         {
                             list->rows = -1;
@@ -872,12 +706,11 @@ void run(vm_t *vm)
                                 list->is_numeric = false;
                             }
                             else
-                                list->rows++; // still an NxM matrix
+                                list->rows++;
                         }
                     }
                     else
                     {
-                        // Not originally a matrix, check if it can now become one
                         if (list->items->size == 1 && IS_NUM(right) && IS_NUM(((Value *)list->items->data)[0]))
                         {
                             list->is_numeric = true;
@@ -886,12 +719,12 @@ void run(vm_t *vm)
                         }
                     }
 
-                    push_stack(vm, left);
+                    set_register(vm, dest_reg, left);
                     break;
                 }
                 if (IS_NAN(left) || IS_NAN(right))
                 {
-                    push_stack(vm, NEW_NUM(NAN));
+                    set_register(vm, dest_reg, NEW_NUM(NAN));
                     break;
                 }
                 vm_error(vm, "Unsupported operand types for binary operator [+].");
@@ -900,7 +733,7 @@ void run(vm_t *vm)
             {
                 if (is_numeric(left) && is_numeric(right))
                 {
-                    push_stack(vm, NEW_NUM(as_number(left) - as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM(as_number(left) - as_number(right)));
                     break;
                 }
 
@@ -918,7 +751,7 @@ void run(vm_t *vm)
                                 break;
                             }
                         }
-                        push_stack(vm, left);
+                        set_register(vm, dest_reg, left);
                         break;
                     }
 
@@ -930,8 +763,7 @@ void run(vm_t *vm)
                         size_t l_len = strlen(l_str);
                         size_t r_len = strlen(r_str);
 
-                        char *res = (char *)malloc(l_len + 1); // Worst case
-
+                        char *res = (char *)malloc(l_len + 1);
                         char *w_ptr = res;
                         char *r_ptr = l_str;
                         char *match;
@@ -944,9 +776,9 @@ void run(vm_t *vm)
                             r_ptr = match + r_len;
                         }
 
-                        strcpy(w_ptr, r_ptr); // copy the tail
+                        strcpy(w_ptr, r_ptr);
 
-                        push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(res))));
+                        set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(res))));
 
                         free(l_str);
                         free(r_str);
@@ -962,8 +794,7 @@ void run(vm_t *vm)
             case 2: // "*"
             {
                 if (is_numeric(left))
-                    // Multiply two numbers
-                    push_stack(vm, NEW_NUM(as_number(left) * as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM(as_number(left) * as_number(right)));
                 else if (left.type == VAL_OBJ)
                 {
                     if (IS_LIST(left) && IS_LIST(right))
@@ -998,11 +829,9 @@ void run(vm_t *vm)
 
                                 for (int k = 0; k < n; k++)
                                 {
-                                    // Get A[i][k]
                                     Value *a_val = (Value *)list_getAt(rowA, k);
                                     double a = as_number(*a_val);
 
-                                    // Get B[k][j]
                                     Value *rowB_val = (Value *)list_getAt(B->items, k);
                                     list_t *rowB = as_list(*rowB_val);
                                     Value *b_val = (Value *)list_getAt(rowB, j);
@@ -1021,13 +850,13 @@ void run(vm_t *vm)
                         ((PiList *)res_obj)->is_numeric = true;
                         ((PiList *)res_obj)->rows = m;
                         ((PiList *)res_obj)->cols = p;
-                        push_stack(vm, NEW_OBJ(res_obj));
+                        set_register(vm, dest_reg, NEW_OBJ(res_obj));
                         break;
                     }
                     else if (IS_LIST(left))
                     {
-                        int count = (int)as_number(right); // Assuming `right` is a number
-                        list_t *list = as_list(left);      // Assuming `as_list` returns a `list_t *`
+                        int count = (int)as_number(right);
+                        list_t *list = as_list(left);
 
                         list_t *result = list_create(list->i_size);
                         for (int i = 0; i < count; i++)
@@ -1037,26 +866,22 @@ void run(vm_t *vm)
                         if (AS_LIST(left)->is_numeric)
                             ((PiList *)_result)->is_numeric = true;
 
-                        push_stack(vm, NEW_OBJ(add_obj(vm, _result))); // Assuming `new_list` creates a `Value` with type `OBJ_LIST`
+                        set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, _result)));
                     }
                     else if (IS_STRING(left))
                     {
-                        int count = (int)as_number(right); // Assuming `right` is a number
-                        // the original strings
+                        int count = (int)as_number(right);
                         char *str = as_string(left);
-                        // original string length
                         size_t o_len = strlen(str);
-                        // result string length
                         size_t r_len = o_len * count;
 
-                        // allocate memory for the result string
-                        char *result = (char *)malloc(r_len + 1); // Allocate space for the repeated string
+                        char *result = (char *)malloc(r_len + 1);
                         result[0] = '\0';
 
                         for (int i = 0; i < count; i++)
                             strcat(result, str);
 
-                        push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(result))));
+                        set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(result))));
                         free(str);
                     }
                     else
@@ -1073,37 +898,37 @@ void run(vm_t *vm)
 
                 if (denominator == 0.0)
                 {
-                    push_stack(vm, NEW_NUM(INFINITY)); // Push infinity to indicate undefined result
+                    set_register(vm, dest_reg, NEW_NUM(INFINITY));
                     break;
                 }
 
                 double numerator = as_number(left);
-                push_stack(vm, NEW_NUM(numerator / denominator));
+                set_register(vm, dest_reg, NEW_NUM(numerator / denominator));
                 break;
             }
             case 4: // "%"
             {
                 double denominator = as_number(right);
 
-                if ((int)denominator == 0) // If denominator is zero, return NaN
-                    push_stack(vm, NEW_NAN());
+                if ((int)denominator == 0)
+                    set_register(vm, dest_reg, NEW_NAN());
                 else
-                    push_stack(vm, NEW_NUM((int)as_number(left) % (int)denominator));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) % (int)denominator));
                 break;
             }
             case 5: // "&&"
-                push_stack(vm, NEW_BOOL(as_bool(left) && as_bool(right)));
+                set_register(vm, dest_reg, NEW_BOOL(as_bool(left) && as_bool(right)));
                 break;
             case 6: // "||"
-                push_stack(vm, NEW_BOOL(as_bool(left) || as_bool(right)));
+                set_register(vm, dest_reg, NEW_BOOL(as_bool(left) || as_bool(right)));
                 break;
             case 7: // "**"
-                push_stack(vm, NEW_NUM(pow(as_number(left), as_number(right))));
+                set_register(vm, dest_reg, NEW_NUM(pow(as_number(left), as_number(right))));
                 break;
             case 8: // "&"
             {
                 if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((int)as_number(left) & (int)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) & (int)as_number(right)));
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
                     list_t *list = as_list(left);
@@ -1116,7 +941,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((int)as_number(item) & _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [&].");
@@ -1127,7 +952,7 @@ void run(vm_t *vm)
             case 9: // "|"
             {
                 if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((int)as_number(left) | (int)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) | (int)as_number(right)));
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
                     list_t *list = as_list(left);
@@ -1140,7 +965,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((int)as_number(item) | _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [|].");
@@ -1150,7 +975,6 @@ void run(vm_t *vm)
 
             case 10: // "^"
             {
-
                 if (IS_LIST(left) && IS_LIST(right))
                 {
                     PiList *l_list = AS_LIST(left);
@@ -1174,11 +998,11 @@ void run(vm_t *vm)
                     list_add(res, &NEW_NUM(y));
                     list_add(res, &NEW_NUM(z));
 
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(res))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(res))));
                     break;
                 }
                 else if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((int)as_number(left) ^ (int)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) ^ (int)as_number(right)));
 
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
@@ -1192,7 +1016,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((int)as_number(item) ^ _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [^].");
@@ -1203,7 +1027,7 @@ void run(vm_t *vm)
             case 11: // "<<"
             {
                 if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((int)as_number(left) << (int)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) << (int)as_number(right)));
 
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
@@ -1217,7 +1041,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((int)as_number(item) << _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [<<].");
@@ -1228,7 +1052,7 @@ void run(vm_t *vm)
             case 12: // ">>"
             {
                 if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((int)as_number(left) >> (int)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((int)as_number(left) >> (int)as_number(right)));
 
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
@@ -1242,7 +1066,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((int)as_number(item) >> _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [>>].");
@@ -1253,7 +1077,7 @@ void run(vm_t *vm)
             case 13: // ">>>"
             {
                 if (is_numeric(left))
-                    push_stack(vm, NEW_NUM((uint32_t)as_number(left) >> (uint32_t)as_number(right)));
+                    set_register(vm, dest_reg, NEW_NUM((uint32_t)as_number(left) >> (uint32_t)as_number(right)));
 
                 else if (left.type == VAL_OBJ && OBJ_TYPE(left) == OBJ_LIST)
                 {
@@ -1267,7 +1091,7 @@ void run(vm_t *vm)
                         Value item = *(Value *)list_getAt(list, i);
                         list_add(result, &NEW_NUM((uint32_t)as_number(item) >> _right));
                     }
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_list(result))));
                 }
                 else
                     vm_error(vm, "Unsupported operand types for binary operator [>>>].");
@@ -1298,7 +1122,7 @@ void run(vm_t *vm)
                         Value b = *(Value *)list_getAt(r_list->items, i);
                         result += as_number(a) * as_number(b);
                     }
-                    push_stack(vm, NEW_NUM(result));
+                    set_register(vm, dest_reg, NEW_NUM(result));
                     break;
                 }
                 vm_error(vm, "Unsupported operand types for binary operator [.]");
@@ -1306,10 +1130,9 @@ void run(vm_t *vm)
 
             case 15: // instance of operator [is]
             {
-
                 if (!IS_MAP(left) || !IS_MAP(right))
                 {
-                    push_stack(vm, NEW_BOOL(false));
+                    set_register(vm, dest_reg, NEW_BOOL(false));
                     break;
                 }
 
@@ -1318,56 +1141,56 @@ void run(vm_t *vm)
 
                 if (inst_obj->type != OBJ_MAP || proto_obj->type != OBJ_MAP)
                 {
-                    push_stack(vm, NEW_BOOL(false));
+                    set_register(vm, dest_reg, NEW_BOOL(false));
                     break;
                 }
 
                 PiMap *map = (PiMap *)inst_obj;
                 PiMap *proto = (PiMap *)proto_obj;
 
-                // Traverse the prototype chain
                 while (map != NULL)
                 {
                     if (map == proto)
                     {
-                        push_stack(vm, NEW_BOOL(true));
+                        set_register(vm, dest_reg, NEW_BOOL(true));
                         break;
                     }
                     map = map->proto;
                 }
 
                 if (!map)
-                    push_stack(vm, NEW_BOOL(false));
+                    set_register(vm, dest_reg, NEW_BOOL(false));
 
                 break;
             }
-
-            break;
             }
             break;
         }
+
         case OP_UNARY:
         {
+            uint8_t unary_op = code[pc++];
+            src_reg1 = code[pc++];
+            dest_reg = code[pc++];
+            
+            Value operand = get_register(vm, src_reg1);
 
-            uint8_t op = code[pc++];       // Get the unary operation code
-            Value operand = pop_stack(vm); // Get the operand from the stack
-
-            switch (op)
+            switch (unary_op)
             {
             case 0: // Unary plus
-                push_stack(vm, NEW_NUM(as_number(operand)));
+                set_register(vm, dest_reg, NEW_NUM(as_number(operand)));
                 break;
 
             case 1: // Unary minus
-                push_stack(vm, NEW_NUM(-as_number(operand)));
+                set_register(vm, dest_reg, NEW_NUM(-as_number(operand)));
                 break;
 
             case 2: // Logical NOT
-                push_stack(vm, NEW_BOOL(!as_bool(operand)));
+                set_register(vm, dest_reg, NEW_BOOL(!as_bool(operand)));
                 break;
 
             case 3: // Bitwise NOT
-                push_stack(vm, NEW_NUM(~(int)as_number(operand)));
+                set_register(vm, dest_reg, NEW_NUM(~(int)as_number(operand)));
                 break;
 
             case 4: // Collection size
@@ -1377,13 +1200,13 @@ void run(vm_t *vm)
                     switch (OBJ_TYPE(operand))
                     {
                     case OBJ_LIST:
-                        push_stack(vm, NEW_NUM(list_size(AS_LIST(operand)->items)));
+                        set_register(vm, dest_reg, NEW_NUM(list_size(AS_LIST(operand)->items)));
                         break;
                     case OBJ_STRING:
-                        push_stack(vm, NEW_NUM(AS_STRING(operand)->length));
+                        set_register(vm, dest_reg, NEW_NUM(AS_STRING(operand)->length));
                         break;
                     case OBJ_MAP:
-                        push_stack(vm, NEW_NUM(map_size(AS_MAP(operand))));
+                        set_register(vm, dest_reg, NEW_NUM(map_size(AS_MAP(operand))));
                         break;
                     }
                 }
@@ -1393,46 +1216,43 @@ void run(vm_t *vm)
                 break;
             }
             case 5: // "++"
-                push_stack(vm, NEW_NUM(as_number(operand) + 1));
+                set_register(vm, dest_reg, NEW_NUM(as_number(operand) + 1));
                 break;
 
             case 6: // "--"
-                push_stack(vm, NEW_NUM(as_number(operand) - 1));
+                set_register(vm, dest_reg, NEW_NUM(as_number(operand) - 1));
                 break;
 
             default:
                 vm_error(vm, "Unknown unary operator.");
             }
-
             break;
         }
+
         case OP_CALL_FUNCTION:
         {
-
-            // Read the number of arguments from the bytecode
             uint8_t num_args = code[pc++];
+            uint8_t func_reg = code[pc++];
+            uint8_t result_reg = code[pc++];
 
-            // Allocate memory for the arguments
             Value args[num_args];
 
-            // Pop the arguments off the VM's stack in reverse order.
             for (int i = num_args - 1; i >= 0; i--)
-                args[i] = pop_stack(vm);
+            {
+                uint8_t arg_reg = code[pc++];
+                args[i] = get_register(vm, arg_reg);
+            }
 
-            // Pop the function (callee) from the stack.
-            Value callee = pop_stack(vm);
+            Value callee = get_register(vm, func_reg);
 
             if (IS_FUN(callee))
             {
-
                 vm->function = AS_OBJ(callee);
-
                 vm->pc = pc;
-                // Call native function if it's a built-in
                 Value result = call_func(vm, AS_FUN(callee), num_args, args);
                 if (IS_OBJ(result))
                     add_obj(vm, AS_OBJ(result));
-                push_stack(vm, result);
+                set_register(vm, result_reg, result);
             }
             else if (IS_MAP(callee))
             {
@@ -1440,46 +1260,38 @@ void run(vm_t *vm)
                 if (map->is_instance)
                     vm_error(vm, "Attempt to call an Object instance.");
                 else
-                    push_stack(vm, NEW_OBJ(add_obj(vm, construct(vm, map, num_args, args))));
+                    set_register(vm, result_reg, NEW_OBJ(add_obj(vm, construct(vm, map, num_args, args))));
             }
             else
                 vm_error(vm, "Attempt to call a non-function object.");
-
             break;
         }
 
         case OP_PUSH_ITER:
         {
-            // Pop the iterable object from the stack
-            Value iterable = pop_stack(vm);
+            src_reg1 = code[pc++];
+            Value iterable = get_register(vm, src_reg1);
 
-            // Ensure the object is iterable
             if (!IS_OBJ(iterable) || !is_iterable(AS_OBJ(iterable)))
                 vm_error(vm, "Error: Object is not iterable.");
 
             iter = AS_OBJ(iterable);
-
-            // Reset iterator state (common for all iterators)
             iter_reset(iter);
-
-            // Push the iterator onto the iterator stack
-            vm->iters[++vm->iter_sp] = iter; // Push a pointer to the iterator
+            vm->iters[++vm->iter_sp] = iter;
             break;
         }
 
         case OP_LOOP:
         {
-            // Read the jump address from the bytecode
             uint16_t address = (code[pc] << 8);
             address |= code[pc + 1];
+            dest_reg = code[pc + 2];
 
-            // Get the current iterator from the top of the stack
             if (vm->iter_sp == -1)
                 vm_error(vm, "Error: No active iterator.");
 
             iter = vm->iters[vm->iter_sp];
 
-            // Check if the iterator has more elements
             if (iter_hasNext(iter))
             {
                 if (iter->type == OBJ_MAP)
@@ -1487,25 +1299,18 @@ void run(vm_t *vm)
                     PiMap *map = (PiMap *)iter;
                     ht_next(&map->it);
                     char *key = map->it.key;
-                    push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(key))));
+                    set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(key))));
                 }
                 else
                 {
-                    // Get the next value from the iterator
                     Value value = iter_next(iter);
-                    // TODO: check me in the future
-                    // if (IS_OBJ(value))
-                    //     add_obj(vm, AS_OBJ(value));
-                    push_stack(vm, value);
+                    set_register(vm, dest_reg, value);
                 }
-                pc += 2;
+                pc += 3;
             }
             else
             {
-                // Iterator exhausted; pop it from the stack
                 vm->iter_sp--;
-
-                // Jump to the specified address
                 pc += address - 1;
             }
             break;
@@ -1515,26 +1320,27 @@ void run(vm_t *vm)
         {
             if (vm->iter_sp != -1)
                 iter = vm->iters[vm->iter_sp--];
-            // Perform cleanup if needed
             break;
         }
+
         case OP_PUSH_RANGE:
         {
-            // Pop the range values from the stack
-            Value step = pop_stack(vm);
-            Value end = pop_stack(vm);
-            Value start = pop_stack(vm);
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            src_reg3 = code[pc++];
+            dest_reg = code[pc++];
+
+            Value start = get_register(vm, src_reg1);
+            Value end = get_register(vm, src_reg2);
+            Value step = get_register(vm, src_reg3);
 
             if (!IS_NUM(start) || !IS_NUM(end))
                 vm_error(vm, "PiRange `start` and `end` must be numbers.");
 
-            // Create a new range object
             if (!IS_NIL(step) && !IS_NUM(step))
                 vm_error(vm, "PiRange `step` must be nil or a number.");
             else
             {
-
-                // Extract numerical values
                 double _start = as_number(start);
                 double _end = as_number(end);
                 double _step;
@@ -1543,15 +1349,15 @@ void run(vm_t *vm)
                 else
                     _step = as_number(step);
                 Object *range = add_obj(vm, new_range(_start, _end, _step));
-                push_stack(vm, NEW_OBJ(range)); // Push the range onto the stack
+                set_register(vm, dest_reg, NEW_OBJ(range));
             }
-
             break;
         }
 
         case OP_PUSH_LIST:
         {
             int numElements = (code[pc++] << 8) | code[pc++];
+            dest_reg = code[pc++];
             list_t *list = list_create(sizeof(Value));
 
             if (numElements == 0)
@@ -1562,20 +1368,18 @@ void run(vm_t *vm)
                 plist->is_matrix = false;
                 plist->rows = 0;
                 plist->cols = 0;
-                push_stack(vm, NEW_OBJ(l_obj));
+                set_register(vm, dest_reg, NEW_OBJ(l_obj));
                 break;
             }
-
-            vm->sp -= numElements;
 
             bool is_numeric = true;
             bool is_matrix = true;
             int rows = -1, cols = -1;
 
-            // First: collect all values and add to list
             for (int i = 0; i < numElements; i++)
             {
-                Value v = vm->stack[vm->sp + i];
+                uint8_t reg = code[pc++];
+                Value v = get_register(vm, reg);
                 if (is_numeric && !IS_NUM(v))
                     is_numeric = false;
                 list_add(list, &v);
@@ -1589,8 +1393,8 @@ void run(vm_t *vm)
             }
             else
             {
-                // check for matrix: list of equal-sized numeric lists
-                Value first = vm->stack[vm->sp];
+                uint8_t first_reg = code[pc - numElements];
+                Value first = get_register(vm, first_reg);
                 if (IS_LIST(first))
                 {
                     PiList *pl0 = (PiList *)AS_OBJ(first);
@@ -1600,7 +1404,8 @@ void run(vm_t *vm)
                         rows = numElements;
                         for (int i = 0; i < numElements; i++)
                         {
-                            Value v = vm->stack[vm->sp + i];
+                            uint8_t reg = code[pc - numElements + i];
+                            Value v = get_register(vm, reg);
                             if (!IS_LIST(v))
                             {
                                 is_matrix = false;
@@ -1628,85 +1433,79 @@ void run(vm_t *vm)
             plist->rows = is_matrix ? rows : -1;
             plist->cols = is_matrix ? cols : -1;
 
-            push_stack(vm, NEW_OBJ(l_obj));
+            set_register(vm, dest_reg, NEW_OBJ(l_obj));
             break;
         }
 
         case OP_PUSH_MAP:
         {
-
-            // Read the number of elements in the map
             int numElements = code[pc++] << 8;
             numElements |= code[pc++];
-            // create a new hashtable
+            dest_reg = code[pc++];
+            
             table_t *table = ht_create(sizeof(Value));
 
-            // Adjust the stack pointer to the first element of the map
-            int _sp = vm->sp - (numElements * 2);
-
-            // Populate the map directly from the stack
-            for (int i = _sp; i < vm->sp; i += 2)
+            for (int i = 0; i < numElements; i++)
             {
-                Value value = vm->stack[i];
-
-                char *key = AS_CSTRING(vm->stack[i + 1]);
+                uint8_t key_reg = code[pc++];
+                uint8_t value_reg = code[pc++];
+                
+                Value key = get_register(vm, key_reg);
+                Value value = get_register(vm, value_reg);
+                
+                char *key_str = AS_CSTRING(key);
                 if (IS_FUN(value))
                     AS_FUN(value)->is_method = true;
 
-                ht_put(table, key, &value);
+                ht_put(table, key_str, &value);
             }
 
-            vm->sp = _sp;
-
-            // Push the new map onto the stack
             Object *map = add_obj(vm, new_map(table, false));
-            push_stack(vm, NEW_OBJ(map));
-
+            set_register(vm, dest_reg, NEW_OBJ(map));
             break;
         }
 
         case OP_PUSH_FUNCTION:
         {
-            // Read the number of parameters
             int numParams = code[pc++];
+            uint8_t name_reg = code[pc++];
+            uint8_t body_reg = code[pc++];
+            dest_reg = code[pc++];
 
-            ObjCode *body = AS_CODE(pop_stack(vm));
-            char *name = AS_CSTRING(pop_stack(vm));
+            ObjCode *body = AS_CODE(get_register(vm, body_reg));
+            char *name = AS_CSTRING(get_register(vm, name_reg));
 
             list_t *defaults = list_create(sizeof(Value));
 
-            // Adjust the stack pointer to the first parameter
-            vm->sp -= numParams;
-
-            // Populate the parameter list directly from the stack
             for (int i = 0; i < numParams; i++)
             {
-                Value param = vm->stack[vm->sp + i];
+                uint8_t param_reg = code[pc++];
+                Value param = get_register(vm, param_reg);
                 list_add(defaults, &param);
             }
 
-            // Create a new function object
             Object *function = new_func(name, body, defaults, NULL, NULL);
-
-            // Push the new function onto the stack
-            push_stack(vm, NEW_OBJ(add_obj(vm, function)));
-
+            set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, function)));
             break;
         }
 
         case OP_PUSH_CLOSURE:
         {
             int numParams = code[pc++];
-            // Read the number of upvalues
             int numUpvalues = code[pc++];
+            uint8_t name_reg = code[pc++];
+            uint8_t body_reg = code[pc++];
+            dest_reg = code[pc++];
 
             UpValue **upvalues = ALLOCATE(UpValue *, numUpvalues + 1);
 
-            // Populate the upvalue list directly from the stack
             for (int i = 0; i < numUpvalues; i++)
             {
-                bool is_local = as_bool(pop_stack(vm));
-                int index = as_number(pop_stack(vm));
+                uint8_t is_local_reg = code[pc++];
+                uint8_t index_reg = code[pc++];
+                
+                bool is_local = as_bool(get_register(vm, is_local_reg));
+                int index = as_number(get_register(vm, index_reg));
                 UpValue *upvalue;
 
                 if (is_local)
@@ -1718,85 +1517,90 @@ void run(vm_t *vm)
             }
             upvalues[numUpvalues] = NULL;
 
-            ObjCode *body = AS_CODE(pop_stack(vm));
-            char *name = AS_CSTRING(pop_stack(vm));
+            ObjCode *body = AS_CODE(get_register(vm, body_reg));
+            char *name = AS_CSTRING(get_register(vm, name_reg));
 
             list_t *defaults = list_create(sizeof(Value));
 
-            // Adjust the stack pointer to the first parameter
-            vm->sp -= numParams;
-
-            // Populate the parameter list directly from the stack
             for (int i = 0; i < numParams; i++)
             {
-                Value param = vm->stack[vm->sp + i];
+                uint8_t param_reg = code[pc++];
+                Value param = get_register(vm, param_reg);
                 list_add(defaults, &param);
             }
 
             Object *fun_obj = new_func(name, body, defaults, upvalues, NULL);
-
-            // Push the new closure onto the stack
-            push_stack(vm, NEW_OBJ(add_obj(vm, fun_obj)));
-
+            set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, fun_obj)));
             break;
         }
 
         case OP_LOAD_UPVALUE:
         {
-            int index = code[pc++];
-            UpValue *upValue = function->upvalues[index];
+            int upvalue_index = code[pc++];
+            dest_reg = code[pc++];
+            
+            UpValue *upValue = function->upvalues[upvalue_index];
             if (upValue->index != -1)
-                push_stack(vm, vm->stack[upValue->index]);
+                set_register(vm, dest_reg, vm->regfile->regs[upValue->index]);
             else
-                push_stack(vm, upValue->value);
+                set_register(vm, dest_reg, upValue->value);
             break;
         }
 
         case OP_STORE_UPVALUE:
         {
-            int index = code[pc++];
-            UpValue *upValue = function->upvalues[index];
+            int upvalue_index = code[pc++];
+            src_reg1 = code[pc++];
+            
+            UpValue *upValue = function->upvalues[upvalue_index];
             if (upValue->index != -1)
-                vm->stack[upValue->index] = pop_stack(vm);
+                vm->regfile->regs[upValue->index] = get_register(vm, src_reg1);
             else
-                function->upvalues[index]->value = pop_stack(vm);
+                function->upvalues[upvalue_index]->value = get_register(vm, src_reg1);
             break;
         }
 
         case OP_PUSH_SLICE:
         {
-            // Pop the slice values from the stack
-            Value step = pop_stack(vm);
-            Value end = pop_stack(vm);
-            Value start = pop_stack(vm);
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            src_reg3 = code[pc++];
+            src_reg4 = code[pc++];
+            dest_reg = code[pc++];
+
+            Value sequence = get_register(vm, src_reg1);
+            Value start = get_register(vm, src_reg2);
+            Value end = get_register(vm, src_reg3);
+            Value step = get_register(vm, src_reg4);
 
             if (!IS_NUM(start) || !IS_NUM(end))
                 vm_error(vm, "Slice [start] and [end] must be numbers.");
 
-            // Create a new slice object
             if (!IS_NIL(step) && !IS_NUM(step))
                 vm_error(vm, "Slice [step] must be nil or a number.");
             else
             {
-                Value sequence = pop_stack(vm);
                 if (IS_SEQUENCE(sequence))
                 {
                     double end_num = as_number(end);
                     Value slice = get_slice(AS_OBJ(sequence), as_number(start), as_number(end),
                                             IS_NIL(step) ? 1.0 : as_number(step));
-                    push_stack(vm, slice); // Push the slice onto the stack
+                    set_register(vm, dest_reg, slice);
                 }
                 else
                     vm_error(vm, "Slice operand must be a list or string.");
             }
-
             break;
         }
 
         case OP_GET_ITEM:
         {
-            Value index = pop_stack(vm);     // Get the index from the stack
-            Value container = pop_stack(vm); // Get the container from the stack
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            dest_reg = code[pc++];
+
+            Value container = get_register(vm, src_reg1);
+            Value index = get_register(vm, src_reg2);
 
             if (!IS_OBJ(container))
                 vm_error(vm, "Unsupported operand type for get item operator.\n");
@@ -1807,36 +1611,31 @@ void run(vm_t *vm)
             {
                 list_t *list = as_list(container);
                 if (list->size == 0)
-                    push_stack(vm, NEW_NIL());
+                    set_register(vm, dest_reg, NEW_NIL());
                 else
                 {
                     int _index = as_number(index);
                     Value item = *(Value *)list_getAt(list, _index);
-                    push_stack(vm, item); // Avoid unsafe memory access
+                    set_register(vm, dest_reg, item);
                 }
                 break;
             }
             case OBJ_MAP:
             {
-                table_t *table = AS_MAP(container)->table;
-
-                // Value item = *(Value *)ht_get(table, as_string(index));
                 Value item = map_get(AS_MAP(container), index);
-                push_stack(vm, item); // Push NIL if key not found
+                set_register(vm, dest_reg, item);
                 break;
             }
 
             case OBJ_STRING:
             {
+                char *str = as_string(container);
+                int _index = get_index(as_number(index), strlen(str));
 
-                char *str = as_string(container);                      // Convert Value to char*
-                int _index = get_index(as_number(index), strlen(str)); // Convert index to int
-
-                // Convert the character to a string (newly allocated)
-                char *_char = malloc(2); // 1 char + null terminator
+                char *_char = malloc(2);
                 _char[0] = str[_index];
                 _char[1] = '\0';
-                push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(_char))));
+                set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(_char))));
                 free(str);
                 break;
             }
@@ -1849,9 +1648,13 @@ void run(vm_t *vm)
 
         case OP_SET_ITEM:
         {
-            Value index = pop_stack(vm);     // The index/key
-            Value container = pop_stack(vm); // The container (list/map)
-            Value value = pop_stack(vm);     // The value to set
+            src_reg1 = code[pc++];
+            src_reg2 = code[pc++];
+            src_reg3 = code[pc++];
+
+            Value container = get_register(vm, src_reg1);
+            Value index = get_register(vm, src_reg2);
+            Value value = get_register(vm, src_reg3);
 
             if (!IS_OBJ(container))
                 vm_error(vm, "Unsupported operand type for set item operator.\n");
@@ -1862,15 +1665,12 @@ void run(vm_t *vm)
             {
                 list_t *list = as_list(container);
                 int _index = get_index(as_number(index), list_size(list));
-
                 list_set(list, _index, &value);
                 break;
             }
 
             case OBJ_MAP:
             {
-                table_t *table = AS_MAP(container)->table;
-
                 map_set(AS_MAP(container), index, value);
                 break;
             }
@@ -1887,10 +1687,10 @@ void run(vm_t *vm)
 
         case OP_RETURN:
         {
-            // Handle return operation
-            Value retval = pop_stack(vm);
+            src_reg1 = code[pc++];
+            Value retval = get_register(vm, src_reg1);
 
-            for (int i = vm->sp - 1; i >= vm->bp; i--)
+            for (int i = vm->regfile->used_regs - 1; i >= vm->bp; i--)
                 remove_upvalue(vm, i);
 
             Frame *frame = pop_frame(vm);
@@ -1903,22 +1703,17 @@ void run(vm_t *vm)
 
             vm->pc = frame->pc;
             vm->bp = frame->bp;
-            vm->sp = frame->sp;
-            vm->ip = frame->ip;
-
             vm->code = frame->code;
 
             free_frame(frame);
 
-            push_stack(vm, retval);
-
+            set_register(vm, 0, retval); // Result goes to register 0
             return;
         }
 
         case OP_HALT:
         {
             vm->running = false;
-            // Halt the VM
             return;
         }
 
@@ -1926,23 +1721,22 @@ void run(vm_t *vm)
             break;
 
         case OP_PUSH_NIL:
-            push_stack(vm, NEW_NIL());
+        {
+            dest_reg = code[pc++];
+            set_register(vm, dest_reg, NEW_NIL());
             break;
+        }
 
         case OP_DEBUG:
-            // Handle debug operation
             printf("[DEBUG] Current PC: %d\n", pc);
             break;
 
-        // Add more cases for other opcodes as needed
         default:
             vm_errorf(vm, "Unknown opcode: [%d]\n", op);
-
             vm->pc = pc;
         }
 
 #ifdef __EMSCRIPTEN__
-// Allocation-driven threshold to avoid collecting on instruction-heavy loops.
         if (vm->counter >= vm->next_gc)
         {
             run_gc(vm);
@@ -1958,26 +1752,16 @@ void run(vm_t *vm)
 
             vm->counter = 0;
 
-            // Adapt threshold to avoid over-collecting in long-running loops.
             if (collected <= 0)
-                vm->next_gc += vm->next_gc / 2; // GC reclaimed nothing: back off.
+                vm->next_gc += vm->next_gc / 2;
             else
-                vm->next_gc = after + (after / 2); // Target ~1.5x live set allocations.
+                vm->next_gc = after + (after / 2);
             vm->obj_count = after;
 
-            // Clamp bounds (prevent very frequent or very rare GC).
             if (vm->next_gc < GC_MIN_THRESHOLD)
                 vm->next_gc = GC_MIN_THRESHOLD;
             else if (vm->next_gc > GC_MAX_THRESHOLD)
                 vm->next_gc = GC_MAX_THRESHOLD;
-
-#ifdef DEBUG
-            printf("[DEBUG] SP: %d\n", vm->sp);
-            printf("[GC] Running garbage collection...\n");
-            printf("[GC] Before: %d objects in memory\n", before);
-            printf("[GC] After: %d objects in memory\n", after);
-            printf("[GC] Collected: %d, Next threshold: %d\n", collected, vm->next_gc);
-#endif
         }
 #endif
         vm->pc = pc;
@@ -1986,12 +1770,6 @@ void run(vm_t *vm)
 
 /**
  * Frees the memory allocated for a virtual machine instance.
- *
- * This function is used to clean up the memory allocated to the virtual
- * machine structure. It first frees the memory allocated to the global
- * hash table and then frees the virtual machine structure itself.
- *
- * @param vm The virtual machine instance to be deallocated.
  */
 void free_vm(vm_t *vm)
 {
@@ -2001,13 +1779,12 @@ void free_vm(vm_t *vm)
     {
         cart_free(vm->cart);
     }
-    free(vm->source_path);
-    // Free the memory allocated for the global hash table
+    
+    // Free register file
+    if (vm->regfile)
+        free(vm->regfile);
+    
     ht_free(vm->globals);
-
-    // Free the memory allocated for the mutex
     pthread_mutex_destroy(&vm->lock);
-
-    // Free the virtual machine structure itself
     free(vm);
 }

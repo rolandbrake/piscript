@@ -7,6 +7,7 @@
 
 // Load an image from a file and convert it to palette-based image object
 Value pi_image(vm_t *vm, int argc, Value *argv);
+Value pi_spriteFile(vm_t *vm, const char *path);
 
 // Crop a region from the image (returns a new image)
 Value pi_crop(vm_t *vm, int argc, Value *argv);

@@ -1,3 +1,10 @@
+FRACTAL_COLORS = [COLOR_DARK_COCOA, COLOR_MIDNIGHT_BLUE, COLOR_PLUM,
+                  COLOR_OCEAN_TEAL, COLOR_BRICK_RED, COLOR_MUTED_MAUVE,
+                  COLOR_WARM_STONE, COLOR_PALE_YELLOW, COLOR_DEEP_PINK,
+                  COLOR_ORANGE_RED, COLOR_LIME_YELLOW, COLOR_EMERALD,
+                  COLOR_BRIGHT_COBALT, COLOR_DUSTY_VIOLET, COLOR_CORAL,
+                  COLOR_SOFT_SALMON, COLOR_GB_LIGHT_OLIVE]
+
 let y = 0;
 while (y < 128) {
   let x = 0;
@@ -19,7 +26,7 @@ while (y < 128) {
       c = c + 1;
     }
     running = false;
-    pixel(y, x, c);    
+    pixel(y, x, FRACTAL_COLORS[c - 16]);    
     x = x + 1;
   }
   y = y + 1;

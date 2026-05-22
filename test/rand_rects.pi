@@ -1,10 +1,16 @@
 
+PALETTE = [COLOR_DEEP_BLUE, COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN,
+           COLOR_WARM_BROWN, COLOR_CHARCOAL_GRAY, COLOR_COOL_LIGHT_GRAY,
+           COLOR_SOFT_IVORY, COLOR_VIVID_RED, COLOR_AMBER_ORANGE,
+           COLOR_WARM_YELLOW, COLOR_NEON_GREEN, COLOR_SKY_BLUE,
+           COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE, COLOR_LIGHT_PEACH]
+
 while(true) {
     c = 0;
     for(y in 0..128 : 16) {
         for(x in 0..128: 16) {
-            rect(x, y, x + 16, y + 16, rand() * 32, true)                
-            c = (c + 1) % 32        
+            rect(x, y, x + 16, y + 16, PALETTE[floor(rand() * len(PALETTE))], true)                
+            c = (c + 1) % len(PALETTE)        
         }    
     }
     draw()

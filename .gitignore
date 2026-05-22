@@ -22,8 +22,9 @@ Here's the `.gitignore` file:
 *.exe
 *.out
 *.wasm
-# *.html
-# *.js
+
+*.html
+*.js
 
 # Debug files
 *.log
@@ -54,7 +55,7 @@ emscripten_cache/
 
 #site
 
-piscript-site/
+website/
 
 #formatter and minifiers
 # JS/

@@ -337,13 +337,18 @@ Value pi_sound(vm_t *vm, int argc, Value *argv)
     {
 
         char *path = as_string(argv[0]);
-        Mix_Chunk *chunk = Mix_LoadWAV(path);
+        char *resolved = resolve_sourcePath(vm->source_path, path);
+        if (!resolved)
+        {
+            free(path);
+            vm_error(vm, "[sound] memory allocation failed while resolving the path.");
+        }
+
+        Mix_Chunk *chunk = Mix_LoadWAV(resolved);
+        free(resolved);
         if (!chunk)
         {
-            char *buffer = (char *)malloc(strlen(path) + 1);
-            snprintf(buffer, strlen(path) + 1, "Failed to load file '%s'", path);
-            free(path);
-            vm_error(vm, buffer);
+            vm_errorf(vm, "[sound] failed to load file: %s", path);
         }
         free(path);
 
