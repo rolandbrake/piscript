@@ -11,19 +11,19 @@
  * @param fun_name The name of the function this frame is executing.
  * @return A newly allocated Frame struct.
  */
-Frame *create_frame(int pc, int sp, int bp, list_t *code, int iters_top, int ip, Function *fn)
+Frame create_frame(int pc, int sp, int bp, list_t *code, int iters_top, int ip, Function *fn)
 {
-    Frame *frame = (Frame *)malloc(sizeof(Frame));
+    Frame frame;
 
-    frame->code = code;
-    frame->pc = pc;
-    frame->bp = bp;
-    frame->sp = sp;
-    frame->ip = ip;
+    frame.code = code;
+    frame.pc = pc;
+    frame.bp = bp;
+    frame.sp = sp;
+    frame.ip = ip;
 
-    frame->iters_top = iters_top;
+    frame.iters_top = iters_top;
 
-    frame->function = fn;
+    frame.function = fn;
 
     return frame;
 }
@@ -35,6 +35,5 @@ Frame *create_frame(int pc, int sp, int bp, list_t *code, int iters_top, int ip,
  */
 void free_frame(Frame *frame)
 {
-
-    free(frame);
+    (void)frame;
 }

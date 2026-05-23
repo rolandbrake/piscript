@@ -94,8 +94,8 @@ static void mark_roots(vm_t *vm)
     // Mark all functions in the call stack
     for (int i = 0; i < vm->frame_sp; i++)
     {
-        Frame *frame = vm->frames[i];
-        if (frame && frame->function)
+        Frame *frame = &vm->frames[i];
+        if (frame->function)
             mark_object(vm, (Object *)frame->function);
     }
     // Current function

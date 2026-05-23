@@ -32,7 +32,7 @@ typedef struct
 
     // stack_t *frames; // Call stack frames, storing function call contexts.
 
-    Frame *frames[STACK_MAX]; // Call stack frames, storing function call contexts.
+    Frame frames[STACK_MAX]; // Call stack frames, stored inline to avoid per-call heap allocation.
     int frame_sp;
 
     list_t *code;      // PiList of bytecode instructions.
@@ -86,7 +86,7 @@ void vm_reset(vm_t *vm, compiler_t *comp);
 Object *add_obj(vm_t *vm, Object *obj);
 void run(vm_t *vm);
 
-void push_frame(vm_t *vm, Frame *frame);
+void push_frame(vm_t *vm, const Frame *frame);
 Frame *pop_frame(vm_t *vm);
 
 void vm_error(vm_t *vm, const char *message);

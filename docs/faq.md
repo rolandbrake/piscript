@@ -39,7 +39,7 @@ You can run PiScript code through the command-line interpreter or the browser-ba
 
 ### ❓ Can I contribute to PiScript?
 
-Absolutely! While it's currently a solo project, contributions are welcome. Check the [Contributing](./contribution.md) section for ideas on how to help.
+Absolutely! While it's currently a solo project, contributions are welcome. Check the [Contributing](./contributing.md) section for ideas on how to help.
 
 ---
 

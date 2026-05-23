@@ -392,8 +392,8 @@ void mark_roots(vm_t *vm)
 
     for (int i = 0; i < vm->frame_sp; i++)
     {
-        Frame *frame = vm->frames[i];
-        if (frame != NULL && frame->function != NULL)
+        Frame *frame = &vm->frames[i];
+        if (frame->function != NULL)
             mark_object((Object *)frame->function);
     }
 

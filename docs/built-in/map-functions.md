@@ -1,87 +1,40 @@
-## 🗺️ Map Utility Functions
+# Map and Object Functions
 
-### 🔑 keys(map)
+These helpers operate on maps. A PiScript object prototype or object instance
+is also represented by a map.
 
-**Description:**
-Returns a **list of keys** from the given map (object).
+## `clone(map)`
 
-**Parameters:**
-
-* `map`: A map (object) to extract the keys from.
-
-**Returns:**
-
-* A list of strings representing the keys in the map.
-
-**Example:**
+Creates a shallow copy of a map and links the copy's prototype to the original
+map. Own keys are copied; nested values are still shared references where the
+copied value itself is an object.
 
 ```piscript
-let obj = {
-  name: "PiScript",
-  year: 2025
-}
-
-println(keys(obj))  // Output: ["name", "year"]
+let base = {x: 1, y: 2}
+let moved = clone(base)
+moved.x = 9
+writeln(moved.x)
+writeln(moved is base)
 ```
 
----
+## `keys(map)`
 
-### 📦 values(map)
-
-**Description:**
-Returns a **list of values** from the given map (object).
-
-**Parameters:**
-
-* `map`: A map (object) to extract the values from.
-
-**Returns:**
-
-* A list of values in the order of their corresponding keys.
-
-**Example:**
+Returns a list containing the map's own key strings. Use it when iterating keys
+instead of values.
 
 ```piscript
-let obj = {
-  name: "PiScript",
-  year: 2025
-}
-
-_keys = keys(obj)  // Output: ["name", "year"]
-
-_keys[0] = 'age'
-
-println(_keys)
-
-println(obj)
+let stats = {hp: 8, mp: 3}
+writeln(keys(stats))
 ```
 
+## `values(map)`
 
-### clone(map)
+Returns a list containing the map's own values.
 
-**Description:**  
-Returns a **shallow copy** of the given map (object). The clone will have the same keys and values, and maintain the prototype (`proto`) link of the original, enabling inheritance-like behavior.
-
-**Parameters:**  
-- `map` *(Map)*: The map object to clone.
-
-**Returns:**  
-- *(Map)*: A new map object containing the same key-value pairs as the original.
-
-**Example:**
-```pi
-let original = {
-  name: "Alice",
-  age: 25
-}
-
-let copy = clone(original)
-
-println(copy.name)  // Output: Alice
-println(copy.age)   // Output: 25
-
-// Changes to the copy won't affect the original
-copy.name = "Bob"
-println(original.name)  // Output: Alice
-println(copy.name)      // Output: Bob
+```piscript
+let stats = {hp: 8, mp: 3}
+writeln(values(stats))
 ```
+
+See [Objects](../syntax/OOP.md) for constructors, map methods, `this`, and
+prototype-style object code.

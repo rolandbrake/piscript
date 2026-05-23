@@ -1,72 +1,43 @@
-# 🧭 Piscript Overview
+# PiScript Language Guide
 
-**Piscript** is a lightweight, expressive programming language designed for **learning**, **creativity**, and **rapid prototyping**. It draws inspiration from Python and JavaScript, blending readable syntax with unique capabilities like matrix operations and pixel-based graphics designed for tiny, low-res consoles (128×128).
+PiScript is a small dynamic language for pixel graphics, games, math, and
+creative coding. Programs use expressions, brace-delimited blocks, first-class
+functions, lists, maps, ranges, and a built-in 128x128 screen runtime.
 
-Whether you're building a math experiment, a retro-style game, or just exploring functional programming, Piscript offers a minimal yet powerful playground for developers and learners alike.
+## Start Here
 
----
+- [Language Basics](syntax/basics.md) covers variables, blocks, comments,
+  assignment, scopes, destructuring, member access, and slices.
+- [Graphics](syntax/graphics.md) explains the 128x128 screen, palette,
+  framebuffer, event loop, screen text, and drawing API.
+- [Data Types](syntax/datatypes.md) explains values such as numbers, strings,
+  lists, maps, ranges, images, sounds, and functions.
+- [Operators](syntax/operators.md) lists arithmetic, comparison, logical,
+  bitwise, assignment, range, slice, membership, and matrix operators.
+- [Control Flow](syntax/control-flow-loops.md) covers `if`, `elif`, `else`,
+  loops, `break`, `continue`, and `return`.
+- [Functions](syntax/functions.md) covers named functions, anonymous
+  functions, arrow functions, defaults, closures, `args`, and named arguments.
+- [Objects](syntax/OOP.md) explains PiScript's prototype-style OOP model based
+  on callable maps, methods, `constructor`, `this`, and `clone`.
+- [Constants](syntax/constants.md) lists the built-in math, screen, audio, and
+  color constants.
 
-## 🌟 Key Features
+## Small Program
 
-- **Clean, familiar syntax** (inspired by Python & JS)
-- **Matrix & vector operations** for linear algebra and simulations
-- **Functional programming** support: `map`, `filter`, `reduce`, `compose`
-- **Pixel graphics** rendering on a 128×128 screen
-- **Lightweight runtime** ideal for web-based or embedded environments
-- **Custom assignment operator `<-`** for inline expressions
-- **Compact standard library** designed for rapid iteration
+```piscript
+fun move(pos, dx = 0, dy = 0) {
+    return [pos[0] + dx, pos[1] + dy]
+}
 
----
+let player = move([60, 60], dy = 2, dx = -1)
 
-## 🏗️ Language Structure
+clear(COLOR_SOFT_BLACK)
+circ(player[0], player[1], 4, COLOR_NEON_GREEN, true)
+draw()
+```
 
-Piscript programs are structured around the following core elements:
+## Reference
 
-### 1. Variables & Expressions
-
-- Assignment with `=`
-- Inline assignment with `<-`
-- Supports numbers, strings, booleans, lists, and matrices
-
-### 2. Control Flow
-
-- `if`, `else`, `for`, and `while` constructs
-- Indentation-based blocks (like Python)
-
-### 3. Functions
-
-- Named functions with `fun`
-- Anonymous and arrow functions
-- First-class support: pass, store, and return functions
-
-### 4. Functional Programming
-
-- Built-in `map`, `filter`, `reduce`, and `compose`
-- Combine logic elegantly using pure functions
-
-### 5. Matrix Utilities
-
-- Native support for common matrix ops: `zeros`, `eye`, `mult`, etc.
-- Ideal for physics sims, math tools, or procedural generation
-
-### 6. Graphics Layer
-
-- 128×128 pixel canvas
-- Functions like `set_pixel(x, y, color)`
-- Works inside a special `draw()` function for frame-based rendering
-
-### 7. Comments
-
-- Single-line: `\\ Comment`
-- Multi-line: `\* ... *\`
-
----
-
-## 🔭 What’s Next?
-
-Piscript is evolving. Upcoming features may include:
-
-- Object-oriented constructs
-- Modular code organization
-- Error handling and debugging tools
-- File I/O (in sandboxed or virtual environments)
+The [built-in function reference](built-in%20functions.md) is organized by
+runtime area and documents every built-in registered by the VM.

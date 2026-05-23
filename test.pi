@@ -1,5 +1,1 @@
-fun greet(name, message) {
-  println(message + ", " + name + "!")
-}
-
-greet(message = "Hello", name = "Alice")
+println("Hello, from Piscript!");

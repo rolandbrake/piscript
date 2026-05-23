@@ -19,6 +19,11 @@
 #define GC_MIN_THRESHOLD 4096
 #define GC_MAX_THRESHOLD (1024 * 1024 * 8)
 #define GC_PRESSURE_UNIT 1024
+#define LIST_GET_UNCHECKED(list, index, type) \
+    (*(type *)((byte *)(list)->data + (index) * (list)->i_size))
+#define VM_PUSH_FAST(vm, value) ((vm)->stack[(vm)->sp++] = (value))
+#define VM_POP_FAST(vm) ((vm)->stack[--(vm)->sp])
+#define VM_PEEK_FAST(vm) ((vm)->stack[(vm)->sp - 1])
 
 #ifndef __EMSCRIPTEN__
 static bool poll_stop(vm_t *vm)
@@ -325,7 +330,7 @@ void vm_error(vm_t *vm, const char *message)
 
     if (vm->frame_sp > 0)
     {
-        Frame *top = vm->frames[vm->frame_sp - 1];
+        Frame *top = &vm->frames[vm->frame_sp - 1];
         name = top->function->name;
     }
 
@@ -468,12 +473,12 @@ static bool stack_isEmpty(vm_t *vm)
  * @param vm The virtual machine instance.
  * @param frame The frame to push onto the stack.
  */
-void push_frame(vm_t *vm, Frame *frame)
+void push_frame(vm_t *vm, const Frame *frame)
 {
     if (vm->frame_sp >= STACK_MAX)
         vm_error(vm, "Stack overflow: Attempted to push onto a full stack");
 
-    vm->frames[vm->frame_sp++] = frame;
+    vm->frames[vm->frame_sp++] = *frame;
 }
 
 /**
@@ -489,8 +494,7 @@ Frame *pop_frame(vm_t *vm)
     if (vm->frame_sp <= 0)
         vm_error(vm, "Stack underflow: Attempted to pop from an empty stack");
 
-    Frame *frame = vm->frames[--vm->frame_sp];
-    return frame;
+    return &vm->frames[--vm->frame_sp];
 }
 
 /**
@@ -501,7 +505,7 @@ Frame *pop_frame(vm_t *vm)
  */
 static inline char *read_name(vm_t *vm, int index)
 {
-    return string_get(vm->names, index);
+    return LIST_GET_UNCHECKED(vm->names, index, String).data;
 }
 
 /**
@@ -516,6 +520,21 @@ static inline char *read_name(vm_t *vm, int index)
 static inline bool is_false(vm_t *vm, Value value)
 {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+static inline bool fast_bool(Value value)
+{
+    switch (value.type)
+    {
+    case VAL_BOOL:
+        return value.data.boolean;
+    case VAL_NUM:
+        return value.data.number != 0.0;
+    case VAL_NIL:
+        return false;
+    default:
+        return as_bool(value);
+    }
 }
 
 static inline int read_short(vm_t *vm)
@@ -719,10 +738,10 @@ void run(vm_t *vm)
             index = (code[pc++] << 8);
             index |= code[pc++];
             // Get the constant from the constants list using the index
-            Value constant = *(Value *)list_getAt(vm->constants, index);
+            Value constant = LIST_GET_UNCHECKED(vm->constants, index, Value);
 
             // Push the constant onto the stack
-            push_stack(vm, constant);
+            VM_PUSH_FAST(vm, constant);
 
             break;
         }
@@ -732,7 +751,7 @@ void run(vm_t *vm)
             index = code[pc++];
             char *name = read_name(vm, index);
 
-            Value _newValue = pop_stack(vm);
+            Value _newValue = VM_POP_FAST(vm);
             ht_put(vm->globals, name, &_newValue); // Store directly, no malloc!
 
             break;
@@ -741,14 +760,14 @@ void run(vm_t *vm)
         case OP_LOAD_GLOBAL:
         {
             index = code[pc++];
-            char *name = string_get(vm->names, index);
+            char *name = read_name(vm, index);
             Value *_value = ht_get(vm->globals, name);
             if (_value == NULL)
             {
                 nilValue = NEW_NIL();
                 _value = &nilValue;
             }
-            push_stack(vm, *_value);
+            VM_PUSH_FAST(vm, *_value);
             break;
         }
 
@@ -756,21 +775,21 @@ void run(vm_t *vm)
         {
             op = code[pc++];
             Value value = vm->stack[vm->bp + op];
-            push_stack(vm, value);
+            VM_PUSH_FAST(vm, value);
             break;
         }
 
         case OP_STORE_LOCAL:
         {
             op = code[pc++];
-            vm->stack[vm->bp + op] = pop_stack(vm);
+            vm->stack[vm->bp + op] = VM_POP_FAST(vm);
             break;
         }
 
         case OP_POP:
         {
             remove_upvalue(vm, vm->sp - 1);
-            Value value = pop_stack(vm);
+            VM_POP_FAST(vm);
             break;
         }
         case OP_POP_N:
@@ -779,21 +798,21 @@ void run(vm_t *vm)
             for (int i = 0; i < op; i++)
             {
                 remove_upvalue(vm, vm->sp - 1);
-                pop_stack(vm);
+                VM_POP_FAST(vm);
             }
         }
         break;
 
         case OP_DUP_TOP:
-            push_stack(vm, peek_stack(vm));
+            VM_PUSH_FAST(vm, VM_PEEK_FAST(vm));
             break;
 
         case OP_JUMP_IF_FALSE:
         {
             int offset = (int16_t)((code[pc] << 8) | code[pc + 1]); // Signed 16-bit offset
 
-            Value value = pop_stack(vm);
-            if (!as_bool(value))
+            Value value = VM_POP_FAST(vm);
+            if (!fast_bool(value))
                 pc += offset - 1; // relative jump
             else
                 pc += 2;
@@ -811,8 +830,8 @@ void run(vm_t *vm)
         {
             int offset = (int16_t)((code[pc] << 8) | code[pc + 1]); // Signed 16-bit offset
 
-            Value value = pop_stack(vm);
-            if (as_bool(value))
+            Value value = VM_POP_FAST(vm);
+            if (fast_bool(value))
                 pc += offset - 1; // relative jump
             else
                 pc += 2;
@@ -834,7 +853,16 @@ void run(vm_t *vm)
             }
 
             bool result = false;
-            int cmp = compare(left, right);
+            int cmp;
+
+            if (IS_NUM(left) && IS_NUM(right))
+            {
+                double l_num = AS_NUM(left);
+                double r_num = AS_NUM(right);
+                cmp = (fabs(l_num - r_num) < 1e-9) ? 0 : (l_num > r_num ? 1 : -1);
+            }
+            else
+                cmp = compare(left, right);
 
             switch (op)
             {
@@ -870,6 +898,56 @@ void run(vm_t *vm)
             Value right = pop_stack(vm);
             Value left = pop_stack(vm);
 
+            if (IS_NUM(left) && IS_NUM(right))
+            {
+                double l_num = AS_NUM(left);
+                double r_num = AS_NUM(right);
+
+                switch (op)
+                {
+                case 0: // "+"
+                    push_stack(vm, NEW_NUM(l_num + r_num));
+                    break;
+                case 1: // "-"
+                    push_stack(vm, NEW_NUM(l_num - r_num));
+                    break;
+                case 2: // "*"
+                    push_stack(vm, NEW_NUM(l_num * r_num));
+                    break;
+                case 3: // "/"
+                    push_stack(vm, NEW_NUM(r_num == 0.0 ? INFINITY : l_num / r_num));
+                    break;
+                case 4: // "%"
+                    push_stack(vm, ((int)r_num == 0) ? NEW_NAN() : NEW_NUM((int)l_num % (int)r_num));
+                    break;
+                case 7: // "**"
+                    push_stack(vm, NEW_NUM(pow(l_num, r_num)));
+                    break;
+                case 8: // "&"
+                    push_stack(vm, NEW_NUM((int)l_num & (int)r_num));
+                    break;
+                case 9: // "|"
+                    push_stack(vm, NEW_NUM((int)l_num | (int)r_num));
+                    break;
+                case 10: // "^"
+                    push_stack(vm, NEW_NUM((int)l_num ^ (int)r_num));
+                    break;
+                case 11: // "<<"
+                    push_stack(vm, NEW_NUM((int)l_num << (int)r_num));
+                    break;
+                case 12: // ">>"
+                    push_stack(vm, NEW_NUM((int)l_num >> (int)r_num));
+                    break;
+                case 13: // ">>>"
+                    push_stack(vm, NEW_NUM((uint32_t)l_num >> (uint32_t)r_num));
+                    break;
+                default:
+                    goto slow_binary;
+                }
+                break;
+            }
+
+        slow_binary:
             switch (op)
             {
             case 0: // "+"

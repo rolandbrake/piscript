@@ -1,29 +1,31 @@
-# PiScript Built-in Functions
+# Built-in Functions
 
-PiScript comes with a collection of powerful built-in functions designed to simplify common tasks in programming such as input/output handling, collection manipulation, mathematical operations, and utility tasks.
+Every function registered by the VM is documented in the category pages below.
+Built-ins are global; call them without importing a module.
 
-These functions are automatically available without requiring imports and are grouped into the following categories:
+| Category | Reference |
+| --- | --- |
+| Math and statistics | [Mathematical functions](built-in/mathematical-functions.md) |
+| Collections and ranges | [Collection functions](built-in/collection-functions.md) |
+| Functional helpers | [Functional programming](built-in/functional-programming.md) |
+| Strings | [String functions](built-in/string-functions.md) |
+| Screen text, input, and files | [I/O functions](built-in/io-functions.md) |
+| Pixel graphics and frame control | [Graphics functions](built-in/graphics-functions.md) |
+| Images, audio, and 3D | [Media functions](built-in/media-functions.md) |
+| Matrices and vectors | [Matrix manipulation](built-in/matrix-manipulation.md) |
+| Maps and object helpers | [Map functions](built-in/map-functions.md) |
+| Runtime types | [Type functions](built-in/type-functions.md) |
+| Clock and delay | [Time functions](built-in/time-functions.md) |
+| Runtime and scripts | [System functions](built-in/system-functions.md) |
 
-- **I/O Functions**: For interacting with users or the environment (e.g. `print`, `input`)
-- **Collection Functions**: For working with lists and ranges (e.g. `len`, `map`, `filter`)
-- **Math Functions**: For basic and advanced numeric calculations (e.g. `abs`, `sqrt`)
-- **Utility Functions**: Miscellaneous helpers to improve code clarity or manage behavior (e.g. `type`, `range`)
+## Conventions
 
----
-
-## Why Use Built-in Functions?
-
-Built-in functions are optimized and tested for reliability and performance. Using them makes your code:
-
-- More concise
-- Easier to read and maintain
-- Cross-compatible with the PiScript interpreter
-
----
-
-## Usage Example
-
-```piscript
-nums = [1, 2, 3, 4, 5]
-squared = map(nums, (x) -> x * x)
-println(squared)  // expect: [1, 4, 9, 16, 25]
+- `nil` means a built-in performs an effect without a value result.
+- Signatures in brackets are optional parts, for example
+  `draw([offset_x, offset_y])`.
+- `list` means a PiScript list. `collection` means the function accepts the
+  collection types listed in its row.
+- Screen text functions draw into the screen buffer. `writeln` is the console
+  output function.
+- Relative paths used by script/media helpers are resolved by the runtime
+  according to the active script where the implementation supports it.

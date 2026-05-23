@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>A lightweight game scripting runtime for small pixel games and creative coding.</strong><br/>
-  Python-inspired - Written in C - SDL-powered graphics, sprites, audio, and scripts
+  Python-inspired - Written in C - SDL-powered graphics, audio, and scripts
 </p>
 
 <p align="center">
@@ -27,8 +27,8 @@ projects load normal media files beside their scripts.
 Pi-Script projects can combine:
 
 - `.pi` scripts for gameplay, input, animation, and tools
-- Pixel drawing, shapes, text, sprites, images, and simple 3D rendering
-- PNG files loaded as image objects or sprite objects
+- Pixel drawing, shapes, text, images, and simple 3D rendering
+- PNG files loaded as image objects
 - Audio files loaded as sound effects
 - Built-in tones and melodies for tiny procedural sounds
 - OBJ files for the built-in 3D path
@@ -46,7 +46,7 @@ native desktop experiments, and embeddable playgrounds.
 
 The runtime is small enough for pixel experiments and complete enough for
 playable examples such as Snake, Pong, Breakout, Tetris, CHIP-8 experiments,
-sprite-driven projects, audio effects, and 3D demos.
+image-driven projects, audio effects, and 3D demos.
 
 ---
 
@@ -86,7 +86,7 @@ live in its own folder instead of depending on the shell working directory.
 - Text drawing through the screen print APIs
 - Named default palette constants such as `COLOR_SOFT_BLACK`, `COLOR_NEON_GREEN`, and `COLOR_SKY_BLUE`
 - Arbitrary packed `0xAARRGGBB` colors with alpha blending
-- PNG-backed `image()` and `sprite()` loading
+- PNG-backed `image()` loading
 - Image operations such as crop, resize, flip, rotate, scale, and copy
 - Built-in 3D rendering and `.obj` model loading
 
@@ -94,7 +94,6 @@ live in its own folder instead of depending on the shell working directory.
 
 - Generated tones and melodies for compact game sound effects
 - File-backed sound objects through `sound("assets/hit.mp3")`
-- Sprite objects loaded directly from PNG files
 - Image objects drawn with `rend2d(...)`
 - Script-relative asset lookup for images, sounds, nested scripts, and OBJ models
 
@@ -209,12 +208,12 @@ already found from the current working directory:
 
 ```piscript
 background = image("assets/background.png")
-player = sprite("assets/player.png")
+player = image("assets/player.png")
 hit = sound("assets/hit.mp3")
 
 clear(COLOR_SOFT_BLACK)
 rend2d(background, 0, 0)
-sprite(player, 56, 56)
+rend2d(player, 56, 56)
 
 if key("SPACE", true)
     play(hit)
@@ -223,16 +222,15 @@ draw()
 ```
 
 Use `image(...)` when you want an image object for `rend2d(...)` and image
-operations. Use `sprite(...)` when you want a PNG converted into a sprite
-object for the sprite drawing API. `load3d(...)` follows the same relative path
-behavior for OBJ models.
+operations. `load3d(...)` follows the same relative path behavior for OBJ
+models.
 
 ---
 
 ## Small Example
 
 ```piscript
-player = sprite("assets/player.png")
+player = image("assets/player.png")
 x = 56
 y = 56
 
@@ -244,7 +242,7 @@ while true {
     if key("RIGHT")
         x += 1
 
-    sprite(player, x, y)
+    rend2d(player, x, y)
     draw()
 }
 ```

@@ -120,10 +120,10 @@ Value call_func_kw(vm_t *vm, Function *function, size_t argc, Value *argv, PiMap
         return function->native(vm, argc, argv);
 
     // Push the current frame onto the call stack
-    Frame *frame = create_frame(vm->pc, vm->sp, vm->bp,
-                                vm->code, vm->iter_sp, vm->ip, function);
+    Frame frame = create_frame(vm->pc, vm->sp, vm->bp,
+                               vm->code, vm->iter_sp, vm->ip, function);
 
-    push_frame(vm, frame);
+    push_frame(vm, &frame);
 
     // Update the VM state with the function's bytecode
     vm->code = function->body->data;

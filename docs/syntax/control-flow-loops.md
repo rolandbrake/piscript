@@ -1,70 +1,79 @@
+# Control Flow
 
-## 🔄 Control Flow & Loops
+## Conditions
 
-### ⚠️ Conditional Statements
-
-Piscript supports `if`, `elif`, and `else` for conditional branching:
+Conditions may be parenthesized, but parentheses are optional.
 
 ```piscript
-if score > 90
-    println("Excellent")
-elif score > 60
-    println("Good")
-else
-    println("Try again")
+if score >= 10 {
+    writeln("win")
+} elif score > 0 {
+    writeln("playing")
+} else {
+    writeln("start")
+}
+
+if ready
+    draw()
 ```
 
-### ⟳ While Loop
+## While
 
-Repeats a block as long as the condition is `true`:
+`while` repeats while its condition is truthy.
 
 ```piscript
-x = 0
-while x < 5 {
-    println(x)
-    x = x + 1
+let x = 0
+while x < 4 {
+    writeln(x)
+    x++
 }
 ```
 
-### ⏪ For Loop (Range Based)
+## For-In
 
-Use `for ... in` with a range:
+`for` iterates an iterable value. Ranges, lists, and strings are common loop
+inputs.
 
 ```piscript
-for i in 0..5:1
-    println(i)
+for i in 0..8:2 {
+    writeln(i)
+}
+
+for ch in "pi"
+    writeln(ch)
 ```
 
-or you can use `range` function to do the same thing:
+Parentheses are accepted around a `for` header:
+
 ```piscript
-for i in range(0,5)
-    println(i)
+for (i in range(3)) {
+    writeln(i)
+}
 ```
 
-* Step is optional; default is `1`.
+## Break and Continue
 
-### ⏹ Break
-
-Exits the nearest enclosing loop:
+`break` exits the nearest loop. `continue` jumps to its next iteration.
 
 ```piscript
-for i in 0..10 {
-    if i == 5
+for n in range(10) {
+    if n == 5
         break
-    println(i)
+    if n % 2 == 0
+        continue
+    writeln(n)
 }
 ```
 
-### ⏭ Continue
+## Return
 
-Skips the current iteration and continues the loop:
+`return` exits a function. A bare `return` returns `nil` except object
+constructors return their `this` instance.
 
 ```piscript
-for i in 0..5 {
-    if i % 2 == 0
-        continue
-    println(i)  // prints only odd numbers
+fun clamp_low(x) {
+    if x < 0
+        return 0
+    return x
 }
 ```
-
----

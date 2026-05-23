@@ -1,45 +1,55 @@
-# 📘 Getting Started with Piscript
+# Getting Started
 
-Welcome to **Piscript** — a lightweight, embeddable scripting language with built-in support for graphics, matrices, and functional programming. Piscript is designed to be expressive, minimal, and ideal for creative and educational projects, with inspiration drawn from Pico-8 and Python.
+PiScript is a compact scripting language and SDL runtime for 128x128 pixel
+programs. It is useful for small games, creative coding, math sketches, and
+teaching language/runtime ideas in a small codebase.
 
----
+## What You Get
 
-## 🚀 What is Piscript?
+- A dynamic language with variables, lists, maps, ranges, functions, closures,
+  named arguments, and prototype-style objects.
+- Pixel graphics, screen text, images, audio, keyboard and mouse input.
+- Math, statistics, collection, functional, matrix, file, and system built-ins.
+- Native desktop builds and an Emscripten web build.
 
-Piscript is a scripting language that:
+## Build
 
-- Compiles to WebAssembly using **Emscripten**
-- Supports a **128×128 pixel graphics console**, ideal for retro-style visual output
-- Features familiar syntax elements inspired by Python and JavaScript
-- Includes **functional programming** tools like `map`, `filter`, `reduce`, and `compose`
-- Supports matrices, dot/cross products, and array manipulation
-- Allows anonymous and arrow functions
-- Offers a REPL-style **online playground**
-
----
-
-## 🔧 Requirements
-
-To run Piscript locally or embed it in your project, you need:
-
-- A modern browser (for the web-based version)
-- Or: a C/C++ development environment with Emscripten if you're compiling the language yourself
-
----
-
-## 🌐 Try It Online
-
-You can try Piscript directly in your browser using the [Piscript Playground](https://piscript.netlify.app/playground). Just write your code and hit **Run**!
-
----
-
-## 📦 Installation
-
-Piscript is designed to run in the browser, but if you want to build it yourself:
-
-### Clone and Build
+Native builds need GCC or another C compiler plus SDL2, SDL2_image, and
+SDL2_mixer. The Makefile exposes the normal targets:
 
 ```bash
-git clone https://github.com/rolandbrake/piscript.git
-cd piscript
-emmake make
+make release
+make debug
+make emscripten
+```
+
+On Windows with MinGW the make command may be named `mingw32-make`.
+
+## Run a Script
+
+Run the built interpreter with a PiScript file:
+
+```bash
+piscript test.pi
+```
+
+The native shell shows the screen window after a script completes. A game
+usually keeps drawing frames from a loop.
+
+## First Script
+
+```piscript
+let position = [64, 64]
+
+clear(COLOR_SOFT_BLACK)
+circ(position[0], position[1], 8, COLOR_SKY_BLUE, true)
+println("hello pi", 4, 4, COLOR_SOFT_IVORY)
+draw()
+```
+
+## Where to Go Next
+
+- Read the [Language Guide](syntax.md).
+- Browse the [API Reference](api-reference.md).
+- Use the [Built-in Function Reference](built-in%20functions.md) when working
+  with graphics, audio, files, collections, matrices, or runtime helpers.

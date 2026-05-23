@@ -1,107 +1,43 @@
-This section provides a detailed reference for all built-in functions and modules available in PiScript. Each entry includes the function signature, parameters, return value, and usage examples.
+# PiScript API Reference
 
----
+The runtime API is available without imports. A built-in name can be called
+directly from a `.pi` script.
 
-## Math Functions
+## Language
 
-### `sqrt(x)`
+| Section | Purpose |
+| --- | --- |
+| [Basics](syntax/basics.md) | Variables, assignment, scopes, blocks, access, slices |
+| [Graphics](syntax/graphics.md) | Screen size, palette, framebuffer, event loop, drawing |
+| [Data Types](syntax/datatypes.md) | Runtime values and collection forms |
+| [Operators](syntax/operators.md) | Operators and assignment forms |
+| [Control Flow](syntax/control-flow-loops.md) | Branching and loops |
+| [Functions](syntax/functions.md) | Function syntax and call binding |
+| [Objects](syntax/OOP.md) | Maps as prototypes and instances |
+| [Constants](syntax/constants.md) | Math, screen, audio, and color constants |
 
-Returns the square root of `x`.
+## Built-ins
 
-```piscript
-sqrt(9)  # 3.0
-```
+| Section | Functions |
+| --- | --- |
+| [Math](built-in/mathematical-functions.md) | Numeric transforms, random values, statistics |
+| [Collections](built-in/collection-functions.md) | Lists, strings, maps, range and slice helpers |
+| [Functional](built-in/functional-programming.md) | `map`, `filter`, `reduce`, `find` |
+| [Strings](built-in/string-functions.md) | Character conversion, case, matching, split |
+| [I/O](built-in/io-functions.md) | Screen text, console text, input, keys, files |
+| [Graphics](built-in/graphics-functions.md) | Pixel drawing, shapes, palette, frame control |
+| [Media](built-in/media-functions.md) | Images, audio, and 3D models |
+| [Matrices](built-in/matrix-manipulation.md) | Matrices and vector operations |
+| [Maps and Objects](built-in/map-functions.md) | Clone and map inspection |
+| [Types](built-in/type-functions.md) | Type names, checks, conversions |
+| [Time](built-in/time-functions.md) | Clock and sleep |
+| [System](built-in/system-functions.md) | Runtime state, mouse, eval, script execution |
 
-### `abs(x)`
+## Value Conventions
 
-Returns the absolute value of `x`.
-
-```piscript
-abs(-5)  # 5
-```
-
-### `pow(a, b)`
-
-Returns `a` raised to the power of `b`.
-
-```piscript
-pow(2, 3)  # 8
-```
-
----
-
-## Matrix Functions
-
-### `pi_zeros(rows, cols)`
-
-Creates a matrix filled with zeros.
-
-```piscript
-pi_zeros(2, 3)
-# [[0, 0, 0], [0, 0, 0]]
-```
-
-### `pi_eye(n)`
-
-Creates an identity matrix of size `n x n`.
-
-```piscript
-pi_eye(3)
-# [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-```
-
-### `pi_dot(a, b)`
-
-Computes the dot product of two matrices or vectors.
-
-```piscript
-pi_dot([1, 2], [3, 4])  # 11
-```
-
----
-
-## Functional Programming
-
-### `map(fn, list)`
-
-Applies function `fn` to each element of `list`.
-
-```piscript
-map(x -> x * 2, [1, 2, 3])  # [2, 4, 6]
-```
-
-### `filter(fn, list)`
-
-Filters `list`, keeping only elements where `fn` returns true.
-
-```piscript
-filter(x -> x > 1, [1, 2, 3])  # [2, 3]
-```
-
-### `reduce(fn, list, init)`
-
-Reduces `list` to a single value by combining elements with `fn`.
-
-```piscript
-reduce((a, b) -> a + b, [1, 2, 3], 0)  # 6
-```
-
----
-
-## Graphics Functions (128x128 Console)
-
-### `pix(x, y, color)`
-
-Sets the pixel at `(x, y)` to a color index (0–31).
-
-### `cls(color)`
-
-Clears the screen to the given color.
-
-### `rect(x, y, w, h, color)`
-
-Draws a rectangle at `(x, y)` with width `w`, height `h`.
-
----
-
-This section is a work-in-progress and will be expanded with more function references as PiScript evolves.
+- `nil` is the absence value.
+- Screen colors accept a palette index from `0` to `79`, a named `COLOR_*`
+  constant, or a packed `0xAARRGGBB` number where supported.
+- Image, sound, file, and 3D model values are opaque runtime objects.
+- Functions marked as mutating in the reference update their input collection;
+  transform functions return a new value.

@@ -1,6 +1,8 @@
 # PiScript Examples
 
-This section provides practical examples demonstrating how to use PiScript features and built-in functions. These examples cover different categories, including basic syntax, arrays, functions, and matrix operations.
+This section provides practical examples demonstrating how to use PiScript
+features and built-in functions. Algorithm examples use `writeln` for console
+output. Screen examples use drawing APIs and end the frame with `draw()`.
 
 ---
 
@@ -8,8 +10,7 @@ This section provides practical examples demonstrating how to use PiScript featu
 
 ```piscript
 println("Hello, PiScript!")
-
-
+draw()
 ```
 
 ---
@@ -24,7 +25,7 @@ fun fib(n = 0) {
     return fib(n-1) + fib(n-2);
 }
 
-println(fib(10));
+writeln(fib(10));
 
 fun fib(n = 0) {    
   
@@ -44,7 +45,7 @@ fun fib(n = 0) {
   }
   
   for(i in 0..40)
-    println(fib(i) + " ");
+    writeln(fib(i) + " ");
 
 
 
@@ -65,7 +66,7 @@ fun factorial(n = 0) {
 }
 
 for (i in 1..20) 
-    println("Factorial of " + i + " is " + factorial(i));
+    writeln("Factorial of " + i + " is " + factorial(i));
 
 
 ```
@@ -88,7 +89,7 @@ fun binary_search(l = [], value =  0) {
 }
 
 for(i in 1..6)
-    println(binary_search([1,2,3,4,5], i));
+    writeln(binary_search([1,2,3,4,5], i));
 
 
 
@@ -117,7 +118,7 @@ fun bubbleSort(list =  []) {
     return list;
   }
   
-  println(bubbleSort([5,4,3,2,1]));
+  writeln(bubbleSort([5,4,3,2,1]));
 ```
 
 
@@ -149,7 +150,7 @@ fun selectionSort(nums) {
 
 list = [94, 7, 127, 85, 186, 55, 138,200, 168, 15, 39, 120, 26, 176, 161, 62, 102, 50, 95, 121, 153, 198, 19, 76, 87, 44, 81, 36, 92, 70, 141, 66, 122, 78, 42, 148, 28, 114, 65, 10, 193, 89, 4, 183, 169, 47, 186, 118, 30, 101, 54, 174, 33, 187, 57, 143, 16, 72, 195];
 
-println(selectionSort(list[0:1000]));
+writeln(selectionSort(list[0:1000]));
 
 ```
 
@@ -178,13 +179,13 @@ while (true) {
 ```piscript
 for(i in 1..101)
     if(i % 15 == 0)
-        println("FizzBuzz");
+        writeln("FizzBuzz");
     elif(i % 3 == 0)
-        println("Fizz");
+        writeln("Fizz");
     elif(i % 5 == 0)
-        println("Buzz");
+        writeln("Buzz");
     else
-        println(i);
+        writeln(i);
 ```
 
 ---
@@ -201,7 +202,7 @@ fun sum(list = []) {
 }
 
 
-println(sum([5,4,3,2,1]));
+writeln(sum([5,4,3,2,1]));
 ```
 
 ---
@@ -222,18 +223,18 @@ fun Leonardo(l_zero, l_one, add, amount){
 }
 
 out = ""
-println("First 25 Leonardo numbers:")
+writeln("First 25 Leonardo numbers:")
 for term in Leonardo(1,1,1,25)
     out += term + " "
 
-println(out)
+writeln(out)
 
 out = ""
-println("Leonardo numbers with fibonacci parameters:")
+writeln("Leonardo numbers with fibonacci parameters:")
 for term in Leonardo(0,1,0,25)
     out += term + " "
 
-println(out)
+writeln(out)
 ```
 
 ---
@@ -294,8 +295,8 @@ for i in 0..n {
 }
 
 // Optionally print slope and intercept
-println("m =", m)
-println("b =", b)
+writeln("m = " + m)
+writeln("b = " + b)
 
 draw()
 
@@ -317,7 +318,7 @@ fun isPrime(n){
 
 for(i in 2..200){
     if(isPrime(i))
-        println(i);
+        writeln(i);
 }
 
 
@@ -340,7 +341,7 @@ for(i in 1..100000){
 }
 
 
-println("Sum of primes up to 10000: " + sum);
+writeln("Sum of primes up to 10000: " + sum);
 
 
 
@@ -359,7 +360,7 @@ fun make_counter() {
     let i = 0;
     fun count() {
       i = i + 1;
-      println(i);
+      writeln(i);
     }
   
     return count;
@@ -401,11 +402,11 @@ fun isWeiferich(p) {
         return false
 }
 
-println("Wieferich primes less than 5000: ")
+writeln("Wieferich primes less than 5000: ")
 i = 2
 while i <= 5000 {
     if isWeiferich(i)
-        println(i)
+        writeln(i)
     i++
 }
 
@@ -436,7 +437,7 @@ fun rot13(message = '') {
     return res;
 }
 
-println(rot13("YsREgKcTNODgGwvChyXqDgFJwCVQGmJpAAZUAAHLpMjmtdPVScwoKUctXbYeCHFFJwECJuLODFdssPQhdxxOyMXBDAYUDGtjnr"));
+writeln(rot13("YsREgKcTNODgGwvChyXqDgFJwCVQGmJpAAZUAAHLpMjmtdPVScwoKUctXbYeCHFFJwECJuLODFdssPQhdxxOyMXBDAYUDGtjnr"));
 
 ```
 

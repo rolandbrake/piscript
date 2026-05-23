@@ -1,106 +1,87 @@
-# Piscript: Function Reference
+# Functions
 
-Piscript supports three types of functions: **named functions**, **arrow functions**, and **anonymous functions**. Each function type supports first-class behavior and closures.
+Functions are first-class values. They can be assigned, returned, passed to
+functional built-ins, and capture local values from outer functions.
 
----
-
-## 🧭 Named Functions
-
-Defined using the `fun` keyword.
+## Named Functions
 
 ```piscript
-fun f(a = 0, b = 1) {
-  println(args)  // Built-in variable holding arguments as list
-  println(kw_args)  // Named arguments passed to this call as a map
-  return a + b
+fun greet(name, message = "Hello") {
+    return message + ", " + name + "!"
 }
 
-f(3, b = 4)  # 7
+writeln(greet("Alice"))
+writeln(greet(message = "Hi", name = "Mina"))
 ```
 
-### Features:
+Parameters may have default expressions. A parameter without an explicit
+default starts from `nil` when the call does not bind it.
 
-* Default parameter values (`a = 0`, `b = 1`)
-* Named arguments can bind parameters in any order (`f(b = 4, a = 3)`)
-* Positional arguments must appear before named arguments
-* `args` refers to the positional arguments passed
-* `kw_args` refers to the named arguments passed
-* `return` is optional (last expression is returned implicitly)
+## Named Arguments
 
----
-
-## ➡️ Arrow Functions
-
-Shorter syntax for functions using `->`.
+Call arguments written as `name = value` bind by parameter name, so their order
+does not have to match the declaration.
 
 ```piscript
-let f1 = x -> x + 1
-let f2 = (x, y) -> x + y
-let f3 = (x, y) -> {
-  return x + y
+fun mix(a, b, c) {
+    return [a, b, c]
 }
 
-f1(5)    # 6
-f2(3, 4) # 7
-f3(3, 4) # 7
+writeln(mix(c = 3, a = 1, b = 2))
 ```
 
-### Features:
+Positional arguments must come before named arguments. A parameter may not be
+bound both ways in the same call.
 
-* Concise syntax for one-liners or quick inline logic
-* Curly braces `{}` required when using `return` or multiple statements
-* Implicit return if the body is a single expression
+## Call Locals
 
----
+Each user function receives two additional locals:
 
-## 🌀 Anonymous Functions
-
-Functions defined without names, assigned to variables or passed directly.
+| Name | Value |
+| --- | --- |
+| `args` | List containing positional arguments passed to the call |
+| `kw_args` | Map containing named arguments passed to the call |
 
 ```piscript
-let f = fun(a, b) {
-  return a + b
+fun inspect(a = 0) {
+    writeln(args)
+    writeln(kw_args)
+    return a
 }
 
-f(3, 4)  # 7
+inspect(4)
+inspect(a = 5)
 ```
 
-### Features:
-
-* Useful for callbacks, passing functions as arguments
-* Identical syntax to named functions but without the name
-* Support closures and default parameters
-
----
-
-## 🧪 Common Behavior
-
-| Feature               | Supported |
-| --------------------- | --------- |
-| Closures              | ✅         |
-| Default arguments     | ✅         |
-| First-class functions | ✅         |
-| Recursion             | ✅         |
-| Higher-order funcs    | ✅         |
-
-
-
-## 🔍 Example: Passing Functions
+## Anonymous and Arrow Functions
 
 ```piscript
-fun operate(a, b, op) {
-  return op(a, b)
+let add = fun(a, b) {
+    return a + b
 }
 
-let add = (x, y) -> x + y
-println(operate(3, 4, add))  # 7
+let square = x -> x * x
+let move = (x, dx = 1) -> x + dx
+let clamp = x -> {
+    if x < 0
+        return 0
+    return x
+}
 ```
 
----
+An arrow expression without braces returns its expression. A braced function
+body uses `return` for a value.
 
-## 📌 Notes
+## Closures
 
-* Functions can be returned from other functions
-* You can store functions in lists, maps, or variables
-* All function types can capture variables from the outer scope
+Nested functions can read and update captured locals according to normal
+PiScript variable storage rules.
 
+```piscript
+fun make_adder(offset) {
+    return x -> x + offset
+}
+
+let add_two = make_adder(2)
+writeln(add_two(8))
+```
