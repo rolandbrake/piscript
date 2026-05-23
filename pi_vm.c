@@ -135,6 +135,7 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     vm->iter_sp = -1;
     vm->frame_sp = 0;
+    vm->call_frame_depth = 0;
 
     vm->screen = screen;
 
@@ -196,6 +197,7 @@ void vm_reset(vm_t *vm, compiler_t *comp)
 
     vm->iter_sp = -1;
     vm->frame_sp = 0;
+    vm->call_frame_depth = 0;
 
     vm->running = true;
     vm->close_requested = false;
@@ -673,7 +675,7 @@ static Object *construct(vm_t *vm, PiMap *map, size_t argc, Value *argv)
     // vm->stack[vm->sp] = NEW_OBJ(instance);
 
     // Prepare arguments with 'this' as the first argument for the constructor
-    Value *fargs = (Value *)malloc(sizeof(Value) * (argc + 1));
+    Value fargs[argc + 1];
     fargs[0] = NEW_OBJ(instance); // 'this' reference
     memcpy(fargs + 1, argv, sizeof(Value) * argc);
 
@@ -687,9 +689,68 @@ static Object *construct(vm_t *vm, PiMap *map, size_t argc, Value *argv)
         instance = AS_OBJ(call_func(vm, AS_FUN(constructor), argc + 1, fargs));
     }
 
-    // Free the allocated arguments array
-    free(fargs);
     return instance;
+}
+
+static void _call_func(vm_t *vm, Function *function, size_t argc, Value *argv, PiMap *kwargs)
+{
+    Frame frame = create_frame(vm->pc, vm->sp, vm->bp,
+                               vm->code, vm->iter_sp, vm->ip, function);
+    push_frame(vm, &frame);
+
+    vm->code = function->body->data;
+    vm->pc = 0;
+    vm->ip = 0;
+    vm->bp = vm->sp;
+    vm->sp = vm->bp + list_size(function->params);
+
+    Value method_args[argc + 1];
+    if (function->is_method)
+    {
+        Value instance = function->instance == NULL ? NEW_NIL() : NEW_OBJ(add_obj(vm, function->instance));
+        vm->stack[vm->bp] = instance;
+
+        method_args[0] = instance;
+        memcpy(method_args + 1, argv, sizeof(Value) * argc);
+
+        argv = method_args;
+        argc++;
+    }
+
+    list_t *_args = list_create(sizeof(Value));
+    if ((int)argc > _args->capacity)
+        list_expand(_args, (int)argc);
+    memcpy(_args->data, argv, sizeof(Value) * argc);
+    _args->size = (int)argc;
+
+    for (size_t i = 0; i < argc; i++)
+        vm->stack[vm->bp + i] = argv[i];
+
+    for (size_t i = argc; i < function->params->size; i++)
+        vm->stack[vm->bp + i] = LIST_GET_UNCHECKED(function->params, i, Value);
+
+    if (kwargs && function->param_names)
+    {
+        int param_count = list_size(function->param_names);
+        for (int i = 0; i < param_count; i++)
+        {
+            Value name = LIST_GET_UNCHECKED(function->param_names, i, Value);
+            if (map_has(kwargs, name))
+            {
+                if (i < argc)
+                    vm_error(vm, "Parameter already received a positional argument.");
+
+                vm->stack[vm->bp + i] = map_get(kwargs, name);
+            }
+        }
+    }
+
+    vm->stack[vm->sp] = NEW_OBJ(add_obj(vm, new_list(_args)));
+    if (!kwargs)
+        kwargs = (PiMap *)add_obj(vm, new_map(ht_create(sizeof(Value)), false));
+    vm->stack[vm->sp + 1] = NEW_OBJ(add_obj(vm, (Object *)kwargs));
+
+    vm->sp += 2;
 }
 
 void run(vm_t *vm)
@@ -716,7 +777,7 @@ void run(vm_t *vm)
     while (pc < length && vm->running)
     {
 #ifndef __EMSCRIPTEN__
-        if ((vm->ip & 0x3f) == 0 && poll_stop(vm))
+        if ((vm->ip & 0xff) == 0 && poll_stop(vm))
         {
             vm->pc = pc;
             return;
@@ -1132,25 +1193,22 @@ void run(vm_t *vm)
 
                         for (int i = 0; i < m; i++)
                         {
-                            Value *rowA_val = (Value *)list_getAt(A->items, i);
-                            list_t *rowA = as_list(*rowA_val);
+                            Value *rowsA = (Value *)A->items->data;
+                            Value *rowsB = (Value *)B->items->data;
+                            list_t *rowA = as_list(rowsA[i]);
                             list_t *temp = list_create(sizeof(Value));
 
                             for (int j = 0; j < p; j++)
                             {
                                 double sum = 0.0;
+                                Value *a_items = (Value *)rowA->data;
 
                                 for (int k = 0; k < n; k++)
                                 {
-                                    // Get A[i][k]
-                                    Value *a_val = (Value *)list_getAt(rowA, k);
-                                    double a = as_number(*a_val);
-
-                                    // Get B[k][j]
-                                    Value *rowB_val = (Value *)list_getAt(B->items, k);
-                                    list_t *rowB = as_list(*rowB_val);
-                                    Value *b_val = (Value *)list_getAt(rowB, j);
-                                    double b = as_number(*b_val);
+                                    list_t *rowB = as_list(rowsB[k]);
+                                    Value *b_items = (Value *)rowB->data;
+                                    double a = as_number(a_items[k]);
+                                    double b = as_number(b_items[j]);
 
                                     sum += a * b;
                                 }
@@ -1191,14 +1249,18 @@ void run(vm_t *vm)
                         // original string length
                         size_t o_len = strlen(str);
                         // result string length
-                        size_t r_len = o_len * count;
+                        size_t r_len = count > 0 ? o_len * (size_t)count : 0;
 
                         // allocate memory for the result string
                         char *result = (char *)malloc(r_len + 1); // Allocate space for the repeated string
-                        result[0] = '\0';
+                        char *write = result;
 
                         for (int i = 0; i < count; i++)
-                            strcat(result, str);
+                        {
+                            memcpy(write, str, o_len);
+                            write += o_len;
+                        }
+                        result[r_len] = '\0';
 
                         push_stack(vm, NEW_OBJ(add_obj(vm, new_pistring(result))));
                         free(str);
@@ -1254,10 +1316,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     int _right = (int)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((int)as_number(item) & _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1278,10 +1341,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     int _right = (int)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((int)as_number(item) | _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1330,10 +1394,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     int _right = (int)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((int)as_number(item) ^ _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1355,10 +1420,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     int _right = (int)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((int)as_number(item) << _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1380,10 +1446,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     int _right = (int)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((int)as_number(item) >> _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1405,10 +1472,11 @@ void run(vm_t *vm)
                     list_t *result = list_create(sizeof(Value));
 
                     uint32_t _right = (uint32_t)as_number(right);
+                    Value *items = (Value *)list->data;
 
                     for (int i = 0; i < list_size(list); i++)
                     {
-                        Value item = *(Value *)list_getAt(list, i);
+                        Value item = items[i];
                         list_add(result, &NEW_NUM((uint32_t)as_number(item) >> _right));
                     }
                     push_stack(vm, NEW_OBJ(add_obj(vm, new_list(result))));
@@ -1436,11 +1504,11 @@ void run(vm_t *vm)
                         vm_error(vm, "Dot product requires lists of the same length.");
 
                     double result = 0;
+                    Value *l_items = (Value *)l_list->items->data;
+                    Value *r_items = (Value *)r_list->items->data;
                     for (int i = 0; i < l_size; i++)
                     {
-                        Value a = *(Value *)list_getAt(l_list->items, i);
-                        Value b = *(Value *)list_getAt(r_list->items, i);
-                        result += as_number(a) * as_number(b);
+                        result += as_number(l_items[i]) * as_number(r_items[i]);
                     }
                     push_stack(vm, NEW_NUM(result));
                     break;
@@ -1568,15 +1636,27 @@ void run(vm_t *vm)
 
             if (IS_FUN(callee))
             {
+                Function *callee_fn = AS_FUN(callee);
 
                 vm->function = AS_OBJ(callee);
 
                 vm->pc = pc;
-                // Call native function if it's a built-in
-                Value result = call_func(vm, AS_FUN(callee), num_args, args);
-                if (IS_OBJ(result))
-                    add_obj(vm, AS_OBJ(result));
-                push_stack(vm, result);
+                if (callee_fn->is_native)
+                {
+                    Value result = call_func(vm, callee_fn, num_args, args);
+                    if (IS_OBJ(result))
+                        add_obj(vm, AS_OBJ(result));
+                    push_stack(vm, result);
+                }
+                else
+                {
+                    _call_func(vm, callee_fn, num_args, args, NULL);
+                    vm->call_frame_depth++;
+                    pc = vm->pc;
+                    length = vm->code->size;
+                    code = (uint8_t *)vm->code->data;
+                    function = (Function *)vm->function;
+                }
             }
             else if (IS_MAP(callee))
             {
@@ -1606,13 +1686,26 @@ void run(vm_t *vm)
             Value callee = pop_stack(vm);
             if (IS_FUN(callee))
             {
+                Function *callee_fn = AS_FUN(callee);
                 vm->function = AS_OBJ(callee);
                 vm->pc = pc;
-                Value result = call_func_kw(vm, AS_FUN(callee), num_args, args,
-                                            AS_MAP(kwargs_value));
-                if (IS_OBJ(result))
-                    add_obj(vm, AS_OBJ(result));
-                push_stack(vm, result);
+                if (callee_fn->is_native)
+                {
+                    Value result = call_func_kw(vm, callee_fn, num_args, args,
+                                                AS_MAP(kwargs_value));
+                    if (IS_OBJ(result))
+                        add_obj(vm, AS_OBJ(result));
+                    push_stack(vm, result);
+                }
+                else
+                {
+                    _call_func(vm, callee_fn, num_args, args, AS_MAP(kwargs_value));
+                    vm->call_frame_depth++;
+                    pc = vm->pc;
+                    length = vm->code->size;
+                    code = (uint8_t *)vm->code->data;
+                    function = (Function *)vm->function;
+                }
             }
             else
                 vm_error(vm, "Keyword arguments require a function call.");
@@ -2104,6 +2197,16 @@ void run(vm_t *vm)
             free_frame(frame);
 
             push_stack(vm, retval);
+
+            if (vm->call_frame_depth > 0)
+            {
+                vm->call_frame_depth--;
+                pc = vm->pc;
+                length = vm->code->size;
+                code = (uint8_t *)vm->code->data;
+                function = (Function *)vm->function;
+                break;
+            }
 
             return;
         }

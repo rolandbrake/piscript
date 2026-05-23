@@ -133,28 +133,30 @@ Value call_func_kw(vm_t *vm, Function *function, size_t argc, Value *argv, PiMap
     vm->bp = vm->sp;
     vm->sp = vm->bp + list_size(function->params);
 
+    Value method_args[argc + 1];
+
     // Bind the function instance (if present)
     if (function->is_method)
     {
         Value instance = function->instance == NULL ? NEW_NIL() : NEW_OBJ(add_obj(vm, function->instance));
         vm->stack[vm->bp] = instance;
         // Prepare arguments with 'this' as the first argument
-        Value *fargs = (Value *)malloc(sizeof(Value) * (argc + 1));
-        fargs[0] = instance; // 'this' reference
+        method_args[0] = instance; // 'this' reference
 
-        memcpy(fargs + 1, argv, sizeof(Value) * argc);
+        memcpy(method_args + 1, argv, sizeof(Value) * argc);
 
-        argv = fargs;
+        argv = method_args;
         argc++;
     }
     list_t *_args = list_create(sizeof(Value));
+    if ((int)argc > _args->capacity)
+        list_expand(_args, (int)argc);
+    memcpy(_args->data, argv, sizeof(Value) * argc);
+    _args->size = (int)argc;
 
     // Set function parameters and arguments
     for (size_t i = 0; i < argc; i++)
-    {
         vm->stack[vm->bp + i] = argv[i];
-        list_add(_args, &argv[i]);
-    }
 
     for (size_t i = argc; i < function->params->size; i++)
     {

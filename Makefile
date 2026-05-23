@@ -55,7 +55,7 @@ debug:
 	$(CC) $(DEBUG_FLAGS) -o $(TARGET) $(SRC) $(DEBUG_LIBS)
 
 # ===== Release Build =====
-RELEASE_FLAGS := -g -O3 $(CSTD) -static-libgcc -static-libstdc++
+RELEASE_FLAGS := -g -O3 -DNDEBUG -flto $(CSTD) -static-libgcc -static-libstdc++
 RELEASE_INC   := -ISDL2/include
 RELEASE_LIBDIR:= -LSDL2/lib
 

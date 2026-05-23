@@ -34,6 +34,7 @@ typedef struct
 
     Frame frames[STACK_MAX]; // Call stack frames, stored inline to avoid per-call heap allocation.
     int frame_sp;
+    int call_frame_depth; // User-function calls currently executing inside one VM dispatch loop.
 
     list_t *code;      // PiList of bytecode instructions.
     list_t *constants; // PiList of constant values used in the program.
