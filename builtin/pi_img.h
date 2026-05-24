@@ -30,6 +30,15 @@ Value pi_copy2d(vm_t *vm, int argc, Value *argv);
 // Flip the image horizontally and/or vertically
 Value pi_flip(vm_t *vm, int argc, Value *argv);
 
+// Tint an image toward a color by amount 0.0..1.0
+Value pi_tint(vm_t *vm, int argc, Value *argv);
+
+// Make pixels matching a color transparent
+Value pi_mask(vm_t *vm, int argc, Value *argv);
+
+// Multiply an image's alpha by amount 0.0..1.0
+Value pi_alpha(vm_t *vm, int argc, Value *argv);
+
 // Display the image object onto the screen at optional (x, y) position
 Value pi_rend2d(vm_t *vm, int argc, Value *argv);
 

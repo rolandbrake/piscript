@@ -74,6 +74,39 @@ rend2d(left, 40, 60)
 draw()
 ```
 
+### `tint(image, color[, amount])`
+
+Blends every visible pixel toward `color`. `amount` defaults to `1.0` and is
+clamped to `0.0..1.0`.
+
+```piscript
+let hurt = tint(player, COLOR_VIVID_RED, 0.5)
+rend2d(hurt, 40, 60)
+draw()
+```
+
+### `mask(image, color[, tolerance])`
+
+Returns a copy where pixels matching `color` become transparent. `tolerance`
+compares RGB distance and defaults to `0`.
+
+```piscript
+let sprite = mask(image("assets/player.png"), 0xffff00ff)
+rend2d(sprite, 40, 60)
+draw()
+```
+
+### `alpha(image, amount)`
+
+Returns a copy with all alpha values multiplied by `amount`, clamped to
+`0.0..1.0`.
+
+```piscript
+let ghost = alpha(player, 0.35)
+rend2d(ghost, 40, 60)
+draw()
+```
+
 ### `rot2d(image, degrees)`
 
 Rotates around the image center and returns an output with the same dimensions.
@@ -115,7 +148,8 @@ those sound objects.
 ### `sound(index_or_path)`
 
 With a number, loads sound data from a cartridge sound index. With a string,
-loads an audio file path.
+loads an audio file path such as WAV, OGG, MP3, or another format supported by
+the SDL_mixer codecs available at runtime.
 
 ```piscript
 let hit = sound("assets/hit.wav")
@@ -165,9 +199,42 @@ let music = sound("assets/loop.wav")
 play(music, true)
 ```
 
+### `volume(sound[, amount])`
+
+With one argument, returns the sound volume as `0.0..1.0`. With `amount`, sets
+the volume for later playback and the active channel or streamed music if it is
+currently playing.
+
+```piscript
+volume(music, 0.5)
+```
+
+### `seek(sound, seconds)`
+
+For streamed audio files, moves playback to `seconds` from the start. The same
+global `seek` function still works for files as `seek(file, byte_position)`.
+
+```piscript
+seek(music, 12.5)
+```
+
+### `pitch(sound[, multiplier])`
+
+With one argument, returns the stored pitch multiplier. With `multiplier`,
+resamples chunk-backed sounds such as tones, melodies, cartridge sounds, and
+file sounds loaded as chunks. Streamed music pitch is not supported by
+SDL_mixer.
+
+```piscript
+let jump = tone(440, 120, WAVE_SQUARE)
+pitch(jump, 1.5)
+play(jump)
+```
+
 ### `stop(sound)`
 
-Halts the sound object's active channel and clears its playback state.
+Halts the sound object's active channel, clears its playback state, and resets
+its saved pause position to the start.
 
 ```piscript
 stop(music)
@@ -175,7 +242,8 @@ stop(music)
 
 ### `pause(sound)`
 
-Pauses an active sound channel.
+Pauses an active sound channel. For streamed audio files, the runtime stores the
+current playback position so `resume(sound)` can continue from that point.
 
 ```piscript
 pause(music)
@@ -183,7 +251,8 @@ pause(music)
 
 ### `resume(sound)`
 
-Resumes a paused sound channel.
+Resumes a paused sound channel. Streamed audio files resume from the saved pause
+position when the underlying SDL_mixer codec supports seeking.
 
 ```piscript
 resume(music)

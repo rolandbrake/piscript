@@ -40,6 +40,15 @@ Value pi_channel(vm_t *vm, int argc, Value *argv);
 // sets default looping state on a sound object
 Value pi_setLoop(vm_t *vm, int argc, Value *argv);
 
+// sets or returns sound volume in the range 0.0..1.0
+Value pi_volume(vm_t *vm, int argc, Value *argv);
+
+// seeks a streamed sound to seconds from the start
+Value pi_soundSeek(vm_t *vm, int argc, Value *argv);
+
+// changes pitch for chunk-backed sounds
+Value pi_pitch(vm_t *vm, int argc, Value *argv);
+
 // resume sound from pause
 Value pi_resume(vm_t *vm, int argc, Value *argv);
 

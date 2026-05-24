@@ -215,10 +215,17 @@ ObjSound *new_sound(Mix_Chunk *chunk)
 {
     ObjSound *sound = CREATE_OBJ(ObjSound, OBJ_SOUND);
     sound->chunk = chunk;
+    sound->music = NULL;
     sound->channel = -1;
+    sound->pause_position = 0.0;
+    sound->started_ticks = 0;
+    sound->pitch = 1.0;
+    sound->volume = MIX_MAX_VOLUME;
     sound->loaded = (chunk != NULL);
     sound->looping = false;
+    sound->paused = false;
     sound->is_cart = false;
+    sound->is_music = false;
     memset(&sound->data, 0, sizeof(Sound));
     return sound;
 }
@@ -664,4 +671,9 @@ void free_sound(ObjSound *sound)
 {
     if (sound && sound->chunk)
         Mix_FreeChunk(sound->chunk);
+    if (sound && sound->music)
+    {
+        Mix_HaltMusic();
+        Mix_FreeMusic(sound->music);
+    }
 }

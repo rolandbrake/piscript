@@ -130,6 +130,7 @@ BuiltinFunc builtin_functions[] = {
     {"pixel", pi_pixel},
     {"line", pi_line},
     {"draw", pi_draw},
+    {"camera", pi_camera},
     {"clear", pi_clear},
     {"circ", pi_circ},
     {"rect", pi_rect},
@@ -143,6 +144,9 @@ BuiltinFunc builtin_functions[] = {
     {"crop", pi_crop},
     {"resize", pi_resize},
     {"flip", pi_flip},
+    {"tint", pi_tint},
+    {"mask", pi_mask},
+    {"alpha", pi_alpha},
     {"rend2d", pi_rend2d},
     {"show", pi_show},
     {"get2d", pi_get2d},
@@ -198,6 +202,8 @@ BuiltinFunc builtin_functions[] = {
     {"is_playing", pi_isPlaying},
     {"channel", pi_channel},
     {"set_loop", pi_setLoop},
+    {"volume", pi_volume},
+    {"pitch", pi_pitch},
 
     // System
     {"fps", pi_fps},

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "pi_io.h"
+#include "pi_audio.h"
 
 #include "../common.h"
 #include "../screen.h"
@@ -653,8 +654,10 @@ Value pi_write(vm_t *vm, int argc, Value *argv)
  */
 Value pi_seek(vm_t *vm, int argc, Value *argv)
 {
+    if (argc == 2 && IS_OBJ(argv[0]) && AS_OBJ(argv[0])->type == OBJ_SOUND)
+        return pi_soundSeek(vm, argc, argv);
 
-    if (argc != 2 || OBJ_TYPE(argv[0]) != OBJ_FILE)
+    if (argc != 2 || !IS_OBJ(argv[0]) || OBJ_TYPE(argv[0]) != OBJ_FILE)
         vm_error(vm, "[seek] expects a file handler and a number as arguments.");
 
     ObjFile *file = AS_FILE(argv[0]);

@@ -178,10 +178,17 @@ typedef struct
 {
     Object object;
     Mix_Chunk *chunk;
+    Mix_Music *music;
     int channel;
+    double pause_position;
+    Uint32 started_ticks;
+    double pitch;
+    int volume;
     bool loaded;
     bool looping;
+    bool paused;
     bool is_cart; // Flag to indicate if the sound was loaded from the cartridge
+    bool is_music;
     Sound data;   // Sound data from the cartridge if is_cart is true
 } ObjSound;
 

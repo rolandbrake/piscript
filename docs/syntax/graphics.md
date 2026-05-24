@@ -125,6 +125,7 @@ input, and `mouse()` returns `[x, y]` in screen coordinates.
 | --- | --- |
 | `clear([color])` | Fill the current framebuffer. |
 | `draw([offset_x, offset_y])` | Present the framebuffer. |
+| `camera([x, y])` | Set or reset the global draw offset. |
 | `pixel(x, y, color[, alpha])` | Draw one pixel. |
 | `line(x1, y1, x2, y2, color)` | Draw a line. |
 | `rect(x, y, width, height, color[, filled])` | Draw a rectangle. |

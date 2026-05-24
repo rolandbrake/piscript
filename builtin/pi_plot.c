@@ -133,6 +133,23 @@ Value pi_draw(vm_t *vm, int argc, Value *argv)
     return NEW_NIL();
 }
 
+Value pi_camera(vm_t *vm, int argc, Value *argv)
+{
+    if (argc == 0)
+    {
+        vm->screen->offset_x = 0;
+        vm->screen->offset_y = 0;
+        return NEW_NIL();
+    }
+
+    if (argc != 2 || !IS_NUM(argv[0]) || !IS_NUM(argv[1]))
+        vm_error(vm, "[camera] expects no arguments or (x, y).");
+
+    vm->screen->offset_x = (int)round(AS_NUM(argv[0]));
+    vm->screen->offset_y = (int)round(AS_NUM(argv[1]));
+    return NEW_NIL();
+}
+
 /**
  * Clears the screen with a specified color.
  *

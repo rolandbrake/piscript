@@ -7,6 +7,7 @@
 Value pi_pixel(vm_t *vm, int argc, Value *argv);
 Value pi_line(vm_t *vm, int argc, Value *argv);
 Value pi_draw(vm_t *vm, int argc, Value *argv);
+Value pi_camera(vm_t *vm, int argc, Value *argv);
 Value pi_clear(vm_t *vm, int argc, Value *argv);
 Value pi_circ(vm_t *vm, int argc, Value *argv);
 Value pi_rect(vm_t *vm, int argc, Value *argv);

@@ -1,14 +1,1 @@
-img = image("./tools/_coin.png")
-
-img = resize(img, 128)
-
-// show(img)
-
-while(true) {
-    
-    show(img)
-    // println("Hello, World!")
-    draw()
-    sleep(1000)
-    
-}
+println("Hello, World!")

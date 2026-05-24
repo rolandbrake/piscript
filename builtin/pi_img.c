@@ -40,6 +40,33 @@ static Uint32 sprite_color(uint8_t index)
     return color;
 }
 
+static uint8_t clamp_u8(double value)
+{
+    if (value < 0.0)
+        return 0;
+    if (value > 255.0)
+        return 255;
+    return (uint8_t)round(value);
+}
+
+static double clamp_unit(double value)
+{
+    if (value < 0.0)
+        return 0.0;
+    if (value > 1.0)
+        return 1.0;
+    return value;
+}
+
+static Uint32 image_colorArg(vm_t *vm, Value value, const char *fn_name)
+{
+    Uint32 color = 0;
+    if (!IS_NUM(value) || !screen_colorFromNumber(AS_NUM(value), &color))
+        vm_errorf(vm, "[%s] color must be a palette index or packed 0xAARRGGBB number.", fn_name);
+
+    return screen_resolveColor(color);
+}
+
 /**
  * Retrieves an ImageSource object from the given value.
  *
@@ -451,10 +478,12 @@ Value pi_rend2d(vm_t *vm, int argc, Value *argv)
         {
             int screen_x = dx + x;
             int screen_y = dy + y;
+            int view_x = screen_x - vm->screen->offset_x;
+            int view_y = screen_y - vm->screen->offset_y;
 
             // Skip if outside the screen
-            if (screen_x < 0 || screen_x >= 128 ||
-                screen_y < 0 || screen_y >= 128)
+            if (view_x < 0 || view_x >= SCREEN_WIDTH ||
+                view_y < 0 || view_y >= SCREEN_HEIGHT)
                 continue;
 
             int index = y * img.width + x;
@@ -598,8 +627,10 @@ Value pi_show(vm_t *vm, int argc, Value *argv)
         {
             int screen_x = dx + x;
             int screen_y = dy + y;
-            if (screen_x < 0 || screen_x >= SCREEN_WIDTH ||
-                screen_y < 0 || screen_y >= SCREEN_HEIGHT)
+            int view_x = screen_x - vm->screen->offset_x;
+            int view_y = screen_y - vm->screen->offset_y;
+            if (view_x < 0 || view_x >= SCREEN_WIDTH ||
+                view_y < 0 || view_y >= SCREEN_HEIGHT)
                 continue;
 
             int src_x = x * img.width / draw_w;
@@ -780,6 +811,104 @@ Value pi_flip(vm_t *vm, int argc, Value *argv)
 
     free_imageSource(&src);
     return make_imageResult(vm, &src, w, h, new_pixels, new_alpha, "flip");
+}
+
+Value pi_tint(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 2)
+        vm_error(vm, "[tint] expects (image|sprite, color [, amount])");
+
+    ImageSource src = get_imageSource(vm, argv[0], "tint");
+    Uint32 tint = image_colorArg(vm, argv[1], "tint");
+    double amount = (argc >= 3 && IS_NUM(argv[2])) ? clamp_unit(AS_NUM(argv[2])) : 1.0;
+
+    int size = src.width * src.height;
+    Uint32 *pixels = malloc((size_t)size * sizeof(Uint32));
+    uint8_t *alpha = malloc(size);
+    if (!pixels || !alpha)
+        vm_error(vm, "[tint] memory allocation failed");
+
+    uint8_t tr = (uint8_t)((tint >> 16) & 0xff);
+    uint8_t tg = (uint8_t)((tint >> 8) & 0xff);
+    uint8_t tb = (uint8_t)(tint & 0xff);
+
+    for (int i = 0; i < size; i++)
+    {
+        Uint32 color = src.pixels[i];
+        uint8_t r = (uint8_t)((color >> 16) & 0xff);
+        uint8_t g = (uint8_t)((color >> 8) & 0xff);
+        uint8_t b = (uint8_t)(color & 0xff);
+
+        uint8_t nr = clamp_u8((double)r * (1.0 - amount) + (double)tr * amount);
+        uint8_t ng = clamp_u8((double)g * (1.0 - amount) + (double)tg * amount);
+        uint8_t nb = clamp_u8((double)b * (1.0 - amount) + (double)tb * amount);
+        alpha[i] = image_alphaAt(&src, i);
+        pixels[i] = pack_argb(nr, ng, nb, alpha[i]);
+    }
+
+    free_imageSource(&src);
+    return make_imageResult(vm, &src, src.width, src.height, pixels, alpha, "tint");
+}
+
+Value pi_mask(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 2)
+        vm_error(vm, "[mask] expects (image|sprite, color [, tolerance])");
+
+    ImageSource src = get_imageSource(vm, argv[0], "mask");
+    Uint32 mask = image_colorArg(vm, argv[1], "mask");
+    int tolerance = (argc >= 3 && IS_NUM(argv[2])) ? AS_INT(argv[2]) : 0;
+    if (tolerance < 0)
+        tolerance = 0;
+
+    int size = src.width * src.height;
+    Uint32 *pixels = malloc((size_t)size * sizeof(Uint32));
+    uint8_t *alpha = malloc(size);
+    if (!pixels || !alpha)
+        vm_error(vm, "[mask] memory allocation failed");
+
+    int mr = (int)((mask >> 16) & 0xff);
+    int mg = (int)((mask >> 8) & 0xff);
+    int mb = (int)(mask & 0xff);
+
+    for (int i = 0; i < size; i++)
+    {
+        Uint32 color = src.pixels[i];
+        int r = (int)((color >> 16) & 0xff);
+        int g = (int)((color >> 8) & 0xff);
+        int b = (int)(color & 0xff);
+        int diff = abs(r - mr) + abs(g - mg) + abs(b - mb);
+
+        pixels[i] = color;
+        alpha[i] = (diff <= tolerance) ? 0 : image_alphaAt(&src, i);
+    }
+
+    free_imageSource(&src);
+    return make_imageResult(vm, &src, src.width, src.height, pixels, alpha, "mask");
+}
+
+Value pi_alpha(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 2 || !IS_NUM(argv[1]))
+        vm_error(vm, "[alpha] expects (image|sprite, amount)");
+
+    ImageSource src = get_imageSource(vm, argv[0], "alpha");
+    double amount = clamp_unit(AS_NUM(argv[1]));
+
+    int size = src.width * src.height;
+    Uint32 *pixels = malloc((size_t)size * sizeof(Uint32));
+    uint8_t *alpha = malloc(size);
+    if (!pixels || !alpha)
+        vm_error(vm, "[alpha] memory allocation failed");
+
+    for (int i = 0; i < size; i++)
+    {
+        pixels[i] = src.pixels[i];
+        alpha[i] = clamp_u8((double)image_alphaAt(&src, i) * amount);
+    }
+
+    free_imageSource(&src);
+    return make_imageResult(vm, &src, src.width, src.height, pixels, alpha, "alpha");
 }
 
 /**

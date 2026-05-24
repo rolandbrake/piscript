@@ -1,8 +1,10 @@
 #include "pi_audio.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
+#include <string.h>
 #include <SDL2/SDL_atomic.h>
 
 #define SFX_HW_CHANNELS 4
@@ -10,6 +12,7 @@
 static Mix_Chunk *g_SFXChunks[SFX_HW_CHANNELS] = {0};
 static int g_SFXIds[SFX_HW_CHANNELS] = {-1, -1, -1, -1};
 static SDL_atomic_t g_SFXFinished[SFX_HW_CHANNELS];
+static ObjSound *g_musicSound = NULL;
 
 /**
  * Function to generate different waveforms
@@ -220,11 +223,119 @@ static Mix_Chunk *SFX_buildChunk(vm_t *vm, Sound *sfx, int offset, int length)
     return chunk;
 }
 
+static ObjSound *load_fileSound(vm_t *vm, const char *resolved, const char *display_path)
+{
+    Mix_Chunk *chunk = Mix_LoadWAV(resolved);
+    if (chunk)
+        return new_sound(chunk);
+
+    const char *chunk_error = Mix_GetError();
+    char chunk_error_copy[256];
+    snprintf(chunk_error_copy, sizeof(chunk_error_copy), "%s", chunk_error ? chunk_error : "unknown error");
+
+    Mix_Music *music = Mix_LoadMUS(resolved);
+    if (!music)
+        vm_errorf(vm, "[sound] failed to load file: %s (%s; %s)", display_path, chunk_error_copy, Mix_GetError());
+
+    ObjSound *sound = new_sound(NULL);
+    sound->music = music;
+    sound->loaded = true;
+    sound->is_music = true;
+    return sound;
+}
+
+static double sound_elapsedSeconds(ObjSound *sound)
+{
+    if (sound->started_ticks == 0)
+        return 0.0;
+
+    return (double)(SDL_GetTicks() - sound->started_ticks) / 1000.0;
+}
+
+static void sound_markStarted(ObjSound *sound, double position)
+{
+    if (position < 0.0)
+        position = 0.0;
+
+    sound->pause_position = position;
+    sound->started_ticks = SDL_GetTicks() - (Uint32)(position * 1000.0);
+    sound->paused = false;
+}
+
+static double music_currentPosition(ObjSound *sound)
+{
+    double position = Mix_GetMusicPosition(sound->music);
+    if (position < 0.0)
+        position = sound_elapsedSeconds(sound);
+
+    return position;
+}
+
+static int normalized_volume(Value value)
+{
+    if (!IS_NUM(value))
+        return -1;
+
+    double volume = AS_NUM(value);
+    if (volume < 0.0 || volume > 1.0)
+        return -1;
+
+    return (int)round(volume * MIX_MAX_VOLUME);
+}
+
+static Mix_Chunk *pitch_chunk(vm_t *vm, Mix_Chunk *chunk, double pitch)
+{
+    if (!chunk || pitch <= 0.0)
+        vm_error(vm, "[pitch] pitch multiplier must be greater than 0.");
+
+    int src_samples = (int)(chunk->alen / sizeof(int16_t));
+    int dst_samples = (int)ceil((double)src_samples / pitch);
+    if (src_samples <= 0 || dst_samples <= 0)
+        vm_error(vm, "[pitch] sound has no samples to process.");
+
+    int16_t *src = (int16_t *)chunk->abuf;
+    int16_t *dst = SDL_malloc((size_t)dst_samples * sizeof(int16_t));
+    if (!dst)
+        vm_error(vm, "[pitch] failed to allocate audio buffer.");
+
+    for (int i = 0; i < dst_samples; i++)
+    {
+        double src_pos = (double)i * pitch;
+        int i0 = (int)floor(src_pos);
+        int i1 = i0 + 1;
+        double frac = src_pos - (double)i0;
+
+        if (i0 >= src_samples)
+            i0 = src_samples - 1;
+        if (i1 >= src_samples)
+            i1 = src_samples - 1;
+
+        double sample = (double)src[i0] * (1.0 - frac) + (double)src[i1] * frac;
+        dst[i] = (int16_t)sample;
+    }
+
+    Mix_Chunk *out = SDL_malloc(sizeof(Mix_Chunk));
+    if (!out)
+    {
+        SDL_free(dst);
+        vm_error(vm, "[pitch] failed to allocate Mix_Chunk.");
+    }
+
+    out->allocated = 1;
+    out->abuf = (Uint8 *)dst;
+    out->alen = (Uint32)(dst_samples * sizeof(int16_t));
+    out->volume = chunk->volume;
+    return out;
+}
+
 // Initialize the sound thread (call once in main)
 void init_audio()
 {
     if (SDL_Init(SDL_INIT_AUDIO) < 0)
         error("SDL_Init failed: %s", SDL_GetError());
+
+    int requested_codecs = MIX_INIT_MP3 | MIX_INIT_OGG | MIX_INIT_FLAC;
+    Mix_Init(requested_codecs);
 
     if (Mix_OpenAudio(SAMPLE_RATE, MIX_DEFAULT_FORMAT, AUDIO_CHANNELS, 2048) == -1)
         error("Mix_OpenAudio failed: %s", Mix_GetError());
@@ -244,6 +355,8 @@ void audio_stopAll(void)
 {
     // Stop all sound effects
     Mix_HaltChannel(-1);
+    Mix_HaltMusic();
+    g_musicSound = NULL;
 
     // Drain the sound effect channels
     SFX_drainFinished();
@@ -267,7 +380,7 @@ int audio_isPlaying(void)
     SFX_drainFinished();
 
     // Check if any sound effects are playing
-    return Mix_Playing(-1) > 0;
+    return Mix_Playing(-1) > 0 || Mix_PlayingMusic() != 0;
 }
 
 /**
@@ -344,15 +457,10 @@ Value pi_sound(vm_t *vm, int argc, Value *argv)
             vm_error(vm, "[sound] memory allocation failed while resolving the path.");
         }
 
-        Mix_Chunk *chunk = Mix_LoadWAV(resolved);
+        ObjSound *sound = load_fileSound(vm, resolved, path);
         free(resolved);
-        if (!chunk)
-        {
-            vm_errorf(vm, "[sound] failed to load file: %s", path);
-        }
         free(path);
 
-        ObjSound *sound = new_sound(chunk);
         sound->is_cart = false;
         sound->channel = -1;
         sound->looping = false;
@@ -413,6 +521,30 @@ Value pi_play(vm_t *vm, int argc, Value *argv)
     if (channel < -1 || channel >= MAX_CHANNELS)
         vm_error(vm, "[play] channel must be -1 or in range 0..31.");
 
+    if (sound->is_music)
+    {
+        if (channel != -1)
+            vm_error(vm, "[play] channel is not supported for streamed audio files.");
+        if (start != 0 || length != -1)
+            vm_error(vm, "[play] start/length are currently supported only for sounds loaded by sound(index).");
+        if (!sound->music)
+            vm_error(vm, "[play] sound has no loaded music stream.");
+
+        if (Mix_PlayingMusic())
+            Mix_HaltMusic();
+
+        int loops = loop ? -1 : 0;
+        if (Mix_PlayMusic(sound->music, loops) == -1)
+            vm_errorf(vm, "[play] Failed to play sound: %s", Mix_GetError());
+
+        g_musicSound = sound;
+        sound->channel = -1;
+        sound->looping = loop;
+        Mix_VolumeMusic(sound->volume);
+        sound_markStarted(sound, 0.0);
+        return NEW_NIL();
+    }
+
     if (sound->is_cart)
     {
         int sound_len = (sound->data.length > 0 && sound->data.length <= NOTE_COUNT)
@@ -450,6 +582,7 @@ Value pi_play(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[play] sound has no loaded chunk.");
 
     int loops = loop ? -1 : 0;
+    Mix_VolumeChunk(sound->chunk, sound->volume);
     int _channel = Mix_PlayChannel(channel, sound->chunk, loops);
 
     if (_channel == -1)
@@ -457,6 +590,7 @@ Value pi_play(vm_t *vm, int argc, Value *argv)
 
     sound->channel = _channel;
     sound->looping = loop;
+    sound_markStarted(sound, 0.0);
     return NEW_NIL();
 }
 
@@ -474,11 +608,29 @@ Value pi_stop(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[stop] expects a sound object.");
 
     ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (sound->is_music)
+    {
+        if (g_musicSound == sound)
+        {
+            Mix_HaltMusic();
+            g_musicSound = NULL;
+        }
+        sound->channel = -1;
+        sound->looping = false;
+        sound->pause_position = 0.0;
+        sound->started_ticks = 0;
+        sound->paused = false;
+        return NEW_NIL();
+    }
+
     if (sound->channel != -1 && Mix_Playing(sound->channel))
         Mix_HaltChannel(sound->channel);
 
     sound->channel = -1;
     sound->looping = false;
+    sound->pause_position = 0.0;
+    sound->started_ticks = 0;
+    sound->paused = false;
 
     return NEW_NIL();
 }
@@ -489,6 +641,9 @@ Value pi_isPlaying(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[is_playing] expects a sound object.");
 
     ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (sound->is_music)
+        return NEW_BOOL(g_musicSound == sound && Mix_PlayingMusic() != 0);
+
     if (sound->channel == -1)
         return NEW_BOOL(false);
 
@@ -501,6 +656,9 @@ Value pi_channel(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[channel] expects a sound object.");
 
     ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (sound->is_music)
+        return NEW_NUM(-1);
+
     return NEW_NUM(sound->channel);
 }
 
@@ -514,14 +672,131 @@ Value pi_setLoop(vm_t *vm, int argc, Value *argv)
     return NEW_NIL();
 }
 
+Value pi_volume(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1 || argv[0].type != VAL_OBJ || AS_OBJ(argv[0])->type != OBJ_SOUND)
+        vm_error(vm, "[volume] expects a sound object.");
+
+    ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (argc == 1)
+        return NEW_NUM((double)sound->volume / MIX_MAX_VOLUME);
+
+    int volume = normalized_volume(argv[1]);
+    if (volume < 0)
+        vm_error(vm, "[volume] expects a value in range 0.0..1.0.");
+
+    sound->volume = volume;
+    if (sound->is_music)
+    {
+        if (g_musicSound == sound)
+            Mix_VolumeMusic(volume);
+    }
+    else
+    {
+        if (sound->chunk)
+            Mix_VolumeChunk(sound->chunk, volume);
+        if (sound->channel != -1)
+            Mix_Volume(sound->channel, volume);
+    }
+
+    return NEW_NIL();
+}
+
+Value pi_soundSeek(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 2 || argv[0].type != VAL_OBJ || AS_OBJ(argv[0])->type != OBJ_SOUND || !IS_NUM(argv[1]))
+        vm_error(vm, "[seek] expects (sound, seconds).");
+
+    ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    double seconds = AS_NUM(argv[1]);
+    if (seconds < 0.0)
+        seconds = 0.0;
+
+    if (!sound->is_music)
+        vm_error(vm, "[seek] audio seeking is supported only for streamed sound files.");
+
+    sound->pause_position = seconds;
+    if (g_musicSound == sound && (Mix_PlayingMusic() || Mix_PausedMusic()))
+    {
+        if (Mix_SetMusicPosition(seconds) == -1)
+            vm_errorf(vm, "[seek] Failed to seek sound: %s", Mix_GetError());
+        sound_markStarted(sound, seconds);
+        if (Mix_PausedMusic())
+        {
+            sound->pause_position = seconds;
+            sound->paused = true;
+        }
+    }
+
+    return NEW_BOOL(true);
+}
+
+Value pi_pitch(vm_t *vm, int argc, Value *argv)
+{
+    if (argc < 1 || argv[0].type != VAL_OBJ || AS_OBJ(argv[0])->type != OBJ_SOUND)
+        vm_error(vm, "[pitch] expects a sound object.");
+
+    ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (argc == 1)
+        return NEW_NUM(sound->pitch);
+
+    if (!IS_NUM(argv[1]) || AS_NUM(argv[1]) <= 0.0)
+        vm_error(vm, "[pitch] expects a positive multiplier.");
+    if (sound->is_music)
+        vm_error(vm, "[pitch] streamed audio pitch is not supported by SDL_mixer.");
+    if (!sound->chunk)
+        vm_error(vm, "[pitch] sound has no loaded chunk.");
+
+    double multiplier = AS_NUM(argv[1]);
+    if (sound->channel != -1 && Mix_Playing(sound->channel))
+        Mix_HaltChannel(sound->channel);
+
+    Mix_Chunk *chunk = pitch_chunk(vm, sound->chunk, multiplier);
+    Mix_FreeChunk(sound->chunk);
+    sound->chunk = chunk;
+    sound->pitch *= multiplier;
+    sound->pause_position = 0.0;
+    sound->started_ticks = 0;
+    sound->paused = false;
+    Mix_VolumeChunk(sound->chunk, sound->volume);
+
+    return NEW_NIL();
+}
+
 Value pi_resume(vm_t *vm, int argc, Value *argv)
 {
     if (argc < 1 || argv[0].type != VAL_OBJ || AS_OBJ(argv[0])->type != OBJ_SOUND)
         vm_error(vm, "[resume] expects a sound object.");
 
     ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
-    if (sound->channel != -1 && !Mix_Playing(sound->channel))
+    if (sound->is_music)
+    {
+        if (g_musicSound == sound && Mix_PausedMusic())
+        {
+            if (sound->pause_position > 0.0)
+                Mix_SetMusicPosition(sound->pause_position);
+            Mix_ResumeMusic();
+            sound_markStarted(sound, sound->pause_position);
+        }
+        else if (sound->pause_position > 0.0 && !Mix_PlayingMusic())
+        {
+            int loops = sound->looping ? -1 : 0;
+            if (Mix_PlayMusic(sound->music, loops) == -1)
+                vm_errorf(vm, "[resume] Failed to play sound: %s", Mix_GetError());
+            Mix_VolumeMusic(sound->volume);
+            if (Mix_SetMusicPosition(sound->pause_position) == -1)
+                vm_errorf(vm, "[resume] Failed to seek sound: %s", Mix_GetError());
+            g_musicSound = sound;
+            sound_markStarted(sound, sound->pause_position);
+        }
+        return NEW_NIL();
+    }
+
+    if (sound->channel != -1 && Mix_Paused(sound->channel))
+    {
         Mix_Resume(sound->channel);
+        sound_markStarted(sound, sound->pause_position);
+    }
 
     return NEW_NIL();
 }
@@ -532,8 +807,23 @@ Value pi_pause(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[pause] expects a sound object.");
 
     ObjSound *sound = (ObjSound *)AS_OBJ(argv[0]);
+    if (sound->is_music)
+    {
+        if (g_musicSound == sound && Mix_PlayingMusic())
+        {
+            sound->pause_position = music_currentPosition(sound);
+            sound->paused = true;
+            Mix_PauseMusic();
+        }
+        return NEW_NIL();
+    }
+
     if (sound->channel != -1 && Mix_Playing(sound->channel))
+    {
+        sound->pause_position = sound_elapsedSeconds(sound);
+        sound->paused = true;
         Mix_Pause(sound->channel);
+    }
 
     return NEW_NIL();
 }

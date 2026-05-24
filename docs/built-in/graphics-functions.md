@@ -87,6 +87,18 @@ pixel(1, 1, COLOR_SOFT_IVORY)
 draw()
 ```
 
+### `camera([x, y])`
+
+Sets the global draw offset used by subsequent drawing calls. Calling
+`camera()` with no arguments resets the camera to `(0, 0)`.
+
+```piscript
+camera(player_x - WIDTH / 2, player_y - HEIGHT / 2)
+rend2d(level, 0, 0)
+camera()
+draw()
+```
+
 ## Reading Colors
 
 ### `color(x, y)`
