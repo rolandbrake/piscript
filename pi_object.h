@@ -163,8 +163,7 @@ typedef struct
     Object object;   // Required for GC/type tagging
     int width;       // Width of the image (should be 128 usually)
     int height;      // Height of the image (should be 128 usually)
-    uint8_t *pixels; // A flat array of width*height values (0–31)
-    uint8_t *alpha;  // A flat array of width*height values (0–255)
+    uint32_t *pixels; // A flat array of width*height packed 0xAARRGGBB colors
 } ObjImage;
 
 typedef struct
@@ -191,7 +190,8 @@ typedef struct
     Object object;
     uint16_t width;
     uint16_t height;
-    uint8_t *data;
+    uint8_t *pixels; // A flat array of width*height values (0–255)
+    uint8_t *alpha;  // A flat array of width*height values (0–255)
 } ObjSprite;
 
 uint32_t string_hash(char *chars, size_t length);
@@ -204,7 +204,7 @@ Object *new_map(table_t *table, bool is_instance);
 
 Object *new_file(FILE *file, char *filename, char *mode);
 ObjModel3d *new_model3d(triangle *triangles, int count, ObjImage *texture);
-ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha);
+ObjImage *new_image(int width, int height, uint32_t *pixels);
 ObjSound *new_sound(Mix_Chunk *chunk);
 ObjSprite *new_sprite(uint16_t width, uint16_t height, uint8_t *data);
 

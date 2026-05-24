@@ -3,13 +3,15 @@
 
 Value pi_sleep(vm_t *vm, int argc, Value *argv)
 {
+    if (argc < 1 || !IS_NUM(argv[0]))
+        vm_error(vm, "[sleep] expects one numeric argument: milliseconds.");
 
     // Get the sleep duration in milliseconds from the argument
     double ms = AS_NUM(argv[0]);
     if (ms < 0)
         ms = 0; // avoid negative sleep times
 
-    SDL_Delay((Uint32)ms);
+    vm_responsive_delay(vm, (Uint32)ms);
 
     return NEW_NIL();
 }

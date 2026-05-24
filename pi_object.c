@@ -190,15 +190,14 @@ ObjModel3d *new_model3d(triangle *triangles, int count, ObjImage *texture)
 }
 
 /**
- * Creates a new ObjImage object with the given width, height, pixel data, and optional alpha channel data.
+ * Creates a new ObjImage object with the given width, height, and pixel data.
  *
  * @param width The width of the image.
  * @param height The height of the image.
- * @param pixels The pixel data of the image (width*height long).
- * @param alpha The optional alpha channel data of the image (width*height long). If NULL, no alpha channel is used.
+ * @param pixels The packed 0xAARRGGBB pixel data of the image (width*height long).
  * @return The newly created ObjImage object.
  */
-ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha)
+ObjImage *new_image(int width, int height, uint32_t *pixels)
 {
     ObjImage *obj = CREATE_OBJ(ObjImage, OBJ_IMAGE);
 
@@ -208,9 +207,6 @@ ObjImage *new_image(int width, int height, uint8_t *pixels, uint8_t *alpha)
 
     // Store the given pixel data in the object
     obj->pixels = pixels;
-
-    // Store the given alpha channel data in the object if it exists
-    obj->alpha = alpha;
 
     return obj;
 }
@@ -232,7 +228,7 @@ ObjSprite *new_sprite(uint16_t width, uint16_t height, uint8_t *data)
     ObjSprite *sprite = CREATE_OBJ(ObjSprite, OBJ_SPRITE);
     sprite->width = width;
     sprite->height = height;
-    sprite->data = data;
+    sprite->pixels = data;
     return sprite;
 }
 

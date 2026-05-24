@@ -86,6 +86,8 @@ void vm_reset(vm_t *vm, compiler_t *comp);
 
 Object *add_obj(vm_t *vm, Object *obj);
 void run(vm_t *vm);
+bool vm_poll_stop(vm_t *vm);
+void vm_responsive_delay(vm_t *vm, Uint32 ms);
 
 void push_frame(vm_t *vm, const Frame *frame);
 Frame *pop_frame(vm_t *vm);

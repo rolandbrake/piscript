@@ -14,11 +14,31 @@ typedef struct
 {
     int width;
     int height;
-    uint8_t *pixels;
+    Uint32 *pixels;
     uint8_t *alpha;
     bool has_alpha;
     bool is_sprite;
 } ImageSource;
+
+static Uint32 pack_argb(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    return ((Uint32)a << 24) | ((Uint32)r << 16) | ((Uint32)g << 8) | (Uint32)b;
+}
+
+static uint8_t image_alphaAt(const ImageSource *src, int index)
+{
+    if (src->alpha)
+        return src->alpha[index];
+    return (uint8_t)((src->pixels[index] >> 24) & 0xff);
+}
+
+static Uint32 sprite_color(uint8_t index)
+{
+    Uint32 color = 0;
+    if (!screen_paletteColor(index, &color))
+        screen_paletteColor(0, &color);
+    return color;
+}
 
 /**
  * Retrieves an ImageSource object from the given value.
@@ -47,7 +67,6 @@ static ImageSource get_imageSource(vm_t *vm, Value value, const char *fn_name)
         src.width = img->width;
         src.height = img->height;
         src.pixels = img->pixels;
-        src.alpha = img->alpha;
         return src;
     }
 
@@ -58,16 +77,20 @@ static ImageSource get_imageSource(vm_t *vm, Value value, const char *fn_name)
     {
         ObjSprite *sprite = AS_SPRITE(value);
         int size = (int)sprite->width * (int)sprite->height;
+        Uint32 *pixels = malloc((size_t)size * sizeof(Uint32));
         uint8_t *alpha = malloc(size);
-        if (!alpha)
+        if (!pixels || !alpha)
             vm_errorf(vm, "[%s] memory allocation failed.", fn_name);
 
         for (int i = 0; i < size; i++)
-            alpha[i] = (sprite->data[i] == 0) ? 0 : 1;
+        {
+            pixels[i] = sprite_color(sprite->pixels[i]);
+            alpha[i] = (sprite->pixels[i] == 0) ? 0 : 255;
+        }
 
         src.width = (int)sprite->width;
         src.height = (int)sprite->height;
-        src.pixels = sprite->data;
+        src.pixels = pixels;
         src.alpha = alpha;
         src.has_alpha = true;
         src.is_sprite = true;
@@ -96,6 +119,8 @@ static void free_imageSource(ImageSource *src)
         // Free the alpha data if the object owns it
         free(src->alpha);
     }
+    if (src->has_alpha && src->pixels)
+        free(src->pixels);
 }
 
 /**
@@ -113,10 +138,19 @@ static void free_imageSource(ImageSource *src)
  * @param fn_name The name of the function calling this function.
  * @return An image result value (ObjImage or ObjSprite).
  */
-static Value make_imageResult(vm_t *vm, const ImageSource *src, int w, int h, uint8_t *pixels, uint8_t *alpha, const char *fn_name)
+static Value make_imageResult(vm_t *vm, const ImageSource *src, int w, int h, Uint32 *pixels, uint8_t *alpha, const char *fn_name)
 {
     if (!src->is_sprite)
-        return NEW_OBJ(new_image(w, h, pixels, alpha));
+    {
+        if (alpha)
+        {
+            int size = w * h;
+            for (int i = 0; i < size; i++)
+                pixels[i] = (pixels[i] & 0x00ffffffu) | ((Uint32)alpha[i] << 24);
+            free(alpha);
+        }
+        return NEW_OBJ(new_image(w, h, pixels));
+    }
 
     if (w > UINT16_MAX || h > UINT16_MAX)
         vm_errorf(vm, "[%s] sprite result exceeds max size 65535x65535.", fn_name);
@@ -128,7 +162,7 @@ static Value make_imageResult(vm_t *vm, const ImageSource *src, int w, int h, ui
 
     // Copy the pixel data to the sprite data, replacing transparent pixels with 0
     for (int i = 0; i < size; i++)
-        data[i] = (alpha[i] == 0) ? 0 : pixels[i];
+        data[i] = (alpha[i] == 0) ? 0 : (uint8_t)get_colorIndex(pixels[i]);
 
     // Free the temporary pixel and alpha data
     free(pixels);
@@ -174,10 +208,9 @@ static ObjImage *load_image(vm_t *vm, const char *path)
     int w = formatted->w;
     int h = formatted->h;
 
-    // Allocate memory for pixel data and alpha channel
-    uint8_t *pixels = malloc(w * h);
-    uint8_t *alpha = malloc(w * h);
-    if (!pixels || !alpha)
+    // Allocate memory for packed ARGB pixel data.
+    Uint32 *pixels = malloc((size_t)w * (size_t)h * sizeof(Uint32));
+    if (!pixels)
     {
         SDL_FreeSurface(formatted);
         vm_error(vm, "[image] memory allocation failed.");
@@ -192,16 +225,14 @@ static ObjImage *load_image(vm_t *vm, const char *path)
             Uint32 pixel = source[y * w + x];
             uint8_t r, g, b, a;
             SDL_GetRGBA(pixel, formatted->format, &r, &g, &b, &a);
-            // Map the pixel color to the closest palette index and store alpha
-            pixels[y * w + x] = find_paletteColor(r, g, b);
-            alpha[y * w + x] = a / 255.0f; // Normalize alpha to 0-1 range
+            pixels[y * w + x] = pack_argb(r, g, b, a);
         }
     }
 
     SDL_FreeSurface(formatted);
 
     // Create a new image object from the pixel data
-    return new_image(w, h, pixels, alpha);
+    return new_image(w, h, pixels);
 }
 
 Value pi_image(vm_t *vm, int argc, Value *argv)
@@ -224,12 +255,17 @@ Value pi_spriteFile(vm_t *vm, const char *path)
         vm_error(vm, "[sprite] memory allocation failed.");
 
     for (int i = 0; i < size; i++)
-        data[i] = img->alpha[i] == 0 ? 0 : img->pixels[i];
+    {
+        uint8_t alpha = (uint8_t)((img->pixels[i] >> 24) & 0xff);
+        uint8_t r = (uint8_t)((img->pixels[i] >> 16) & 0xff);
+        uint8_t g = (uint8_t)((img->pixels[i] >> 8) & 0xff);
+        uint8_t b = (uint8_t)(img->pixels[i] & 0xff);
+        data[i] = alpha == 0 ? 0 : (uint8_t)find_paletteColor(r, g, b);
+    }
 
     uint16_t width = (uint16_t)img->width;
     uint16_t height = (uint16_t)img->height;
     free(img->pixels);
-    free(img->alpha);
     free(img);
     return NEW_OBJ(new_sprite(width, height, data));
 }
@@ -261,7 +297,7 @@ Value pi_crop(vm_t *vm, int argc, Value *argv)
         vm_error(vm, "[crop] width and height must be positive");
 
     // Allocate memory for the new cropped image data
-    uint8_t *pixels = malloc(w * h);
+    Uint32 *pixels = malloc((size_t)w * (size_t)h * sizeof(Uint32));
     uint8_t *alpha = malloc(w * h);
     if (!pixels || !alpha)
         vm_error(vm, "[crop] memory allocation failed");
@@ -281,7 +317,7 @@ Value pi_crop(vm_t *vm, int argc, Value *argv)
             {
                 int src_index = src_y * src.width + src_x;
                 pixels[dist_index] = src.pixels[src_index];
-                alpha[dist_index] = src.alpha[src_index];
+                alpha[dist_index] = image_alphaAt(&src, src_index);
             }
             else
             {
@@ -310,18 +346,50 @@ Value pi_crop(vm_t *vm, int argc, Value *argv)
  */
 Value pi_resize(vm_t *vm, int argc, Value *argv)
 {
-    if (argc < 3)
-        vm_error(vm, "[resize] expects (image|sprite, new_width, new_height)");
+    if (argc < 1 || !IS_IMAGE(argv[0]))
+        vm_error(vm, "[resize] expects image as first argument.");
+
+    bool no_w = (!IS_NUM(argv[1]) || AS_INT(argv[1]) <= 0);
+    bool no_h = (!IS_NUM(argv[2]) || AS_INT(argv[2]) <= 0);
+
+    // At least one dimension must be provided
+    if (no_w && no_h)
+        vm_error(vm, "[resize] expect at least one of width or height to be a positive number.");
 
     ImageSource src = get_imageSource(vm, argv[0], "resize");
-    int new_w = AS_INT(argv[1]);
-    int new_h = AS_INT(argv[2]);
 
-    if (new_w <= 0 || new_h <= 0)
-        vm_error(vm, "[resize] width and height must be positive");
+    int new_w;
+    int new_h;
 
-    uint8_t *new_pixels = malloc(new_w * new_h);
-    uint8_t *new_alpha = malloc(new_w * new_h);
+    // Preserve aspect ratio if one dimension is nil
+    if (no_w)
+    {
+        new_h = AS_INT(argv[2]);
+
+        if (new_h <= 0)
+            vm_error(vm, "[resize] height must be positive");
+
+        float aspect = (float)src.width / (float)src.height;
+        new_w = (int)(new_h * aspect + 0.5f);
+    }
+    else if (no_h)
+    {
+        new_w = AS_INT(argv[1]);
+
+        if (new_w <= 0)
+            vm_error(vm, "[resize] width must be positive");
+
+        float aspect = (float)src.height / (float)src.width;
+        new_h = (int)(new_w * aspect + 0.5f);
+    }
+    else
+    {
+        new_w = AS_INT(argv[1]);
+        new_h = AS_INT(argv[2]);
+    }
+
+    Uint32 *new_pixels = malloc((size_t)new_w * (size_t)new_h * sizeof(Uint32));
+    uint8_t *new_alpha = malloc((size_t)new_w * (size_t)new_h);
 
     if (!new_pixels || !new_alpha)
         vm_error(vm, "[resize] memory allocation failed");
@@ -333,16 +401,25 @@ Value pi_resize(vm_t *vm, int argc, Value *argv)
         {
             int src_x = i * src.width / new_w;
             int src_y = j * src.height / new_h;
+
             int src_index = src_y * src.width + src_x;
             int dist_index = j * new_w + i;
 
             new_pixels[dist_index] = src.pixels[src_index];
-            new_alpha[dist_index] = src.alpha[src_index];
+            new_alpha[dist_index] = image_alphaAt(&src, src_index);
         }
     }
 
     free_imageSource(&src);
-    return make_imageResult(vm, &src, new_w, new_h, new_pixels, new_alpha, "resize");
+
+    return make_imageResult(
+        vm,
+        &src,
+        new_w,
+        new_h,
+        new_pixels,
+        new_alpha,
+        "resize");
 }
 
 /**
@@ -381,15 +458,157 @@ Value pi_rend2d(vm_t *vm, int argc, Value *argv)
                 continue;
 
             int index = y * img.width + x;
-            uint8_t color = img.pixels[index];
-            uint8_t alpha = img.alpha[index];
+            Uint32 color = img.pixels[index];
+            uint8_t alpha = image_alphaAt(&img, index);
 
             // Skip transparent pixels
-            if (alpha < 0.01f)
+            if (alpha == 0)
                 continue;
 
             // Set the pixel color and alpha
-            set_pixelAlpha(vm->screen, screen_x, screen_y, color, alpha);
+            set_pixelAlpha(vm->screen, screen_x, screen_y, color, alpha / 255.0);
+        }
+    }
+
+    free_imageSource(&img);
+    return NEW_NIL();
+}
+
+Value pi_get2d(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 3)
+        vm_error(vm, "[get2d] expects (image|sprite, x, y)");
+    if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+        vm_error(vm, "[get2d] x and y must be numeric.");
+
+    ImageSource img = get_imageSource(vm, argv[0], "get2d");
+    int x = AS_INT(argv[1]);
+    int y = AS_INT(argv[2]);
+
+    if (x < 0 || x >= img.width || y < 0 || y >= img.height)
+        vm_error(vm, "[get2d] pixel coordinates out of bounds.");
+
+    int index = y * img.width + x;
+    Uint32 color = img.pixels[index];
+    uint8_t alpha = image_alphaAt(&img, index);
+    color = (color & 0x00ffffffu) | ((Uint32)alpha << 24);
+
+    free_imageSource(&img);
+    return NEW_NUM((double)color);
+}
+
+Value pi_set2d(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 4 && argc != 5)
+        vm_error(vm, "[set2d] expects (image|sprite, x, y, color [, alpha])");
+    if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+        vm_error(vm, "[set2d] x and y must be numeric.");
+
+    int x = AS_INT(argv[1]);
+    int y = AS_INT(argv[2]);
+    Uint32 color = 0;
+    if (!IS_NUM(argv[3]) || !screen_colorFromNumber(AS_NUM(argv[3]), &color))
+        vm_error(vm, "[set2d] color must be a palette index or packed 0xAARRGGBB number.");
+
+    color = screen_resolveColor(color);
+
+    if (argc == 5)
+    {
+        if (!IS_NUM(argv[4]))
+            vm_error(vm, "[set2d] alpha must be numeric.");
+        double alpha = AS_NUM(argv[4]);
+        if (alpha < 0.0)
+            alpha = 0.0;
+        if (alpha > 1.0)
+            alpha = 1.0;
+        color = (color & 0x00ffffffu) | ((Uint32)round(alpha * 255.0) << 24);
+    }
+
+    if (IS_IMAGE(argv[0]))
+    {
+        ObjImage *img = AS_IMAGE(argv[0]);
+        if (x < 0 || x >= img->width || y < 0 || y >= img->height)
+            vm_error(vm, "[set2d] pixel coordinates out of bounds.");
+        img->pixels[y * img->width + x] = color;
+        return NEW_NIL();
+    }
+
+    if (IS_SPRITE(argv[0]))
+    {
+        ObjSprite *sprite = AS_SPRITE(argv[0]);
+        if (x < 0 || x >= sprite->width || y < 0 || y >= sprite->height)
+            vm_error(vm, "[set2d] pixel coordinates out of bounds.");
+
+        uint8_t alpha = (uint8_t)((color >> 24) & 0xff);
+        sprite->pixels[y * sprite->width + x] = alpha == 0 ? 0 : (uint8_t)get_colorIndex(color);
+        return NEW_NIL();
+    }
+
+    vm_error(vm, "[set2d] expects image or sprite as first argument.");
+    return NEW_NIL();
+}
+
+Value pi_show(vm_t *vm, int argc, Value *argv)
+{
+    if (argc != 1 && argc != 3 && argc != 4 && argc != 5 && argc != 6)
+        vm_error(vm, "[show] expects image|sprite [, x, y [, width, height] [, centered]]");
+
+    bool centered = false;
+    if (argc == 4 || argc == 6)
+    {
+        if (!IS_BOOL(argv[argc - 1]))
+            vm_error(vm, "[show] centered must be a boolean.");
+        centered = AS_BOOL(argv[argc - 1]);
+    }
+
+    ImageSource img = get_imageSource(vm, argv[0], "show");
+    int dx = 0;
+    int dy = 0;
+    int draw_w = img.width;
+    int draw_h = img.height;
+
+    if (argc >= 3)
+    {
+        if (!IS_NUM(argv[1]) || !IS_NUM(argv[2]))
+            vm_error(vm, "[show] x and y must be numeric.");
+        dx = AS_INT(argv[1]);
+        dy = AS_INT(argv[2]);
+    }
+
+    if (argc >= 5)
+    {
+        if (!IS_NUM(argv[3]) || !IS_NUM(argv[4]))
+            vm_error(vm, "[show] width and height must be numeric.");
+        draw_w = AS_INT(argv[3]);
+        draw_h = AS_INT(argv[4]);
+        if (draw_w <= 0 || draw_h <= 0)
+            vm_error(vm, "[show] width and height must be positive.");
+    }
+
+    if (centered)
+    {
+        dx -= draw_w / 2;
+        dy -= draw_h / 2;
+    }
+
+    for (int y = 0; y < draw_h; y++)
+    {
+        int src_y = y * img.height / draw_h;
+        for (int x = 0; x < draw_w; x++)
+        {
+            int screen_x = dx + x;
+            int screen_y = dy + y;
+            if (screen_x < 0 || screen_x >= SCREEN_WIDTH ||
+                screen_y < 0 || screen_y >= SCREEN_HEIGHT)
+                continue;
+
+            int src_x = x * img.width / draw_w;
+            int index = src_y * img.width + src_x;
+            uint8_t alpha = image_alphaAt(&img, index);
+            if (alpha == 0)
+                continue;
+
+            set_pixelAlpha(vm->screen, screen_x, screen_y, img.pixels[index], alpha / 255.0);
         }
     }
 
@@ -430,7 +649,7 @@ Value pi_scale2d(vm_t *vm, int argc, Value *argv)
     if (new_w == 0 || new_h == 0)
         vm_error(vm, "[scale2d] resulting image size is zero");
 
-    uint8_t *new_pixels = malloc(new_w * new_h);
+    Uint32 *new_pixels = malloc((size_t)new_w * (size_t)new_h * sizeof(Uint32));
     uint8_t *new_alpha = malloc(new_w * new_h);
 
     if (!new_pixels || !new_alpha)
@@ -457,7 +676,7 @@ Value pi_scale2d(vm_t *vm, int argc, Value *argv)
 
             // Copy the pixel and alpha values from the original image
             new_pixels[dst_index] = src.pixels[src_index];
-            new_alpha[dst_index] = src.alpha[src_index];
+            new_alpha[dst_index] = image_alphaAt(&src, src_index);
         }
     }
 
@@ -490,13 +709,13 @@ Value pi_tran2d(vm_t *vm, int argc, Value *argv)
     int dy = AS_INT(argv[2]);
 
     int w = src.width, h = src.height;
-    uint8_t *new_pixels = malloc(w * h);
+    Uint32 *new_pixels = malloc((size_t)w * (size_t)h * sizeof(Uint32));
     uint8_t *new_alpha = malloc(w * h);
     if (!new_pixels || !new_alpha)
         vm_error(vm, "[tran2d] memory allocation failed");
 
     // Fill transparent by default
-    memset(new_pixels, 0, w * h);
+    memset(new_pixels, 0, (size_t)w * (size_t)h * sizeof(Uint32));
     memset(new_alpha, 0, w * h);
 
     for (int y = 0; y < h; y++)
@@ -511,7 +730,7 @@ Value pi_tran2d(vm_t *vm, int argc, Value *argv)
                 int src_idx = y * w + x;
                 int dst_idx = ny * w + nx;
                 new_pixels[dst_idx] = src.pixels[src_idx];
-                new_alpha[dst_idx] = src.alpha[src_idx];
+                new_alpha[dst_idx] = image_alphaAt(&src, src_idx);
             }
         }
     }
@@ -538,7 +757,7 @@ Value pi_flip(vm_t *vm, int argc, Value *argv)
     bool flip_y = (argc > 2 && IS_BOOL(argv[2])) ? AS_BOOL(argv[2]) : false;
 
     int w = src.width, h = src.height;
-    uint8_t *new_pixels = malloc(w * h);
+    Uint32 *new_pixels = malloc((size_t)w * (size_t)h * sizeof(Uint32));
     uint8_t *new_alpha = malloc(w * h);
     if (!new_pixels || !new_alpha)
         vm_error(vm, "[flip] memory allocation failed");
@@ -555,7 +774,7 @@ Value pi_flip(vm_t *vm, int argc, Value *argv)
 
             // Copy pixel and alpha values to the new position
             new_pixels[dst_idx] = src.pixels[src_idx];
-            new_alpha[dst_idx] = src.alpha[src_idx];
+            new_alpha[dst_idx] = image_alphaAt(&src, src_idx);
         }
     }
 
@@ -596,12 +815,12 @@ Value pi_rotate2d(vm_t *vm, int argc, Value *argv)
     int new_w = w;
     int new_h = h;
 
-    uint8_t *new_pixels = malloc(new_w * new_h);
+    Uint32 *new_pixels = malloc((size_t)new_w * (size_t)new_h * sizeof(Uint32));
     uint8_t *new_alpha = malloc(new_w * new_h);
     if (!new_pixels || !new_alpha)
         vm_error(vm, "[rot2d] memory allocation failed");
 
-    memset(new_pixels, 0, new_w * new_h);
+    memset(new_pixels, 0, (size_t)new_w * (size_t)new_h * sizeof(Uint32));
     memset(new_alpha, 0, new_w * new_h);
 
     double cos_theta = cos(-angle_rad); // negative for backward mapping
@@ -628,7 +847,7 @@ Value pi_rotate2d(vm_t *vm, int argc, Value *argv)
             {
                 int src_idx = sy * w + sx;
                 new_pixels[dst_idx] = src.pixels[src_idx];
-                new_alpha[dst_idx] = src.alpha[src_idx];
+                new_alpha[dst_idx] = image_alphaAt(&src, src_idx);
             }
             else
             {
@@ -658,15 +877,16 @@ Value pi_copy2d(vm_t *vm, int argc, Value *argv)
     ImageSource src = get_imageSource(vm, argv[0], "copy2d");
     int size = src.width * src.height;
 
-    uint8_t *pixels = malloc(size);
+    Uint32 *pixels = malloc((size_t)size * sizeof(Uint32));
     uint8_t *alpha = malloc(size);
 
     if (!pixels || !alpha)
         vm_error(vm, "[copy2d] memory allocation failed");
 
     // Perform a deep copy of the image data
-    memcpy(pixels, src.pixels, size);
-    memcpy(alpha, src.alpha, size);
+    memcpy(pixels, src.pixels, (size_t)size * sizeof(Uint32));
+    for (int i = 0; i < size; i++)
+        alpha[i] = image_alphaAt(&src, i);
 
     free_imageSource(&src);
     return make_imageResult(vm, &src, src.width, src.height, pixels, alpha, "copy2d");

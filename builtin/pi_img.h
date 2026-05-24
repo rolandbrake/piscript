@@ -33,10 +33,13 @@ Value pi_flip(vm_t *vm, int argc, Value *argv);
 // Display the image object onto the screen at optional (x, y) position
 Value pi_rend2d(vm_t *vm, int argc, Value *argv);
 
-// // Optional: Get color and alpha at pixel (x, y)
-// Value pi_get2d(vm_t *vm, int argc, Value *argv);
+// Optional: Get color and alpha at pixel (x, y)
+Value pi_get2d(vm_t *vm, int argc, Value *argv);
 
-// // Optional: Set color and alpha at pixel (x, y)
-// Value pi_set2d(vm_t *vm, int argc, Value *argv);
+// Optional: Set color and alpha at pixel (x, y)
+Value pi_set2d(vm_t *vm, int argc, Value *argv);
+
+// display an image or sprite on the screen at optional (x, y) position (w, h) size, and centered flag
+Value pi_show(vm_t *vm, int argc, Value *argv);
 
 #endif // PI_IMG_H

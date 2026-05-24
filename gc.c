@@ -333,16 +333,15 @@ void free_object(Object *obj)
 
     case OBJ_IMAGE:
     {
-        // Free the memory allocated for the image's pixels and alpha channel
+        // Free the memory allocated for the image's pixels
         ObjImage *image = (ObjImage *)obj;
         free(image->pixels);
-        free(image->alpha);
         break;
     }
     case OBJ_SPRITE:
     {
         ObjSprite *sprite = (ObjSprite *)obj;
-        free(sprite->data);
+        free(sprite->pixels);
         break;
     }
     case OBJ_SLICE:

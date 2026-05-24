@@ -125,7 +125,7 @@ Value pi_draw(vm_t *vm, int argc, Value *argv)
         {
             Uint32 elapsed = now - vm->last_drawTicks;
             if (elapsed < vm->frameInterval_ms)
-                SDL_Delay(vm->frameInterval_ms - elapsed);
+                vm_responsive_delay(vm, vm->frameInterval_ms - elapsed);
         }
         vm->last_drawTicks = SDL_GetTicks();
     }
@@ -365,7 +365,7 @@ Value pi_sprite(vm_t *vm, int argc, Value *argv)
     {
         for (int j = 0; j < obj_sprite->width; j++)
         {
-            uint8_t color = obj_sprite->data[i * obj_sprite->width + j];
+            uint8_t color = obj_sprite->pixels[i * obj_sprite->width + j];
             if (color != 0)
                 set_pixel(vm->screen, j + draw_x, i + draw_y, color);
         }

@@ -25,9 +25,12 @@
 #define VM_POP_FAST(vm) ((vm)->stack[--(vm)->sp])
 #define VM_PEEK_FAST(vm) ((vm)->stack[(vm)->sp - 1])
 
-#ifndef __EMSCRIPTEN__
-static bool poll_stop(vm_t *vm)
+bool vm_poll_stop(vm_t *vm)
 {
+#ifdef __EMSCRIPTEN__
+    (void)vm;
+    return false;
+#else
     SDL_Event event;
 
     SDL_PumpEvents();
@@ -48,8 +51,29 @@ static bool poll_stop(vm_t *vm)
     }
 
     return !vm->running;
-}
 #endif
+}
+
+void vm_responsive_delay(vm_t *vm, Uint32 ms)
+{
+#ifdef __EMSCRIPTEN__
+    SDL_Delay(ms);
+#else
+    Uint32 start = SDL_GetTicks();
+    while (vm == NULL || vm->running)
+    {
+        if (vm != NULL && vm_poll_stop(vm))
+            break;
+
+        Uint32 elapsed = SDL_GetTicks() - start;
+        if (elapsed >= ms)
+            break;
+
+        Uint32 remaining = ms - elapsed;
+        SDL_Delay(remaining < 10 ? remaining : 10);
+    }
+#endif
+}
 
 static PiMap *define_keys(vm_t *vm)
 {
@@ -240,7 +264,7 @@ static int object_gcPressure(Object *obj)
     {
         ObjImage *image = (ObjImage *)obj;
         size_t pixels = (size_t)image->width * (size_t)image->height;
-        bytes = sizeof(ObjImage) + pixels + (image->alpha ? pixels : 0);
+        bytes = sizeof(ObjImage) + pixels * sizeof(uint32_t);
         break;
     }
     case OBJ_SPRITE:
@@ -776,13 +800,11 @@ void run(vm_t *vm)
 
     while (pc < length && vm->running)
     {
-#ifndef __EMSCRIPTEN__
-        if ((vm->ip & 0xff) == 0 && poll_stop(vm))
+        if ((vm->ip & 0xff) == 0 && vm_poll_stop(vm))
         {
             vm->pc = pc;
             return;
         }
-#endif
 
         op = code[pc++];
 

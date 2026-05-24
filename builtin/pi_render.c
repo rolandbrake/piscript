@@ -634,9 +634,9 @@ void draw_texturedTriangle(
             int tx = clamp((int)(u * texture->width), 0, texture->width - 1);
             int ty = clamp((int)(v * texture->height), 0, texture->height - 1);
 
-            uint8_t color_index = texture->pixels[ty * texture->width + tx];
-
-            set_pixelShade(screen, x, y, color_index, brightness);
+            Uint32 color = texture->pixels[ty * texture->width + tx];
+            if (((color >> 24) & 0xff) != 0)
+                set_pixelShade(screen, x, y, color, brightness);
         }
     }
 }
