@@ -1,179 +1,372 @@
+// Asteroids
+// Rotate with LEFT/RIGHT, thrust with UP, brake with DOWN, fire with SPACE.
 
-PI = 3.14159
+TURN_SPEED = 0.09
+THRUST = 0.13
+BRAKE = 0.97
+DRAG = 0.992
+MAX_SPEED = 2.25
+SHIP_R = 4
+BULLET_SPEED = 3.8
+BULLET_LIFE = 44
+FIRE_DELAY = 9
+SAFE_RADIUS = 28
 
-ship = {
-  x: WIDTH / 2,
-  y: HEIGHT / 2,
-  angle: 0,
-  dx: 0,
-  dy: 0
-}
-
+ship = {}
 bullets = []
 asteroids = []
+stars = []
 
 score = 0
+lives = 3
+level = 1
+tick = 0
+fire_timer = 0
 game_over = false
 
-fun wrap(val, max) {
-  if val < 0 return val + max
-  if val >= max return val - max
-  return val
-}
-
-fun spawnAsteroid() {
-  let a = {
-    x: rand(0, WIDTH),
-    y: rand(0, HEIGHT),
-    dx: rand(-10, 10) / 10,
-    dy: rand(-10, 10) / 10,
-    size: rand(8, 16)
-  }
-  asteroids  += a
-}
-
-for i in 0..4 spawnAsteroid()
-
-fun drawShip() {
-  let x = ship.x
-  let y = ship.y
-  let a = ship.angle
-
-  let x1 = x + cos(a) * 6
-  let y1 = y + sin(a) * 6
-  let x2 = x + cos(a + 2.5) * 6
-  let y2 = y + sin(a + 2.5) * 6
-  let x3 = x + cos(a - 2.5) * 6
-  let y3 = y + sin(a - 2.5) * 6
-
-  line(x1, y1, x2, y2, COLOR_LIGHT_PEACH)
-  line(x2, y2, x3, y3, COLOR_LIGHT_PEACH)
-  line(x3, y3, x1, y1, COLOR_LIGHT_PEACH)
-}
-
-fun drawAsteroids() {
-  for a in asteroids {      
-    circ(a.x, a.y, a.size, COLOR_VIVID_RED)
+fun reset_ship() {
+  ship = {
+    x: WIDTH / 2,
+    y: HEIGHT / 2,
+    angle: -PI / 2,
+    dx: 0,
+    dy: 0,
+    inv: 90
   }
 }
 
-fun drawBullets() {
-  for b in bullets {
-    rect(b.x, b.y, 1, 1, COLOR_LIGHT_PEACH)
+fun reset_game() {
+  bullets = []
+  asteroids = []
+  score = 0
+  lives = 3
+  level = 1
+  tick = 0
+  fire_timer = 0
+  game_over = false
+  reset_ship()
+  make_stars()
+  spawn_wave()
+}
+
+fun make_stars() {
+  stars = []
+  let i = 0
+  while i < 32 {
+    push(stars, {
+      x: rand(0, WIDTH - 1),
+      y: rand(0, HEIGHT - 1),
+      c: rand(0, 2)
+    })
+    i += 1
   }
 }
 
-fun fireBullet() {
-  let b = {
-    x: ship.x,
-    y: ship.y,
-    dx: cos(ship.angle) * 3,
-    dy: sin(ship.angle) * 3
-  }
-  bullets += b
+fun wrap(v, max) {
+  if v < 0 return v + max
+  if v >= max return v - max
+  return v
 }
 
-fun distance(x1, y1, x2, y2) {
+fun dist(x1, y1, x2, y2) {
   let dx = x1 - x2
   let dy = y1 - y2
   return sqrt(dx * dx + dy * dy)
 }
 
-while true {
-  clear()
+fun rand_vel(speed) {
+  let angle = rand(0, 628) / 100
+  return {
+    dx: cos(angle) * speed,
+    dy: sin(angle) * speed
+  }
+}
 
-  // Input
-  if key("KEY_LEFT")
-    ship.angle -= 0.1
-  if key("KEY_RIGHT")
-    ship.angle += 0.1
+fun spawn_asteroid(size) {
+  let x = rand(0, WIDTH - 1)
+  let y = rand(0, HEIGHT - 1)
+
+  while dist(x, y, ship.x, ship.y) < SAFE_RADIUS {
+    x = rand(0, WIDTH - 1)
+    y = rand(0, HEIGHT - 1)
+  }
+
+  let speed = rand(45, 95) / 100 + level * 0.03
+  let v = rand_vel(speed)
+
+  push(asteroids, {
+    x: x,
+    y: y,
+    dx: v.dx,
+    dy: v.dy,
+    size: size,
+    spin: rand(-4, 4) / 100,
+    angle: rand(0, 628) / 100
+  })
+}
+
+fun spawn_wave() {
+  let i = 0
+  let count = level + 3
+  while i < count {
+    spawn_asteroid(rand(11, 17))
+    i += 1
+  }
+}
+
+fun clamp_ship_speed() {
+  let speed = sqrt(ship.dx * ship.dx + ship.dy * ship.dy)
+  if speed > MAX_SPEED {
+    ship.dx = ship.dx / speed * MAX_SPEED
+    ship.dy = ship.dy / speed * MAX_SPEED
+  }
+}
+
+fun fire_bullet() {
+  if fire_timer > 0 return
+
+  push(bullets, {
+    x: ship.x + cos(ship.angle) * 6,
+    y: ship.y + sin(ship.angle) * 6,
+    dx: ship.dx + cos(ship.angle) * BULLET_SPEED,
+    dy: ship.dy + sin(ship.angle) * BULLET_SPEED,
+    life: BULLET_LIFE
+  })
+
+  fire_timer = FIRE_DELAY
+}
+
+fun draw_background() {
+  clear(COLOR_MIDNIGHT_BLUE)
+
+  let i = 0
+  while i < len(stars) {
+    let s = stars[i]
+    let x = wrap(s.x - tick * (s.c + 1) / 36, WIDTH)
+    let col = s.c == 0 ? COLOR_COOL_LIGHT_GRAY : COLOR_SKY_BLUE
+    pixel(x, s.y, col)
+    i += 1
+  }
+}
+
+fun draw_ship() {
+  let a = ship.angle
+  let nose_x = ship.x + cos(a) * 7
+  let nose_y = ship.y + sin(a) * 7
+  let left_x = ship.x + cos(a + 2.45) * 6
+  let left_y = ship.y + sin(a + 2.45) * 6
+  let right_x = ship.x + cos(a - 2.45) * 6
+  let right_y = ship.y + sin(a - 2.45) * 6
+
+  let ship_color = ship.inv > 0 && tick % 8 < 4 ? COLOR_SKY_BLUE : COLOR_SOFT_IVORY
+  line(nose_x, nose_y, left_x, left_y, ship_color)
+  line(left_x, left_y, ship.x - cos(a) * 2, ship.y - sin(a) * 2, COLOR_COOL_LIGHT_GRAY)
+  line(ship.x - cos(a) * 2, ship.y - sin(a) * 2, right_x, right_y, COLOR_COOL_LIGHT_GRAY)
+  line(right_x, right_y, nose_x, nose_y, ship_color)
+
+  if key("KEY_UP") && !game_over {
+    line(left_x, left_y, ship.x - cos(a) * 9, ship.y - sin(a) * 9, COLOR_AMBER_ORANGE)
+    line(right_x, right_y, ship.x - cos(a) * 9, ship.y - sin(a) * 9, COLOR_WARM_YELLOW)
+  }
+}
+
+fun draw_asteroid(a) {
+  let s = a.size
+  let r1 = s
+  let r2 = s * 0.72
+  let r3 = s * 0.9
+  let t = a.angle
+
+  let x1 = a.x + cos(t) * r1
+  let y1 = a.y + sin(t) * r1
+  let x2 = a.x + cos(t + 1.1) * r2
+  let y2 = a.y + sin(t + 1.1) * r2
+  let x3 = a.x + cos(t + 2.2) * r1
+  let y3 = a.y + sin(t + 2.2) * r1
+  let x4 = a.x + cos(t + 3.25) * r2
+  let y4 = a.y + sin(t + 3.25) * r2
+  let x5 = a.x + cos(t + 4.25) * r3
+  let y5 = a.y + sin(t + 4.25) * r3
+  let x6 = a.x + cos(t + 5.25) * r2
+  let y6 = a.y + sin(t + 5.25) * r2
+
+  line(x1, y1, x2, y2, COLOR_WARM_STONE)
+  line(x2, y2, x3, y3, COLOR_WARM_STONE)
+  line(x3, y3, x4, y4, COLOR_WARM_STONE)
+  line(x4, y4, x5, y5, COLOR_COOL_LIGHT_GRAY)
+  line(x5, y5, x6, y6, COLOR_COOL_LIGHT_GRAY)
+  line(x6, y6, x1, y1, COLOR_WARM_STONE)
+  pixel(a.x, a.y, COLOR_DARK_COCOA)
+}
+
+fun draw_hud() {
+  print("SCORE " + score, 2, 2, COLOR_SOFT_IVORY)
+  print("LIVES " + lives, 78, 2, COLOR_SOFT_IVORY)
+  print("LV " + level, 2, 118, COLOR_COOL_LIGHT_GRAY)
+}
+
+fun draw_game_over() {
+  rect(18, 43, 92, 39, COLOR_SOFT_BLACK, true)
+  rect(18, 43, 92, 39, COLOR_COOL_LIGHT_GRAY)
+  print("GAME OVER", 36, 51, COLOR_VIVID_RED)
+  print("SCORE " + score, 38, 63, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 27, 74, COLOR_SOFT_IVORY)
+}
+
+fun update_play() {
+  tick += 1
+  if fire_timer > 0 fire_timer -= 1
+  if ship.inv > 0 ship.inv -= 1
+
+  if key("KEY_LEFT") ship.angle -= TURN_SPEED
+  if key("KEY_RIGHT") ship.angle += TURN_SPEED
+
   if key("KEY_UP") {
-    ship.dx += cos(ship.angle) * 0.1
-    ship.dy += sin(ship.angle) * 0.1
-  }
-  if key("KEY_SPACE"){            
-      fireBullet()
+    ship.dx += cos(ship.angle) * THRUST
+    ship.dy += sin(ship.angle) * THRUST
   }
 
-  // Move ship
-  ship.x += ship.dx
-  ship.y += ship.dy
-  ship.x = wrap(ship.x, WIDTH)
-  ship.y = wrap(ship.y, HEIGHT)
-
-  // Move bullets
-  for b in bullets {
-    b.x += b.dx
-    b.y += b.dy
-    b.x = wrap(b.x, WIDTH)
-    b.y = wrap(b.y, HEIGHT)
+  if key("KEY_DOWN") {
+    ship.dx *= BRAKE
+    ship.dy *= BRAKE
   }
 
-  // Move asteroids
-  for a in asteroids {
-    a.x += a.dx
-    a.y += a.dy
-    a.x = wrap(a.x, WIDTH)
-    a.y = wrap(a.y, HEIGHT)
+  if key("KEY_SPACE") fire_bullet()
+
+  ship.dx *= DRAG
+  ship.dy *= DRAG
+  clamp_ship_speed()
+  ship.x = wrap(ship.x + ship.dx, WIDTH)
+  ship.y = wrap(ship.y + ship.dy, HEIGHT)
+
+  let i = 0
+  while i < len(bullets) {
+    bullets[i].x = wrap(bullets[i].x + bullets[i].dx, WIDTH)
+    bullets[i].y = wrap(bullets[i].y + bullets[i].dy, HEIGHT)
+    bullets[i].life -= 1
+    i += 1
   }
 
-  // Bullet-asteroid collision
-  let newAsteroids = []
-  let newBullets = []
-  for b in bullets {
+  i = 0
+  while i < len(asteroids) {
+    asteroids[i].x = wrap(asteroids[i].x + asteroids[i].dx, WIDTH)
+    asteroids[i].y = wrap(asteroids[i].y + asteroids[i].dy, HEIGHT)
+    asteroids[i].angle += asteroids[i].spin
+    i += 1
+  }
+
+  let kept_bullets = []
+  let spawned = []
+
+  let bi = 0
+  while bi < len(bullets) {
+    let b = bullets[bi]
     let hit = false
-    for i in 0..len(asteroids) {
+
+    i = 0
+    while i < len(asteroids) && !hit {
       let a = asteroids[i]
-      if a == null continue
-      if distance(b.x, b.y, a.x, a.y) < a.size {
-        score += 10
-        if a.size > 6 {
-          // split into 2
-          for j in 0..1 {
-            newAsteroids += {
-              x: a.x, y: a.y,
-              dx: rand(-10, 10) / 10,
-              dy: rand(-10, 10) / 10,
-              size: a.size / 2
-            }
+
+      if a.size > 0 && dist(b.x, b.y, a.x, a.y) < a.size {
+        hit = true
+        score += a.size > 8 ? 20 : 50
+
+        if a.size > 8 {
+          let j = 0
+          while j < 2 {
+            let v = rand_vel(rand(90, 150) / 100)
+            push(spawned, {
+              x: a.x,
+              y: a.y,
+              dx: v.dx + a.dx * 0.25,
+              dy: v.dy + a.dy * 0.25,
+              size: a.size / 2,
+              spin: rand(-7, 7) / 100,
+              angle: rand(0, 628) / 100
+            })
+            j += 1
           }
         }
-        asteroids[i] = null
-        hit = true
-        break
+
+        asteroids[i].size = 0
       }
+
+      i += 1
     }
-    if !hit newBullets += b
+
+    if !hit && b.life > 0 push(kept_bullets, b)
+    bi += 1
   }
 
-  // Filter removed
-  asteroids = filter(asteroids, a -> a != null)
+  let alive_asteroids = []
+  i = 0
+  while i < len(asteroids) {
+    if asteroids[i].size > 0 push(alive_asteroids, asteroids[i])
+    i += 1
+  }
+  asteroids = alive_asteroids
+  i = 0
+  while i < len(spawned) {
+    push(asteroids, spawned[i])
+    i += 1
+  }
+  bullets = kept_bullets
 
-  for(a in newAsteroids) 
-    asteroids += a
-  
-  bullets = newBullets
-
-  // Asteroid-ship collision
-  for a in asteroids {
-    if distance(ship.x, ship.y, a.x, a.y) < a.size {
-      game_over = true
-      break
+  if ship.inv <= 0 {
+    i = 0
+    let crashed = false
+    while i < len(asteroids) && !crashed {
+      let a = asteroids[i]
+      if dist(ship.x, ship.y, a.x, a.y) < a.size + SHIP_R {
+        crashed = true
+        lives -= 1
+        if lives <= 0 {
+          game_over = true
+        } else {
+          reset_ship()
+        }
+      }
+      i += 1
     }
   }
 
-  // Draw
-  drawShip()
-  drawAsteroids()
-  drawBullets()
-  print("SCORE " + score, 2, 2)
-
-  if game_over {
-    print("GAME OVER", 44, 60, COLOR_COOL_LIGHT_GRAY)
-    draw()
-    sleep(1000)
-    break
+  if len(asteroids) == 0 {
+    level += 1
+    bullets = []
+    spawn_wave()
   }
+}
+
+reset_game()
+
+while true {
+  if !game_over {
+    update_play()
+  } else {
+    if key("KEY_SPACE") {
+      reset_game()
+      while key("KEY_SPACE") sleep(20)
+    }
+  }
+
+  draw_background()
+
+  let i = 0
+  while i < len(bullets) {
+    rect(bullets[i].x - 1, bullets[i].y - 1, 2, 2, COLOR_WARM_YELLOW, true)
+    i += 1
+  }
+
+  i = 0
+  while i < len(asteroids) {
+    draw_asteroid(asteroids[i])
+    i += 1
+  }
+
+  draw_ship()
+  draw_hud()
+
+  if game_over draw_game_over()
 
   draw()
   sleep(16)

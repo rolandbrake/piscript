@@ -1,37 +1,79 @@
-// Lane Runner
-// LEFT/RIGHT to change lanes. Collect coins, avoid hazards.
+// Neon Drift
+// Steer with LEFT/RIGHT or A/D. UP boosts, DOWN brakes. Collect gold, avoid red.
 
-LANES = [32, 64, 96]
-CAR_W = 14
-CAR_H = 18
-ITEM_SIZE = 10
+CAR_W = 19
+CAR_H = 22
+ROAD_TOP = 18
+ROAD_BOTTOM = 126
+ROAD_MIN_X = 16
+ROAD_MAX_X = 112
 
-car_lane = 1
-car_y = HEIGHT - 24
+car_x = WIDTH / 2
+car_y = HEIGHT - 22
+car_vx = 0
 
 items = []
-score = 30
+particles = []
+stars = []
+
+score = 0
 coins = 0
+energy = 70
+speed = 1.8
 tick = 0
-road_scroll = 0
-speed = 1
-spawn_delay = 34
+shake = 0
+combo = 1
+spawn_timer = 0
 game_over = false
 
 fun reset_game() {
-  car_lane = 1
+  car_x = WIDTH / 2
+  car_y = HEIGHT - 22
+  car_vx = 0
   items = []
-  score = 30
+  particles = []
+  stars = []
+  score = 0
   coins = 0
+  energy = 70
+  speed = 1.8
   tick = 0
-  road_scroll = 0
-  speed = 1
-  spawn_delay = 34
+  shake = 0
+  combo = 1
+  spawn_timer = 20
   game_over = false
+
+  let i = 0
+  while i < 36 {
+    push(stars, {
+      x: rand(0, WIDTH - 1),
+      y: rand(0, HEIGHT - 1),
+      layer: rand(1, 3)
+    })
+    i += 1
+  }
 }
 
-fun car_x() {
-  return LANES[car_lane] - CAR_W / 2
+fun clamp(v, lo, hi) {
+  if v < lo return lo
+  if v > hi return hi
+  return v
+}
+
+fun road_left(y) {
+  let t = (y - ROAD_TOP) / (ROAD_BOTTOM - ROAD_TOP)
+  return WIDTH / 2 - (8 + t * 48)
+}
+
+fun road_right(y) {
+  let t = (y - ROAD_TOP) / (ROAD_BOTTOM - ROAD_TOP)
+  return WIDTH / 2 + (8 + t * 48)
+}
+
+fun lane_x(y, lane) {
+  let l = road_left(y)
+  let r = road_right(y)
+  return l + (r - l) * lane / 4
 }
 
 fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
@@ -39,144 +81,369 @@ fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
 }
 
 fun spawn_item() {
-  let kind = rand(0, 100) < 62 ? 0 : 1
-  let item = {
-    lane: rand(0, 2),
-    y: -ITEM_SIZE,
-    kind: kind
+  let roll = rand(0, 100)
+  let kind = 0
+  if roll > 66 kind = 1
+  if roll > 88 kind = 2
+
+  let lane = rand(1, 3)
+  push(items, {
+    lane: lane,
+    y: ROAD_TOP - 12,
+    kind: kind,
+    phase: rand(0, 628) / 100,
+    taken: false
+  })
+}
+
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {
+    x: x,
+    y: y,
+    dx: dx,
+    dy: dy,
+    life: life,
+    max_life: life,
+    color: color
+  })
+}
+
+fun burst(x, y, color) {
+  let i = 0
+  while i < 8 {
+    let a = rand(0, 628) / 100
+    let s = rand(4, 14) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(10, 20), color)
+    i += 1
   }
-  push(items, item)
+}
+
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].dy += 0.03
+    particles[i].life -= 1
+    i += 1
+  }
+
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 {
+      remove(particles, i)
+    }
+    i -= 1
+  }
+}
+
+fun update_play() {
+  tick += 1
+  if shake > 0 shake -= 1
+
+  let boost = key("KEY_UP") && energy > 0
+  let brake = key("KEY_DOWN")
+  let steer = 0
+  if key("KEY_LEFT") || key("KEY_A") steer -= 1
+  if key("KEY_RIGHT") || key("KEY_D") steer += 1
+
+  let target_speed = 2.2 + floor(score / 250) * 0.18
+  if target_speed > 4.6 target_speed = 4.6
+  if boost target_speed += 1.1
+  if brake target_speed -= 0.9
+  if target_speed < 1.2 target_speed = 1.2
+
+  speed += (target_speed - speed) * 0.06
+  car_vx += steer * (0.28 + speed * 0.05)
+  car_vx *= brake ? 0.82 : 0.9
+  car_x += car_vx
+
+  let left_bound = road_left(car_y) + CAR_W / 2
+  let right_bound = road_right(car_y) - CAR_W / 2
+  if car_x < left_bound {
+    car_x = left_bound
+    car_vx *= -0.25
+    shake = 4
+  }
+  if car_x > right_bound {
+    car_x = right_bound
+    car_vx *= -0.25
+    shake = 4
+  }
+
+  if boost {
+    energy -= 0.35
+    add_particle(car_x + rand(-4, 4), car_y + 13, rand(-3, 3) / 10, 1.5, 12, COLOR_SKY_BLUE)
+  } else {
+    energy += 0.08
+  }
+  energy = clamp(energy, 0, 100)
+
+  add_particle(car_x + rand(-3, 3), car_y + 13, rand(-2, 2) / 10, 0.9, 10, COLOR_AMBER_ORANGE)
+
+  spawn_timer -= 1
+  if spawn_timer <= 0 {
+    spawn_item()
+    spawn_timer = 34 - floor(speed * 4)
+    if spawn_timer < 12 spawn_timer = 12
+  }
+
+  let i = 0
+  while i < len(items) {
+    items[i].y += speed * (0.55 + items[i].y / HEIGHT)
+    items[i].phase += 0.12
+
+    let ix = lane_x(items[i].y, items[i].lane) + sin(items[i].phase) * 2
+    let scale = 0.55 + items[i].y / HEIGHT
+    let size = 7 * scale
+
+    if !items[i].taken && hit_box(car_x - CAR_W / 2, car_y - CAR_H / 2, CAR_W, CAR_H, ix - size / 2, items[i].y - size / 2, size, size) {
+      items[i].taken = true
+      if items[i].kind == 0 {
+        coins += 1
+        score += 25 * combo
+        combo += 1
+        energy += 5
+        burst(ix, items[i].y, COLOR_WARM_YELLOW)
+        play(tone(760, 45, WAVE_SINE))
+      }
+      if items[i].kind == 1 {
+        score -= 40
+        combo = 1
+        energy -= 18
+        shake = 12
+        burst(ix, items[i].y, COLOR_VIVID_RED)
+        play(tone(130, 120, WAVE_SQUARE))
+      }
+      if items[i].kind == 2 {
+        energy += 25
+        score += 40
+        burst(ix, items[i].y, COLOR_SKY_BLUE)
+        play(tone(520, 70, WAVE_TRIANGLE))
+      }
+    }
+    i += 1
+  }
+
+  i = len(items) - 1
+  while i >= 0 {
+    if items[i].y > HEIGHT + 12 || items[i].taken {
+      remove(items, i)
+    }
+    i -= 1
+  }
+
+  score += floor(speed)
+  if energy <= 0 || score < -80 {
+    game_over = true
+  }
+
+  update_particles()
+}
+
+fun draw_background() {
+  clear(COLOR_MIDNIGHT_BLUE)
+
+  let i = 0
+  while i < len(stars) {
+    let s = stars[i]
+    let sx = s.x
+    let sy = (s.y + tick * s.layer / 6) % HEIGHT
+    let col = s.layer == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SKY_BLUE
+    pixel(sx, sy, col)
+    i += 1
+  }
+
+  rect(0, 74, WIDTH, 54, COLOR_DEEP_BLUE, true)
+  line(0, ROAD_TOP, WIDTH, ROAD_TOP, COLOR_DUSTY_PURPLE)
+  rect(0, ROAD_TOP + 1, WIDTH, 3, COLOR_PLUM, true)
 }
 
 fun draw_road() {
-  clear(COLOR_DEEP_GREEN)
-  rect(18, 0, 92, HEIGHT, COLOR_SOFT_BLACK, true)
-  rect(18, 0, 2, HEIGHT, COLOR_COOL_LIGHT_GRAY, true)
-  rect(108, 0, 2, HEIGHT, COLOR_COOL_LIGHT_GRAY, true)
+  let y = ROAD_TOP
+  while y < ROAD_BOTTOM {
+    let y2 = y + 8
+    let shade = floor((y + tick * speed) / 8) % 2
+    let road_color = shade == 0 ? COLOR_SOFT_BLACK : COLOR_CHARCOAL_GRAY
+    poly([[road_left(y), y], [road_right(y), y], [road_right(y2), y2], [road_left(y2), y2]], road_color, true)
+    y += 8
+  }
 
-  for y in -16..HEIGHT:24 {
-    let dash_y = (y + road_scroll) % HEIGHT
-    rect(48, dash_y, 3, 12, COLOR_SOFT_IVORY, true)
-    rect(78, dash_y, 3, 12, COLOR_SOFT_IVORY, true)
+  line(road_left(ROAD_TOP), ROAD_TOP, road_left(ROAD_BOTTOM), ROAD_BOTTOM, COLOR_SKY_BLUE)
+  line(road_right(ROAD_TOP), ROAD_TOP, road_right(ROAD_BOTTOM), ROAD_BOTTOM, COLOR_SKY_BLUE)
+  line(road_left(ROAD_TOP) - 1, ROAD_TOP, road_left(ROAD_BOTTOM) - 4, ROAD_BOTTOM, COLOR_DUSTY_PURPLE)
+  line(road_right(ROAD_TOP) + 1, ROAD_TOP, road_right(ROAD_BOTTOM) + 4, ROAD_BOTTOM, COLOR_DUSTY_PURPLE)
+
+  y = ROAD_TOP + (tick * speed) % 18
+  while y < ROAD_BOTTOM {
+    let a = lane_x(y, 2)
+    let b = lane_x(y + 8, 2)
+    line(a, y, b, y + 8, COLOR_COOL_LIGHT_GRAY)
+    y += 18
+  }
+}
+
+fun draw_item(item_y, item_lane, item_kind, item_phase) {
+  let ix = lane_x(item_y, item_lane) + sin(item_phase) * 2
+  let scale = 0.55 + item_y / HEIGHT
+  let size = 7 * scale
+
+  if item_kind == 0 {
+    circ(ix, item_y, size / 2, COLOR_WARM_YELLOW, true)
+    circ(ix, item_y, size / 4, COLOR_AMBER_ORANGE, true)
+    pixel(ix, item_y - size / 2, COLOR_SOFT_IVORY)
+  }
+  if item_kind == 1 {
+    let r = size / 2 + 1
+    circ(ix, item_y, r, COLOR_BRICK_RED, true)
+    circ(ix, item_y, r - 1, COLOR_VIVID_RED, true)
+    circ(ix - r / 3, item_y - r / 3, r / 3, COLOR_ORANGE_RED, true)
+    pixel(ix - r / 2, item_y - r / 2, COLOR_LIGHT_PEACH)
+  }
+  if item_kind == 2 {
+    poly([[ix, item_y - size / 2], [ix + size / 2, item_y], [ix, item_y + size / 2], [ix - size / 2, item_y]], COLOR_SKY_BLUE, true)
+    poly([[ix, item_y - size / 3], [ix + size / 3, item_y], [ix, item_y + size / 3], [ix - size / 3, item_y]], COLOR_SOFT_IVORY)
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    let p = particles[i]
+    let c = p.life < p.max_life / 2 ? COLOR_LIGHT_PEACH : p.color
+    pixel(p.x, p.y, c)
+    if p.life > p.max_life / 2 pixel(p.x + 1, p.y, c)
+    i += 1
   }
 }
 
 fun draw_car() {
-  let x = car_x()
-  rect(x + 2, car_y, CAR_W - 4, CAR_H, COLOR_SKY_BLUE, true)
-  rect(x, car_y + 5, CAR_W, 10, COLOR_SKY_BLUE, true)
-  rect(x + 3, car_y + 3, 3, 4, COLOR_SOFT_IVORY, true)
-  rect(x + 8, car_y + 3, 3, 4, COLOR_SOFT_IVORY, true)
-  rect(x + 1, car_y + 15, 4, 3, COLOR_SOFT_BLACK, true)
-  rect(x + 9, car_y + 15, 4, 3, COLOR_SOFT_BLACK, true)
-}
+  let lean = clamp(car_vx * 1.8, -4, 4)
+  let x = car_x
+  let y = car_y
+  let boost = key("KEY_UP") && energy > 0
 
-fun draw_coin(x, y) {
-  circ(x + ITEM_SIZE / 2, y + ITEM_SIZE / 2, 5, COLOR_WARM_YELLOW, true)
-  circ(x + ITEM_SIZE / 2, y + ITEM_SIZE / 2, 2, COLOR_AMBER_ORANGE, true)
-}
+  // Ground triangle vertices
+  let gx0 = x + lean   // front tip
+  let gy0 = y - 10
+  let gx1 = x - 10     // rear left
+  let gy1 = y + 10
+  let gx2 = x + 10     // rear right
+  let gy2 = y + 10
 
-fun draw_hazard(x, y) {
-  rect(x, y, ITEM_SIZE, ITEM_SIZE, COLOR_VIVID_RED, true)
-  rect(x + 2, y + 2, ITEM_SIZE - 4, ITEM_SIZE - 4, COLOR_DARK_MAGENTA, true)
+  // Top (elevated) triangle — 9px of height
+  let tx0 = x + lean
+  let ty0 = y - 19
+  let tx1 = x - 10
+  let ty1 = y + 1
+  let tx2 = x + 10
+  let ty2 = y + 1
+
+  // Shadow on ground
+  poly([[gx1 + 4, gy1 + 4], [gx2 + 4, gy2 + 4], [gx0 + 4, gy0 + 4]], COLOR_SOFT_BLACK, true)
+
+  // Rear wall face (darkest — faces viewer)
+  poly([[gx1, gy1], [gx2, gy2], [tx2, ty2], [tx1, ty1]], COLOR_CHARCOAL_GRAY, true)
+
+  // Left wall face
+  poly([[gx0, gy0], [gx1, gy1], [tx1, ty1], [tx0, ty0]], COLOR_DEEP_BLUE, true)
+
+  // Right wall face
+  poly([[gx0, gy0], [gx2, gy2], [tx2, ty2], [tx0, ty0]], COLOR_DUSTY_PURPLE, true)
+
+  // Top face (brightest)
+  poly([[tx0, ty0], [tx1, ty1], [tx2, ty2]], COLOR_BRIGHT_COBALT, true)
+
+  // Top edge highlights
+  line(tx0, ty0, tx1, ty1, COLOR_SKY_BLUE)
+  line(tx0, ty0, tx2, ty2, COLOR_SKY_BLUE)
+  line(tx1, ty1, tx2, ty2, COLOR_COOL_LIGHT_GRAY)
+
+  // Vertical front edge (tip pillar)
+  line(gx0, gy0, tx0, ty0, COLOR_SKY_BLUE)
+
+  // Rear vertical edges
+  line(gx1, gy1, tx1, ty1, COLOR_DUSTY_PURPLE)
+  line(gx2, gy2, tx2, ty2, COLOR_DUSTY_PURPLE)
+
+  // Neon spine along top face
+  let mx = (tx1 + tx2) / 2
+  let my = (ty1 + ty2) / 2
+  line(tx0, ty0, mx, my, COLOR_SOFT_IVORY)
+
+  // Headlight at front tip
+  pixel(tx0 - 1, ty0, COLOR_WARM_YELLOW)
+  pixel(tx0,     ty0, COLOR_WARM_YELLOW)
+  pixel(tx0 + 1, ty0, COLOR_WARM_YELLOW)
+
+  // Tail lights on top rear corners
+  pixel(tx1 + 1, ty1, COLOR_VIVID_RED)
+  pixel(tx2 - 1, ty2, COLOR_VIVID_RED)
+
+  // Tail light bar on rear wall
+  line(gx1 + 2, gy1 - 1, gx2 - 2, gy2 - 1, COLOR_VIVID_RED)
+
+  // Boost flames from ground rear center
+  if boost {
+    let bx = (gx1 + gx2) / 2
+    let by = (gy1 + gy2) / 2
+    poly([[bx - 3, by], [bx + 3, by], [bx, by + 13]], COLOR_AMBER_ORANGE, true)
+    line(bx, by, bx, by + 16, COLOR_WARM_YELLOW)
+    line(bx - 3, by, bx - 6, by + 10, COLOR_ORANGE_RED)
+    line(bx + 3, by, bx + 6, by + 10, COLOR_ORANGE_RED)
+  }
 }
 
 fun draw_hud() {
+  rect(0, 0, WIDTH, 12, COLOR_SOFT_BLACK, true)
   print("SCORE " + score, 2, 2, COLOR_SOFT_IVORY)
-  print("COINS " + coins, 70, 2, COLOR_WARM_YELLOW)
-  print("SPD " + speed, 44, 12, COLOR_COOL_LIGHT_GRAY)
+  print("COINS " + coins, 76, 2, COLOR_WARM_YELLOW)
+  rect(2, 14, 42, 4, COLOR_CHARCOAL_GRAY, true)
+  rect(2, 14, energy * 42 / 100, 4, energy > 24 ? COLOR_SKY_BLUE : COLOR_VIVID_RED, true)
+  print("X" + combo, 52, 13, COLOR_LIGHT_PEACH)
 }
 
 fun draw_game_over() {
-  rect(12, 40, 104, 48, COLOR_SOFT_BLACK, true)
-  rect(14, 42, 100, 44, COLOR_DARK_MAGENTA, true)
-  print("YOU LOST", 38, 50, COLOR_VIVID_RED)
-  print("COINS " + coins, 40, 64, COLOR_WARM_YELLOW)
-  print("SPACE RESTART", 24, 78, COLOR_SOFT_IVORY)
+  rect(13, 40, 102, 49, COLOR_SOFT_BLACK, true)
+  rect(13, 40, 102, 49, COLOR_DUSTY_PURPLE)
+  print("RUN ENDED", 35, 49, COLOR_VIVID_RED)
+  print("SCORE " + score, 33, 62, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SOFT_IVORY)
 }
 
 reset_game()
 
 while true {
-  if (!game_over) {
-    tick += 1
-    speed = 1 + floor(tick / 360)
-    if speed > 7 {
-      speed = 7
-    }
-
-    spawn_delay = 34 - speed * 3
-    if spawn_delay < 12 {
-      spawn_delay = 12
-    }
-
-    road_scroll = (road_scroll + speed * 2) % HEIGHT
-
-    if key("KEY_LEFT", true) && car_lane > 0 {
-      car_lane -= 1
-    }
-    if key("KEY_RIGHT", true) && car_lane < 2 {
-      car_lane += 1
-    }
-
-    if tick % spawn_delay == 0 {
-      spawn_item()
-    }
-
-    for i in 0..len(items) {
-      items[i].y += speed + 1
-
-      let item_x = LANES[items[i].lane] - ITEM_SIZE / 2
-      if hit_box(car_x(), car_y, CAR_W, CAR_H, item_x, items[i].y, ITEM_SIZE, ITEM_SIZE) {
-        if items[i].kind == 0 {
-          score += 5
-          coins += 1
-          play(tone(760, 60, 0))
-        } else {
-          score -= 15
-          play(tone(130, 140, 1))
-          if score <= 0 {
-            game_over = true
-          }
-        }
-        items[i].y = HEIGHT + ITEM_SIZE
-      }
-    }
-
-    let i = len(items) - 1
-    while i >= 0 {
-      if items[i].y > HEIGHT {
-        remove(items, i)
-      }
-      i -= 1
-    }
+  if !game_over {
+    update_play()
   } else {
+    update_particles()
     if key("KEY_SPACE") {
       reset_game()
-      while key("KEY_SPACE") {
-        sleep(20)
-      }
+      while key("KEY_SPACE") sleep(20)
     }
   }
 
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  let oy = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, oy)
+
+  draw_background()
   draw_road()
 
-  for i in 0..len(items) {
-    let x = LANES[items[i].lane] - ITEM_SIZE / 2
-    if items[i].kind == 0 {
-      draw_coin(x, items[i].y)
-    } else {
-      draw_hazard(x, items[i].y)
-    }
+  let i = 0
+  while i < len(items) {
+    draw_item(items[i].y, items[i].lane, items[i].kind, items[i].phase)
+    i += 1
   }
 
+  draw_particles()
   draw_car()
+  camera()
   draw_hud()
 
-  if game_over {
-    draw_game_over()
-  }
+  if game_over draw_game_over()
 
   draw()
-  sleep(30)
+  sleep(16)
 }

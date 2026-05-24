@@ -1,95 +1,260 @@
-PADDLE_WIDTH = 4
-PADDLE_HEIGHT = 20
-BALL_SIZE = 3
-SPEED = 2
+// Neon Pong
+// UP/DOWN or W/S move. SPACE starts/restarts. P pauses.
 
-playerY = HEIGHT / 2 - PADDLE_HEIGHT / 2
-aiY = HEIGHT / 2 - PADDLE_HEIGHT / 2
+PADDLE_W = 4
+PADDLE_H = 22
+BALL_R = 3
+WIN_SCORE = 7
+
+playerY = HEIGHT / 2 - PADDLE_H / 2
+aiY = HEIGHT / 2 - PADDLE_H / 2
+playerV = 0
+aiV = 0
 
 ballX = WIDTH / 2
 ballY = HEIGHT / 2
-ballDX = SPEED
-ballDY = SPEED
+ballDX = 2.1
+ballDY = 1.2
+ballSpeed = 2.4
 
 playerScore = 0
 aiScore = 0
+tick = 0
+shake = 0
+serve_timer = 45
+paused = false
+game_over = false
+particles = []
 
-fun drawPaddle(x, y) {
-  rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT, COLOR_SOFT_IVORY, true)
+fun reset_match() {
+  playerY = HEIGHT / 2 - PADDLE_H / 2
+  aiY = HEIGHT / 2 - PADDLE_H / 2
+  playerV = 0
+  aiV = 0
+  playerScore = 0
+  aiScore = 0
+  tick = 0
+  shake = 0
+  paused = false
+  game_over = false
+  particles = []
+  reset_ball(rand(0, 1) == 0 ? -1 : 1)
 }
 
-fun drawBall() {
-  circ(ballX, ballY, BALL_SIZE, COLOR_VIVID_RED, true)
-}
-
-fun resetBall() {
+fun reset_ball(dir) {
   ballX = WIDTH / 2
   ballY = HEIGHT / 2
-  ballDX = -ballDX
-  ballDY = rand(0, 1) == 0 ? -SPEED : SPEED
+  ballSpeed = 2.4
+  ballDX = dir * ballSpeed
+  ballDY = rand(0, 1) == 0 ? -1.1 : 1.1
+  serve_timer = 45
 }
 
-while true {
-  clear()
-  rect(4, 4, WIDTH - 8, HEIGHT - 8, COLOR_COOL_LIGHT_GRAY)
-  line(64, 4, 64, 123, COLOR_COOL_LIGHT_GRAY)
+fun clamp(v, lo, hi) {
+  if v < lo return lo
+  if v > hi return hi
+  return v
+}
 
-  // Move player
-  if key("KEY_UP") && playerY > 10
-    playerY -= SPEED
-  if key("KEY_DOWN") && playerY + PADDLE_HEIGHT < HEIGHT - 10
-    playerY += SPEED
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {x: x, y: y, dx: dx, dy: dy, life: life, color: color})
+}
 
-  if aiY + PADDLE_HEIGHT/2 < ballY
-  aiY += SPEED
-  else if aiY + PADDLE_HEIGHT/2 > ballY
-    aiY -= SPEED
+fun burst(x, y, color) {
+  let i = 0
+  while i < 8 {
+    let a = rand(0, 628) / 100
+    let s = rand(4, 13) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(9, 18), color)
+    i += 1
+  }
+}
 
-  // Clamp AI paddle within top and bottom borders (4..HEIGHT-4)
-  if aiY < 10
-    aiY = 10
-  if aiY + PADDLE_HEIGHT > HEIGHT - 10
-    aiY = HEIGHT - 10 - PADDLE_HEIGHT
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].life -= 1
+    i += 1
+  }
 
-  // Ball movement
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
+}
+
+fun paddle_hit(px, py) {
+  return ballX - BALL_R < px + PADDLE_W && ballX + BALL_R > px && ballY + BALL_R > py && ballY - BALL_R < py + PADDLE_H
+}
+
+fun bounce_from_paddle(paddleY, side) {
+  let center = paddleY + PADDLE_H / 2
+  let offset = (ballY - center) / (PADDLE_H / 2)
+  offset = clamp(offset, -1, 1)
+  ballSpeed += 0.16
+  if ballSpeed > 4.4 ballSpeed = 4.4
+  ballDX = side * ballSpeed
+  ballDY = offset * 2.6
+  shake = 4
+}
+
+fun update_play() {
+  tick += 1
+  if shake > 0 shake -= 1
+  if paused || game_over {
+    update_particles()
+    return
+  }
+
+  let input = 0
+  if key("KEY_UP") || key("KEY_W") input -= 1
+  if key("KEY_DOWN") || key("KEY_S") input += 1
+  playerV += input * 0.75
+  playerV *= 0.72
+  playerY += playerV
+  playerY = clamp(playerY, 12, HEIGHT - 12 - PADDLE_H)
+
+  let aiTarget = ballY - PADDLE_H / 2
+  let aiSkill = 0.08 + playerScore * 0.006
+  if aiSkill > 0.14 aiSkill = 0.14
+  aiV += (aiTarget - aiY) * aiSkill
+  aiV = clamp(aiV, -2.3, 2.3)
+  aiY += aiV
+  aiY = clamp(aiY, 12, HEIGHT - 12 - PADDLE_H)
+
+  if serve_timer > 0 {
+    serve_timer -= 1
+    update_particles()
+    return
+  }
+
   ballX += ballDX
   ballY += ballDY
+  add_particle(ballX - ballDX, ballY - ballDY, 0, 0, 7, COLOR_DUSTY_PURPLE)
 
-  // Bounce off top/bottom
-  if ballY <= 0 || ballY + BALL_SIZE >= HEIGHT
+  if ballY - BALL_R <= 10 {
+    ballY = 10 + BALL_R
     ballDY = -ballDY
-
-  // Player paddle collision
-  if ballX <= 5 && ballY + BALL_SIZE >= playerY && ballY <= playerY + PADDLE_HEIGHT {
-    ballDX = -ballDX
-     play(tone(700, 50, 0))  // player paddle hit
+    play(tone(420, 35, WAVE_TRIANGLE))
+  }
+  if ballY + BALL_R >= HEIGHT - 10 {
+    ballY = HEIGHT - 10 - BALL_R
+    ballDY = -ballDY
+    play(tone(420, 35, WAVE_TRIANGLE))
   }
 
-  // AI paddle collision
-  if ballX + BALL_SIZE >= WIDTH - 5 && ballY + BALL_SIZE >= aiY && ballY <= aiY + PADDLE_HEIGHT {
-    ballDX = -ballDX
-     play(tone(600, 50, 0))  // AI paddle hit
+  if ballDX < 0 && paddle_hit(8, playerY) {
+    ballX = 8 + PADDLE_W + BALL_R
+    bounce_from_paddle(playerY, 1)
+    burst(ballX, ballY, COLOR_SKY_BLUE)
+    play(tone(720, 45, WAVE_SINE))
   }
 
-  // Score check
-  if ballX < 0 {
+  if ballDX > 0 && paddle_hit(WIDTH - 12, aiY) {
+    ballX = WIDTH - 12 - BALL_R
+    bounce_from_paddle(aiY, -1)
+    burst(ballX, ballY, COLOR_VIVID_RED)
+    play(tone(620, 45, WAVE_SINE))
+  }
+
+  if ballX < -8 {
     aiScore += 1
-    play(tone(300, 100, 1))  // AI score sound
-    resetBall()
-  }
-  if ballX > WIDTH {
-    playerScore += 1
-    play(tone(900, 100, 0))  // player score sound
-    resetBall()
+    shake = 10
+    burst(8, ballY, COLOR_VIVID_RED)
+    play(tone(170, 130, WAVE_SQUARE))
+    if aiScore >= WIN_SCORE game_over = true
+    reset_ball(1)
   }
 
-  // Draw everything
-  drawBall()  
-  drawPaddle(6, playerY)
-  drawPaddle(WIDTH - 10, aiY)  
-  print(playerScore, 30, 8, COLOR_COOL_LIGHT_GRAY)
-  print(aiScore, 90, 8, COLOR_COOL_LIGHT_GRAY)
+  if ballX > WIDTH + 8 {
+    playerScore += 1
+    shake = 10
+    burst(WIDTH - 8, ballY, COLOR_WARM_YELLOW)
+    play(tone(860, 100, WAVE_SINE))
+    if playerScore >= WIN_SCORE game_over = true
+    reset_ball(-1)
+  }
+
+  update_particles()
+}
+
+fun draw_court() {
+  clear(COLOR_MIDNIGHT_BLUE)
+  rect(4, 8, WIDTH - 8, HEIGHT - 16, COLOR_SOFT_BLACK, true)
+  rect(4, 8, WIDTH - 8, HEIGHT - 16, COLOR_SKY_BLUE)
+
+  let y = 12
+  while y < HEIGHT - 12 {
+    rect(WIDTH / 2 - 1, y, 2, 5, COLOR_COOL_LIGHT_GRAY, true)
+    y += 10
+  }
+
+  line(4, 28, WIDTH - 4, 28, COLOR_CHARCOAL_GRAY)
+  line(4, HEIGHT - 28, WIDTH - 4, HEIGHT - 28, COLOR_CHARCOAL_GRAY)
+}
+
+fun draw_paddle(x, y, color) {
+  rect(x - 1, y - 1, PADDLE_W + 2, PADDLE_H + 2, COLOR_SOFT_BLACK, true)
+  rect(x, y, PADDLE_W, PADDLE_H, color, true)
+  rect(x, y + 2, PADDLE_W, 3, COLOR_SOFT_IVORY, true)
+}
+
+fun draw_ball() {
+  circ(ballX, ballY, BALL_R + 1, COLOR_SOFT_BLACK, true)
+  circ(ballX, ballY, BALL_R, COLOR_WARM_YELLOW, true)
+  pixel(ballX - 1, ballY - 1, COLOR_SOFT_IVORY)
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    i += 1
+  }
+}
+
+fun draw_hud() {
+  print(playerScore, 36, 12, COLOR_SKY_BLUE)
+  print(aiScore, 88, 12, COLOR_VIVID_RED)
+  if serve_timer > 0 && !game_over print("READY", 48, 58, COLOR_SOFT_IVORY)
+}
+
+fun draw_overlay(title, sub) {
+  rect(16, 42, 96, 44, COLOR_SOFT_BLACK, true)
+  rect(16, 42, 96, 44, COLOR_DUSTY_PURPLE)
+  print(title, 35, 51, COLOR_SOFT_IVORY)
+  print(sub, 25, 65, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
+}
+
+reset_match()
+
+while true {
+  if key("KEY_P", true) paused = !paused
+  if game_over && key("KEY_SPACE") reset_match()
+
+  update_play()
+
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  let oy = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, oy)
+  draw_court()
+  draw_particles()
+  draw_paddle(8, playerY, COLOR_SKY_BLUE)
+  draw_paddle(WIDTH - 12, aiY, COLOR_VIVID_RED)
+  draw_ball()
+  camera()
+  draw_hud()
+
+  if paused && !game_over draw_overlay("PAUSED", "PRESS P")
+  if game_over {
+    let msg = playerScore >= WIN_SCORE ? "YOU WIN" : "AI WINS"
+    draw_overlay(msg, playerScore + " - " + aiScore)
+  }
 
   draw()
-  sleep(30)
+  sleep(16)
 }

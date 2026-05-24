@@ -1,136 +1,295 @@
-//Snake game implementation
-snake = [{x: 64, y: 64}]
-dir = {x: 1, y: 0}  // Initial direction: right
-food = {x: floor(rand() * 120) + 4, y: floor(rand() * 120) + 4}
-game_over = false
-s = 8 
-r = 4
-speed = 8
+// Neon Snake
+// Arrow keys move. SPACE starts/restarts. P pauses. Eat food, avoid yourself.
+
+CELL = 8
+GRID = 16
+TOP = 8
+START_DELAY = 92
+MIN_DELAY = 42
+
+snake = []
+particles = []
+dir = {x: 1, y: 0}
+next_dir = {x: 1, y: 0}
+food = {x: 0, y: 0}
+food_type = 0
+
 score = 0
-food_type = 0 // 0 = yellow, 1 = red
+best = 0
+level = 1
+move_delay = START_DELAY
+tick = 0
+step_timer = 0
+pulse = 0
+paused = false
+game_over = false
+waiting_start = true
+
+fun reset_game() {
+  snake = []
+  push(snake, {x: 8, y: 8})
+  push(snake, {x: 7, y: 8})
+  push(snake, {x: 6, y: 8})
+  dir = {x: 1, y: 0}
+  next_dir = {x: 1, y: 0}
+  particles = []
+  score = 0
+  level = 1
+  move_delay = START_DELAY
+  tick = 0
+  step_timer = 0
+  pulse = 0
+  paused = false
+  game_over = false
+  spawn_food()
+}
+
+fun cell_px(v) {
+  return v * CELL
+}
+
+fun same_cell(a, b) {
+  return a.x == b.x && a.y == b.y
+}
+
+fun body_at(x, y) {
+  let i = 0
+  while i < len(snake) {
+    if snake[i].x == x && snake[i].y == y return true
+    i += 1
+  }
+  return false
+}
 
 fun spawn_food() {
-    food = {x: floor(rand() * 120) + 4, y: floor(rand() * 120) + 4}
-    food_type = floor(rand() * 5) == 0 ? 1 : 0
+  let fx = rand(0, GRID - 1)
+  let fy = rand(1, GRID - 1)
+  let guard = 0
+
+  while body_at(fx, fy) && guard < 80 {
+    fx = rand(0, GRID - 1)
+    fy = rand(1, GRID - 1)
+    guard += 1
+  }
+
+  food = {x: fx, y: fy}
+  food_type = rand(0, 100) < 18 ? 1 : 0
 }
 
-fun draw_playGround() {
-    let colors = [COLOR_DEEP_GREEN, COLOR_NEON_GREEN]
-    let index
-    for x in 0..128:16 {
-        for y in 0..128:16 {
-            index = ((x / 16) + (y / 16)) % 2
-            rect(x, y, 16, 16, colors[index], true)
-        }
-    }
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {
+    x: x,
+    y: y,
+    dx: dx,
+    dy: dy,
+    life: life,
+    color: color
+  })
 }
 
-fun draw_startScreen() {
-    draw_playGround()
-    print("SNAKE", 36, 20)
-    print("ARROWS: MOVE", 16, 34)
-    print("NO 180 TURN", 16, 44)
-    print("SPACE: START", 16, 54)
-    print("HIT BODY = GAME OVER", 16, 64)
-    print("WRAP: LEFT/RIGHT/TOP/BOTTOM", 16, 74)
-
-    circ(34, 92, r, COLOR_PINK_ROSE, true)
-    print("YELLOW FOOD", 44, 88)
-    print("+10 POINTS", 44, 96)
-
-    circ(34, 108, r, COLOR_VIVID_RED, true)
-    print("RED FOOD", 44, 104)
-    print("+20 POINTS", 44, 112)
-
-    print("PRESS SPACE TO START", 16, 122)
-    draw()
+fun burst(cx, cy, color) {
+  let i = 0
+  while i < 10 {
+    let a = rand(0, 628) / 100
+    let sp = rand(4, 13) / 10
+    add_particle(cx, cy, cos(a) * sp, sin(a) * sp, rand(10, 22), color)
+    i += 1
+  }
 }
 
-spawn_food()
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].life -= 1
+    i += 1
+  }
 
-let waiting_start = true
-while (waiting_start) {
-    draw_startScreen()
-    if (key('KEY_SPACE')) {
-        waiting_start = false
-        while (key('KEY_SPACE')) {
-            sleep(20)
-        }
-    }
-    sleep(40)
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
 }
 
-while (!game_over) {
-    draw_playGround()
-    
-    if (key('KEY_UP') && dir.y != 1) {
-        dir = {x: 0, y: -1}
-    }
-    if (key('KEY_DOWN') && dir.y != -1) {
-        dir = {x: 0, y: 1}
-    }
-    if (key('KEY_LEFT') && dir.x != 1) {
-        dir = {x: -1, y: 0}
-    }
-    if (key('KEY_RIGHT') && dir.x != -1) {
-        dir = {x: 1, y: 0}
-    }
-
-    let nextX = (snake[0].x + dir.x * speed + 128) % 128
-    let nextY = snake[0].y + dir.y * speed
-
-    if (nextY < 7) 
-        nextY = 128 - s
-    elif (nextY > 128 - s) 
-        nextY = 7
-    else 
-        nextY = (nextY + 128) % 128
-
-    let head = {x: nextX, y: nextY}
-
-    // Check collision with self
-    for (i in 0..len(snake)) {
-        if (head.x == snake[i].x && head.y == snake[i].y) {
-            game_over = true
-            // ❗ Death sound (buzz)
-            let s = tone(110, 200, 1)  // square wave, low pitch
-            play(s);
-        }
-    }
-
-    // Check if snake ate food
-    let ate_food = false
-    if (abs((head.x + 4) - food.x) < s && abs((head.y + 4) - food.y) < s) {
-        score += food_type == 1 ? 20 : 10
-        spawn_food()
-        ate_food = true
-
-        // ✅ Eat food sound (happy blip)        
-        let s = tone(660, 100, 0)  // sine wave, short high tone
-        play(s);
-    }
-
-    unshift(snake, head)
-
-    if (!ate_food) {
-        pop(snake)
-    }
-
-    for (i in 0..len(snake)) {        
-        let color = i % 2 == 0 ? COLOR_COOL_LIGHT_GRAY : COLOR_VIVID_RED
-        rect(snake[i].x, snake[i].y, s, s, color, true)
-    }
-
-    let food_color = food_type == 1 ? COLOR_VIVID_RED : COLOR_PINK_ROSE
-    circ(food.x, food.y, r, food_color, true)
-    print("SCORE: " + score)
-
-    draw()
-    sleep(100)
+fun read_input() {
+  if key("KEY_UP") && dir.y != 1 next_dir = {x: 0, y: -1}
+  if key("KEY_DOWN") && dir.y != -1 next_dir = {x: 0, y: 1}
+  if key("KEY_LEFT") && dir.x != 1 next_dir = {x: -1, y: 0}
+  if key("KEY_RIGHT") && dir.x != -1 next_dir = {x: 1, y: 0}
+  if key("KEY_P", true) paused = !paused
 }
 
-// Game over screen
-rect(0, 0, 128, 7, COLOR_SKY_BLUE, true)
-print("GAME OVER", 36, 56)
-print("SCORE: " + score, 36, 72)
-draw()
+fun move_snake() {
+  dir = next_dir
+
+  let head = snake[0]
+  let nx = (head.x + dir.x + GRID) % GRID
+  let ny = head.y + dir.y
+  if ny < 1 ny = GRID - 1
+  if ny >= GRID ny = 1
+
+  let new_head = {x: nx, y: ny}
+
+  let ate = same_cell(new_head, food)
+  let last = len(snake) - 1
+  let hit_self = false
+  let i = 0
+
+  while i < len(snake) {
+    if same_cell(new_head, snake[i]) && (ate || i != last) hit_self = true
+    i += 1
+  }
+
+  if hit_self {
+    game_over = true
+    burst(cell_px(head.x) + 4, cell_px(head.y) + 4, COLOR_VIVID_RED)
+    play(tone(120, 180, WAVE_SQUARE))
+    if score > best best = score
+    return
+  }
+
+  unshift(snake, new_head)
+
+  if ate {
+    let points = food_type == 1 ? 30 : 10
+    score += points + (level - 1) * 2
+    if score > best best = score
+    pulse = 8
+    burst(cell_px(food.x) + 4, cell_px(food.y) + 4, food_type == 1 ? COLOR_VIVID_RED : COLOR_WARM_YELLOW)
+    play(tone(food_type == 1 ? 860 : 620, 70, WAVE_SINE))
+    spawn_food()
+
+    level = 1 + floor(score / 90)
+    move_delay = START_DELAY - (level - 1) * 6
+    if move_delay < MIN_DELAY move_delay = MIN_DELAY
+  } else {
+    pop(snake)
+  }
+}
+
+fun draw_board() {
+  clear(COLOR_DEEP_GREEN)
+  rect(0, 0, WIDTH, TOP, COLOR_SOFT_BLACK, true)
+
+  let y = TOP
+  while y < HEIGHT {
+    let x = 0
+    while x < WIDTH {
+      let grid_x = x / CELL
+      let grid_y = y / CELL
+      let c = (grid_x + grid_y) % 2 == 0 ? COLOR_DEEP_GREEN : COLOR_OCEAN_TEAL
+      rect(x, y, CELL, CELL, c, true)
+      x += CELL
+    }
+    y += CELL
+  }
+
+  line(0, TOP, WIDTH, TOP, COLOR_SKY_BLUE)
+}
+
+fun draw_food() {
+  let x = cell_px(food.x) + 4
+  let y = cell_px(food.y) + 4
+  let wobble = sin(tick / 5) * 1
+
+  if food_type == 0 {
+    circ(x, y + wobble, 4, COLOR_WARM_YELLOW, true)
+    circ(x - 1, y - 1 + wobble, 2, COLOR_PALE_YELLOW, true)
+  } else {
+    circ(x, y + wobble, 5, COLOR_VIVID_RED, true)
+    circ(x - 1, y - 1 + wobble, 2, COLOR_ORANGE_RED, true)
+  }
+}
+
+fun draw_snake() {
+  let i = len(snake) - 1
+  while i >= 0 {
+    let x = cell_px(snake[i].x)
+    let y = cell_px(snake[i].y)
+    let c = i == 0 ? COLOR_SOFT_IVORY : (i % 2 == 0 ? COLOR_SKY_BLUE : COLOR_BRIGHT_COBALT)
+    rect(x + 1, y + 1, CELL - 2, CELL - 2, COLOR_SOFT_BLACK, true)
+    rect(x + 2, y + 2, CELL - 4, CELL - 4, c, true)
+    if i == 0 {
+      pixel(x + 3 + dir.y, y + 3 + dir.x, COLOR_SOFT_BLACK)
+      pixel(x + 4 + dir.y, y + 3 + dir.x, COLOR_SOFT_BLACK)
+    }
+    i -= 1
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    i += 1
+  }
+}
+
+fun draw_hud() {
+  print("S " + score, 2, 1, COLOR_SOFT_IVORY)
+  print("B " + best, 44, 1, COLOR_WARM_YELLOW)
+  print("L " + level, 94, 1, COLOR_SKY_BLUE)
+}
+
+fun draw_start() {
+  draw_board()
+  print("NEON SNAKE", 28, 28, COLOR_SOFT_IVORY)
+  print("ARROWS MOVE", 26, 44, COLOR_WARM_YELLOW)
+  print("P PAUSE", 42, 56, COLOR_SKY_BLUE)
+  print("SPACE START", 26, 76, COLOR_SOFT_IVORY)
+  draw()
+}
+
+fun draw_overlay(title, sub) {
+  rect(16, 42, 96, 44, COLOR_SOFT_BLACK, true)
+  rect(16, 42, 96, 44, COLOR_DUSTY_PURPLE)
+  print(title, 32, 51, COLOR_SOFT_IVORY)
+  print(sub, 26, 65, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
+}
+
+reset_game()
+
+while waiting_start {
+  draw_start()
+  if key("KEY_SPACE") {
+    waiting_start = false
+    while key("KEY_SPACE") sleep(20)
+  }
+  sleep(40)
+}
+
+while true {
+  tick += 1
+  read_input()
+
+  if !game_over && !paused {
+    step_timer += 16
+    if step_timer >= move_delay {
+      step_timer = 0
+      move_snake()
+    }
+  } else {
+    if key("KEY_SPACE") {
+      reset_game()
+      while key("KEY_SPACE") sleep(20)
+    }
+  }
+
+  if pulse > 0 pulse -= 1
+  update_particles()
+
+  draw_board()
+  draw_food()
+  draw_snake()
+  draw_particles()
+  draw_hud()
+
+  if paused && !game_over draw_overlay("PAUSED", "PRESS P")
+  if game_over draw_overlay("GAME OVER", "SCORE " + score)
+
+  draw()
+  sleep(16)
+}

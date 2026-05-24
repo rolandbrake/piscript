@@ -1,190 +1,391 @@
+// Neon Invaders
+// LEFT/RIGHT or A/D move. SPACE fires. P pauses.
 
-PLAYER_WIDTH = 10
-PLAYER_HEIGHT = 5
-PLAYER_Y = HEIGHT - 10
+PLAYER_W = 13
+PLAYER_H = 8
+PLAYER_Y = HEIGHT - 13
 
 ENEMY_ROWS = 4
 ENEMY_COLS = 8
-ENEMY_WIDTH = 8
-ENEMY_HEIGHT = 6
-ENEMY_SPACING = 12
+ENEMY_W = 8
+ENEMY_H = 6
+ENEMY_SPACING_X = 13
+ENEMY_SPACING_Y = 10
 
-BULLET_WIDTH = 1
-BULLET_HEIGHT = 4
-
-player = {
-  x: WIDTH / 2 - PLAYER_WIDTH / 2
-}
-
+player = {x: WIDTH / 2, vx: 0}
 playerBullets = []
 enemyBullets = []
-
 enemies = []
+particles = []
+stars = []
 
 enemyDir = 1
-enemyStep = 1
 enemyTimer = 0
-enemyDelay = 20
-
+enemyDelay = 22
+fireCooldown = 0
+wave = 1
 score = 0
+lives = 3
+shake = 0
+paused = false
 game_over = false
 
-// Initialize enemies
-fun spawnEnemies() {
-  for i in 0..ENEMY_ROWS {
-    for j in 0..ENEMY_COLS {
-      enemies += {
-        x: j * ENEMY_SPACING + 10,
-        y: i * 10 + 10,
-        alive: true
+fun reset_game() {
+  player = {x: WIDTH / 2, vx: 0}
+  playerBullets = []
+  enemyBullets = []
+  enemies = []
+  particles = []
+  stars = []
+  enemyDir = 1
+  enemyTimer = 0
+  enemyDelay = 22
+  fireCooldown = 0
+  wave = 1
+  score = 0
+  lives = 3
+  shake = 0
+  paused = false
+  game_over = false
+
+  let i = 0
+  while i < 34 {
+    push(stars, {
+      x: rand(0, WIDTH - 1),
+      y: rand(0, HEIGHT - 1),
+      layer: rand(1, 3)
+    })
+    i += 1
+  }
+
+  spawn_wave()
+}
+
+fun spawn_wave() {
+  enemies = []
+  enemyBullets = []
+  playerBullets = []
+  enemyDir = 1
+  enemyDelay = 24 - wave * 2
+  if enemyDelay < 7 enemyDelay = 7
+
+  let row = 0
+  while row < ENEMY_ROWS {
+    let col = 0
+    while col < ENEMY_COLS {
+      push(enemies, {
+        x: col * ENEMY_SPACING_X + 13,
+        y: row * ENEMY_SPACING_Y + 15,
+        alive: true,
+        kind: row,
+        phase: rand(0, 628) / 100
+      })
+      col += 1
+    }
+    row += 1
+  }
+}
+
+fun clamp(v, lo, hi) {
+  if v < lo return lo
+  if v > hi return hi
+  return v
+}
+
+fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {x: x, y: y, dx: dx, dy: dy, life: life, color: color})
+}
+
+fun burst(x, y, color) {
+  let i = 0
+  while i < 9 {
+    let a = rand(0, 628) / 100
+    let s = rand(4, 15) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(9, 20), color)
+    i += 1
+  }
+}
+
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].life -= 1
+    i += 1
+  }
+
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
+}
+
+fun alive_count() {
+  let count = 0
+  let i = 0
+  while i < len(enemies) {
+    if enemies[i].alive count += 1
+    i += 1
+  }
+  return count
+}
+
+fun shoot_player() {
+  if fireCooldown > 0 return
+  if len(playerBullets) >= 3 return
+
+  push(playerBullets, {x: player.x, y: PLAYER_Y - 4, dy: -4})
+  fireCooldown = 9
+  play(tone(880, 45, WAVE_SINE))
+}
+
+fun shoot_enemy() {
+  let live = alive_count()
+  if live <= 0 return
+
+  let target = rand(0, live - 1)
+  let seen = 0
+  let i = 0
+  while i < len(enemies) {
+    if enemies[i].alive {
+      if seen == target {
+        push(enemyBullets, {x: enemies[i].x + ENEMY_W / 2, y: enemies[i].y + ENEMY_H, dy: 2 + wave * 0.12})
+        play(tone(360, 45, WAVE_SQUARE))
+        return
       }
+      seen += 1
     }
+    i += 1
   }
 }
 
-spawnEnemies()
+fun move_enemies() {
+  let descend = false
+  let step = 1 + floor(wave / 3) * 0.4
 
-fun drawPlayer() {
-  rect(player.x, PLAYER_Y, PLAYER_WIDTH, PLAYER_HEIGHT, COLOR_LIGHT_PEACH, true)
-}
-
-fun drawEnemies() {
-  for e in enemies {
-    if e.alive
-      rect(e.x, e.y, ENEMY_WIDTH, ENEMY_HEIGHT, COLOR_WARM_YELLOW, true)
-  }
-}
-
-fun drawBullets() {
-  for b in playerBullets
-    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, COLOR_SOFT_IVORY, true)
-  for b in enemyBullets
-    rect(b.x, b.y, BULLET_WIDTH, BULLET_HEIGHT, COLOR_DARK_MAGENTA, true)
-}
-
-fun moveEnemies() {
-  let shouldDescend = false
-
-  for e in enemies {
-    if e.alive {
-      e.x += enemyDir * enemyStep
-      if e.x <= 0 || e.x + ENEMY_WIDTH >= WIDTH
-        shouldDescend = true
+  let i = 0
+  while i < len(enemies) {
+    if enemies[i].alive {
+      enemies[i].x += enemyDir * step
+      enemies[i].phase += 0.1
+      if enemies[i].x <= 3 || enemies[i].x + ENEMY_W >= WIDTH - 3 descend = true
     }
+    i += 1
   }
 
-  if shouldDescend {
+  if descend {
     enemyDir = -enemyDir
-    for e in enemies {
-      if e.alive
-        e.y += 6
-        if e.y + ENEMY_HEIGHT >= PLAYER_Y
+    i = 0
+    while i < len(enemies) {
+      if enemies[i].alive {
+        enemies[i].y += 6
+        if enemies[i].y + ENEMY_H >= PLAYER_Y {
           game_over = true
+          play(tone(110, 240, WAVE_SQUARE))
+        }
+      }
+      i += 1
     }
   }
 }
 
-fun shootPlayerBullet() {
-  if len(playerBullets) < 1 {
-    playerBullets += {
-      x: player.x + PLAYER_WIDTH / 2,
-      y: PLAYER_Y - 5
-    }
-    let s = tone(880, 60, 0)  // player shoot sound
-    play(s)
+fun update_play() {
+  if paused || game_over {
+    update_particles()
+    return
   }
-}
 
+  if shake > 0 shake -= 1
+  if fireCooldown > 0 fireCooldown -= 1
 
-let f =  e -> e.alive
-fun shootEnemyBullet() {
-  let shooters = filter(enemies, f)
-  if len(shooters) > 0 {
-    let e = shooters[rand(0, len(shooters)-1)]
-    enemyBullets += {
-      x: e.x + ENEMY_WIDTH / 2,
-      y: e.y + ENEMY_HEIGHT
-    }
-    let s = tone(440, 60, 1)  // enemy shoot sound
-    play(s)
-  }
-}
+  let steer = 0
+  if key("KEY_LEFT") || key("KEY_A") steer -= 1
+  if key("KEY_RIGHT") || key("KEY_D") steer += 1
+  player.vx += steer * 0.45
+  player.vx *= 0.78
+  player.x += player.vx
+  player.x = clamp(player.x, 8, WIDTH - 8)
 
+  if key("KEY_SPACE") shoot_player()
 
-while true {
-  clear()
-
-  // Controls
-  if key("KEY_LEFT") && player.x > 0
-    player.x -= 2
-  if key("KEY_RIGHT") && player.x + PLAYER_WIDTH < WIDTH
-    player.x += 2
-  if key("KEY_SPACE")
-    shootPlayerBullet()
-
-  // Enemy movement
   enemyTimer += 1
   if enemyTimer >= enemyDelay {
-    moveEnemies()
-    if rand(0, 100) < 20
-      shootEnemyBullet()
+    move_enemies()
+    let chance = 18 + wave * 2
+    if rand(0, 100) < chance shoot_enemy()
     enemyTimer = 0
   }
 
-  // Move player bullets
-  let newPlayerBullets = []
-  for b in playerBullets {
-    b.y -= 3
-    if b.y > 0
-      newPlayerBullets += b
+  let i = 0
+  while i < len(playerBullets) {
+    playerBullets[i].y += playerBullets[i].dy
+    i += 1
   }
-  playerBullets = newPlayerBullets
 
-  // Move enemy bullets
-  let newEnemyBullets = []
-  for b in enemyBullets {
-    b.y += 2
-    if b.y < HEIGHT
-      newEnemyBullets += b
+  i = 0
+  while i < len(enemyBullets) {
+    enemyBullets[i].y += enemyBullets[i].dy
+    i += 1
   }
-  enemyBullets = newEnemyBullets
 
-  // Bullet hits enemy
-  for b in playerBullets {
-    for e in enemies {
-      if e.alive && b.x >= e.x && b.x <= e.x + ENEMY_WIDTH &&
-         b.y >= e.y && b.y <= e.y + ENEMY_HEIGHT {
-        e.alive = false
-        b.y = -1000  // mark bullet for removal
-        score += 10
-        let s = tone(660, 100, 0)  // enemy hit sound
-        play(s)
+  i = 0
+  while i < len(playerBullets) {
+    let bx = playerBullets[i].x
+    let by = playerBullets[i].y
+    let hit = false
+    let e = 0
+    while e < len(enemies) && !hit {
+      if enemies[e].alive && hit_box(bx, by, 2, 5, enemies[e].x, enemies[e].y, ENEMY_W, ENEMY_H) {
+        enemies[e].alive = false
+        playerBullets[i].y = -20
+        score += 10 + wave
+        hit = true
+        shake = 3
+        burst(enemies[e].x + ENEMY_W / 2, enemies[e].y + ENEMY_H / 2, COLOR_WARM_YELLOW)
+        play(tone(660, 70, WAVE_SINE))
       }
+      e += 1
     }
+    i += 1
   }
 
-  // Bullet hits player
-  for b in enemyBullets {
-    if b.x >= player.x && b.x <= player.x + PLAYER_WIDTH &&
-       b.y >= PLAYER_Y && b.y <= PLAYER_Y + PLAYER_HEIGHT {
-      game_over = true
-      let s = tone(110, 300, 1)  // player death sound
-      play(s)
+  i = 0
+  while i < len(enemyBullets) {
+    if hit_box(player.x - PLAYER_W / 2, PLAYER_Y, PLAYER_W, PLAYER_H, enemyBullets[i].x, enemyBullets[i].y, 2, 5) {
+      enemyBullets[i].y = HEIGHT + 20
+      lives -= 1
+      shake = 12
+      burst(player.x, PLAYER_Y + PLAYER_H / 2, COLOR_VIVID_RED)
+      play(tone(120, 170, WAVE_SQUARE))
+      if lives <= 0 game_over = true
     }
+    i += 1
   }
 
-  // Draw everything
-  drawPlayer()
-  drawEnemies()
-  drawBullets()
-  print("Score: " + score, 2, 2)
-
-  if game_over {
-    print("GAME OVER", 40, 60, COLOR_COOL_LIGHT_GRAY)
-    draw()
-    sleep(1000)
-    break
+  i = len(playerBullets) - 1
+  while i >= 0 {
+    if playerBullets[i].y < -8 remove(playerBullets, i)
+    i -= 1
   }
+
+  i = len(enemyBullets) - 1
+  while i >= 0 {
+    if enemyBullets[i].y > HEIGHT + 8 remove(enemyBullets, i)
+    i -= 1
+  }
+
+  if alive_count() == 0 {
+    wave += 1
+    score += 50
+    spawn_wave()
+  }
+
+  update_particles()
+}
+
+fun draw_background() {
+  clear(COLOR_MIDNIGHT_BLUE)
+  let i = 0
+  while i < len(stars) {
+    let s = stars[i]
+    let sy = (s.y + wave + enemyTimer * s.layer / 8) % HEIGHT
+    let col = s.layer == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SKY_BLUE
+    pixel(s.x, sy, col)
+    i += 1
+  }
+}
+
+fun draw_player() {
+  let x = player.x
+  let y = PLAYER_Y
+  poly([[x, y - 6], [x + 8, y + 6], [x - 8, y + 6]], COLOR_SOFT_IVORY, true)
+  poly([[x, y - 4], [x + 6, y + 5], [x - 6, y + 5]], COLOR_SKY_BLUE, true)
+  rect(x - 3, y + 3, 6, 3, COLOR_SOFT_BLACK, true)
+  pixel(x - 4, y + 1, COLOR_WARM_YELLOW)
+  pixel(x + 4, y + 1, COLOR_WARM_YELLOW)
+}
+
+fun draw_enemy(e) {
+  if !e.alive return
+  let x = e.x
+  let y = e.y + sin(e.phase) * 1
+  let color = e.kind == 0 ? COLOR_WARM_YELLOW : (e.kind == 1 ? COLOR_LIGHT_PEACH : COLOR_DUSTY_PURPLE)
+  rect(x + 1, y, ENEMY_W - 2, ENEMY_H, color, true)
+  rect(x, y + 2, ENEMY_W, 3, color, true)
+  pixel(x + 2, y + 2, COLOR_SOFT_BLACK)
+  pixel(x + ENEMY_W - 3, y + 2, COLOR_SOFT_BLACK)
+}
+
+fun draw_bullets() {
+  let i = 0
+  while i < len(playerBullets) {
+    rect(playerBullets[i].x - 1, playerBullets[i].y, 2, 5, COLOR_SOFT_IVORY, true)
+    i += 1
+  }
+
+  i = 0
+  while i < len(enemyBullets) {
+    rect(enemyBullets[i].x - 1, enemyBullets[i].y, 2, 5, COLOR_VIVID_RED, true)
+    i += 1
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    i += 1
+  }
+}
+
+fun draw_hud() {
+  rect(0, 0, WIDTH, 10, COLOR_SOFT_BLACK, true)
+  print("S " + score, 2, 2, COLOR_SOFT_IVORY)
+  print("L " + lives, 56, 2, COLOR_LIGHT_PEACH)
+  print("W " + wave, 96, 2, COLOR_SKY_BLUE)
+}
+
+fun draw_overlay(title, sub) {
+  rect(14, 42, 100, 44, COLOR_SOFT_BLACK, true)
+  rect(14, 42, 100, 44, COLOR_DUSTY_PURPLE)
+  print(title, 31, 51, COLOR_SOFT_IVORY)
+  print(sub, 26, 65, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
+}
+
+reset_game()
+
+while true {
+  if key("KEY_P", true) paused = !paused
+  if game_over && key("KEY_SPACE") reset_game()
+
+  update_play()
+
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  let oy = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, oy)
+  draw_background()
+
+  let i = 0
+  while i < len(enemies) {
+    draw_enemy(enemies[i])
+    i += 1
+  }
+
+  draw_bullets()
+  draw_particles()
+  draw_player()
+  camera()
+  draw_hud()
+
+  if paused && !game_over draw_overlay("PAUSED", "PRESS P")
+  if game_over draw_overlay("GAME OVER", "SCORE " + score)
 
   draw()
   sleep(16)

@@ -799,6 +799,9 @@ Value pi_len(vm_t *vm, int argc, Value *argv)
     if (argc == 0)
         vm_error(vm, "[len] expects at least one argument.");
 
+    if (!IS_OBJ(argv[0]))
+        vm_error(vm, "[len] expects a list, string, or map.");
+
     switch (OBJ_TYPE(argv[0]))
     {
     case OBJ_LIST:

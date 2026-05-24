@@ -136,6 +136,7 @@ vm_t *init_vm(compiler_t *comp, Screen *screen)
 
     // Initialize program counter, stack pointer, and base pointer to 0
     vm->pc = 0;
+    vm->last_pc = -1;
     vm->sp = 0;
     vm->bp = 0;
     vm->ip = 0;
@@ -206,6 +207,7 @@ void vm_reset(vm_t *vm, compiler_t *comp)
 {
     // Reset program counter, stack pointer, and base pointer to 0
     vm->pc = 0;
+    vm->last_pc = -1;
     vm->sp = 0;
     vm->bp = 0;
     vm->ip = 0;
@@ -363,11 +365,13 @@ void vm_error(vm_t *vm, const char *message)
     list_t *instrs = ht_get(vm->instrs, name);
     int size = instrs ? list_size(instrs) : 0;
 
+    int error_pc = vm->last_pc >= 0 ? vm->last_pc : vm->pc;
+
     for (int i = 0; i < size; i++)
     {
         instr_t *cur = (instr_t *)list_getAt(instrs, i);
 
-        if (cur->offset > vm->pc)
+        if (cur->offset > error_pc)
             break;
         instr = cur;
     }
@@ -806,7 +810,9 @@ void run(vm_t *vm)
             return;
         }
 
+        int instr_pc = pc;
         op = code[pc++];
+        vm->last_pc = instr_pc;
 
         vm->ip++; // Advance instruction index
 

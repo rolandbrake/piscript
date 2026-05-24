@@ -1,174 +1,481 @@
-// Star Dodger
-// Move with LEFT/RIGHT, collect gold stars, dodge red rocks.
+// Star Dodger DX
+// LEFT/RIGHT or A/D steer. UP boosts. Collect stars and shields, avoid red meteors.
 
-PLAYER_W = 9
-PLAYER_H = 6
-ROCK_W = 8
-ROCK_H = 8
+PLAYER_W = 13
+PLAYER_H = 12
 STAR_R = 3
+METEOR_R = 5
 
-playerX = WIDTH / 2 - PLAYER_W / 2
-playerY = HEIGHT - 16
-playerSpeed = 3
+playerX = WIDTH / 2
+playerY = HEIGHT - 18
+playerVX = 0
 
-rocks = []
-stars = []
+meteors = []
+gems = []
+bgStars = []
+particles = []
+
 score = 0
 lives = 3
+shield = 0
+energy = 80
 tick = 0
+spawn_timer = 18
+gem_timer = 42
+shake = 0
 game_over = false
 
 fun reset_game() {
-  playerX = WIDTH / 2 - PLAYER_W / 2
-  rocks = []
-  stars = []
+  playerX = WIDTH / 2
+  playerY = HEIGHT - 18
+  playerVX = 0
+  meteors = []
+  gems = []
+  bgStars = []
+  particles = []
   score = 0
   lives = 3
+  shield = 0
+  energy = 80
   tick = 0
+  spawn_timer = 18
+  gem_timer = 42
+  shake = 0
   game_over = false
-}
 
-fun spawn_rock() {
-  let rock = {
-    x: rand(2, WIDTH - ROCK_W - 2),
-    y: -ROCK_H,
-    speed: rand(1, 3)
+  let i = 0
+  while i < 42 {
+    push(bgStars, {
+      x: rand(0, WIDTH - 1),
+      y: rand(0, HEIGHT - 1),
+      layer: rand(1, 3)
+    })
+    i += 1
   }
-  push(rocks, rock)
 }
 
-fun spawn_star() {
-  let star = {
-    x: rand(5, WIDTH - 5),
-    y: -STAR_R,
-    speed: rand(1, 2)
+fun clamp(v, lo, hi) {
+  if v < lo return lo
+  if v > hi return hi
+  return v
+}
+
+fun hit_circle(ax, ay, ar, bx, by, br) {
+  let dx = ax - bx
+  let dy = ay - by
+  let rr = ar + br
+  return dx * dx + dy * dy < rr * rr
+}
+
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {
+    x: x,
+    y: y,
+    dx: dx,
+    dy: dy,
+    life: life,
+    color: color
+  })
+}
+
+fun burst(x, y, color) {
+  let i = 0
+  while i < 10 {
+    let a = rand(0, 628) / 100
+    let s = rand(5, 16) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(10, 22), color)
+    i += 1
   }
-  push(stars, star)
 }
 
-fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
-  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+fun spawn_meteor() {
+  let difficulty = 1 + floor(score / 180)
+  let r = rand(4, 8)
+  push(meteors, {
+    x: rand(r, WIDTH - r),
+    y: -r,
+    dx: rand(-6, 6) / 10,
+    dy: rand(12, 22) / 10 + difficulty * 0.08,
+    r: r,
+    spin: rand(-4, 4) / 100,
+    angle: rand(0, 628) / 100
+  })
+}
+
+fun spawn_gem() {
+  let kind = rand(0, 100) < 18 ? 1 : 0
+  push(gems, {
+    x: rand(6, WIDTH - 6),
+    y: -6,
+    dy: rand(10, 17) / 10,
+    kind: kind,
+    phase: rand(0, 628) / 100
+  })
+}
+
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].dy += 0.02
+    particles[i].life -= 1
+    i += 1
+  }
+
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
+}
+
+fun update_play() {
+  tick += 1
+  if shake > 0 shake -= 1
+  if shield > 0 shield -= 1
+
+  let thrusting = key("KEY_UP") && energy > 0
+  let steer = 0
+  if key("KEY_LEFT") || key("KEY_A") steer -= 1
+  if key("KEY_RIGHT") || key("KEY_D") steer += 1
+
+  playerVX += steer * (thrusting ? 0.45 : 0.32)
+  playerVX *= 0.86
+  playerX += playerVX
+  playerX = clamp(playerX, 8, WIDTH - 8)
+
+  if thrusting {
+    energy -= 0.55
+    add_particle(playerX + rand(-4, 4), playerY + 8, rand(-3, 3) / 10, 1.3, 10, COLOR_SKY_BLUE)
+  } else {
+    energy += 0.12
+  }
+  energy = clamp(energy, 0, 100)
+
+  add_particle(playerX + rand(-3, 3), playerY + 8, rand(-2, 2) / 10, 0.9, 8, COLOR_AMBER_ORANGE)
+
+  spawn_timer -= 1
+  gem_timer -= 1
+  if spawn_timer <= 0 {
+    spawn_meteor()
+    spawn_timer = 20 - floor(score / 160)
+    if spawn_timer < 7 spawn_timer = 7
+  }
+  if gem_timer <= 0 {
+    spawn_gem()
+    gem_timer = rand(32, 54)
+  }
+
+  let i = 0
+  while i < len(meteors) {
+    meteors[i].x += meteors[i].dx
+    meteors[i].y += meteors[i].dy
+    meteors[i].angle += meteors[i].spin
+
+    if meteors[i].x < meteors[i].r || meteors[i].x > WIDTH - meteors[i].r meteors[i].dx *= -1
+
+    if hit_circle(playerX, playerY, 6, meteors[i].x, meteors[i].y, meteors[i].r) {
+      burst(meteors[i].x, meteors[i].y, COLOR_VIVID_RED)
+      meteors[i].y = HEIGHT + 20
+      shake = 12
+      if shield > 0 {
+        shield = 0
+        score += 15
+        play(tone(360, 80, WAVE_TRIANGLE))
+      } else {
+        lives -= 1
+        play(tone(120, 150, WAVE_SQUARE))
+        if lives <= 0 game_over = true
+      }
+    }
+    i += 1
+  }
+
+  i = 0
+  while i < len(gems) {
+    gems[i].y += gems[i].dy
+    gems[i].phase += 0.12
+    let gx = gems[i].x + sin(gems[i].phase) * 2
+
+    if hit_circle(playerX, playerY, 6, gx, gems[i].y, 5) {
+      if gems[i].kind == 0 {
+        score += 25
+        energy += 10
+        burst(gx, gems[i].y, COLOR_WARM_YELLOW)
+        play(tone(760, 60, WAVE_SINE))
+      } else {
+        shield = 260
+        score += 40
+        burst(gx, gems[i].y, COLOR_SKY_BLUE)
+        play(tone(520, 90, WAVE_TRIANGLE))
+      }
+      gems[i].y = HEIGHT + 20
+    }
+    i += 1
+  }
+
+  i = len(meteors) - 1
+  while i >= 0 {
+    if meteors[i].y > HEIGHT + 16 {
+      remove(meteors, i)
+      score += 1
+    }
+    i -= 1
+  }
+
+  i = len(gems) - 1
+  while i >= 0 {
+    if gems[i].y > HEIGHT + 12 remove(gems, i)
+    i -= 1
+  }
+
+  update_particles()
 }
 
 fun draw_background() {
-  clear()
-  for y in 0..128:16 {
-    let shade = y % 32 == 0 ? COLOR_SOFT_BLACK : COLOR_DEEP_BLUE
-    rect(0, y, WIDTH, 16, shade, true)
-  }
+  clear(COLOR_MIDNIGHT_BLUE)
+  rect(0, 72, WIDTH, 56, COLOR_DEEP_BLUE, true)
 
-  for i in 0..22 {
-    let sx = (i * 17 + tick) % WIDTH
-    let sy = (i * 29 + tick / 2) % HEIGHT
-    pixel(sx, sy, COLOR_COOL_LIGHT_GRAY)
+  let i = 0
+  while i < len(bgStars) {
+    let s = bgStars[i]
+    let sy = (s.y + tick * s.layer / 4) % HEIGHT
+    let col = s.layer == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SKY_BLUE
+    pixel(s.x, sy, col)
+    if s.layer == 3 pixel(s.x + 1, sy, col)
+    i += 1
   }
 }
 
-fun draw_player() {
-  rect(playerX + 2, playerY, PLAYER_W - 4, PLAYER_H, COLOR_SKY_BLUE, true)
-  rect(playerX, playerY + 3, PLAYER_W, 3, COLOR_SOFT_IVORY, true)
-  pixel(playerX + 4, playerY + PLAYER_H, COLOR_WARM_YELLOW)
+fun draw_ship() {
+  let lean = clamp(playerVX * 1.5, -5, 5)
+  let x = playerX
+  let y = playerY
+
+  // Shield effect
+  if shield > 0 {
+    circ(x, y, 18, shield % 12 < 6 ? COLOR_SKY_BLUE : COLOR_DUSTY_PURPLE)
+    circ(x, y, 20, COLOR_COOL_LIGHT_GRAY)
+  }
+
+  // === ENGINE PODS (behind wings) ===
+  poly(
+    [[x - 13 + lean, y + 3], [x - 9 + lean, y - 1],
+     [x - 7 + lean, y + 8], [x - 12 + lean, y + 13]],
+    COLOR_CHARCOAL_GRAY, true
+  )
+  poly(
+    [[x + 13 + lean, y + 3], [x + 9 + lean, y - 1],
+     [x + 7 + lean, y + 8], [x + 12 + lean, y + 13]],
+    COLOR_CHARCOAL_GRAY, true
+  )
+
+  // === WINGS ===
+  // Left
+  poly(
+    [[x, y - 8], [x - 4 + lean, y + 2],
+     [x - 17 + lean, y + 9], [x - 12 + lean, y + 13], [x - 5 + lean, y + 6]],
+    COLOR_DEEP_BLUE, true
+  )
+  // Right
+  poly(
+    [[x, y - 8], [x + 4 + lean, y + 2],
+     [x + 17 + lean, y + 9], [x + 12 + lean, y + 13], [x + 5 + lean, y + 6]],
+    COLOR_DEEP_BLUE, true
+  )
+
+  // Wing panel lines
+  line(x - 4 + lean, y + 2, x - 14 + lean, y + 8, COLOR_BRIGHT_COBALT)
+  line(x + 4 + lean, y + 2, x + 14 + lean, y + 8, COLOR_BRIGHT_COBALT)
+  line(x - 8 + lean, y + 4, x - 11 + lean, y + 11, COLOR_DUSTY_PURPLE)
+  line(x + 8 + lean, y + 4, x + 11 + lean, y + 11, COLOR_DUSTY_PURPLE)
+
+  // Wing tip nav lights
+  pixel(x - 17 + lean, y + 9, COLOR_VIVID_RED)
+  pixel(x + 17 + lean, y + 9, COLOR_VIVID_RED)
+  if shield % 6 < 3 {
+    pixel(x - 16 + lean, y + 9, COLOR_LIGHT_PEACH)
+    pixel(x + 16 + lean, y + 9, COLOR_LIGHT_PEACH)
+  }
+
+  // Weapon hardpoints
+  line(x - 10 + lean, y + 5, x - 14 + lean, y + 3, COLOR_COOL_LIGHT_GRAY)
+  line(x + 10 + lean, y + 5, x + 14 + lean, y + 3, COLOR_COOL_LIGHT_GRAY)
+  pixel(x - 14 + lean, y + 3, COLOR_VIVID_RED)
+  pixel(x + 14 + lean, y + 3, COLOR_VIVID_RED)
+
+  // === MAIN BODY ===
+  poly(
+    [
+      [x, y - 17],
+      [x + 7 + lean / 2, y - 1],
+      [x + 8 + lean / 2, y + 10],
+      [x, y + 14],
+      [x - 8 + lean / 2, y + 10],
+      [x - 7 + lean / 2, y - 1]
+    ],
+    COLOR_BRIGHT_COBALT, true
+  )
+
+  // Body panel seams
+  line(x - 5 + lean / 3, y - 3, x - 6 + lean / 3, y + 9, COLOR_DEEP_BLUE)
+  line(x + 5 + lean / 3, y - 3, x + 6 + lean / 3, y + 9, COLOR_DEEP_BLUE)
+
+  // === INNER HULL ===
+  poly(
+    [
+      [x, y - 12],
+      [x + 4 + lean / 3, y + 1],
+      [x + 4, y + 9],
+      [x, y + 12],
+      [x - 4, y + 9],
+      [x - 4 + lean / 3, y + 1]
+    ],
+    COLOR_SOFT_IVORY, true
+  )
+
+  // === COCKPIT ===
+  poly(
+    [
+      [x, y - 11],
+      [x + 3 + lean / 4, y - 3],
+      [x, y - 1],
+      [x - 3 + lean / 4, y - 3]
+    ],
+    COLOR_SKY_BLUE, true
+  )
+  pixel(x - 1 + lean / 5, y - 9, COLOR_SOFT_IVORY)
+  pixel(x     + lean / 5, y - 8, COLOR_SOFT_IVORY)
+
+  // === NOSE ===
+  circ(x, y - 16, 2, COLOR_CHARCOAL_GRAY, true)
+  pixel(x, y - 16, COLOR_WARM_YELLOW)
+
+  // Nose stripe
+  line(x, y - 14, x, y + 5, COLOR_VIVID_RED)
+
+  // Hull edge highlights
+  line(x, y - 17, x - 7 + lean, y + 1, COLOR_SKY_BLUE)
+  line(x, y - 17, x + 7 + lean, y + 1, COLOR_SKY_BLUE)
+
+  // === ENGINE GLOW ===
+  circ(x - 10 + lean, y + 12, 2, COLOR_AMBER_ORANGE, true)
+  circ(x + 10 + lean, y + 12, 2, COLOR_AMBER_ORANGE, true)
+  pixel(x - 10 + lean, y + 12, COLOR_WARM_YELLOW)
+  pixel(x + 10 + lean, y + 12, COLOR_WARM_YELLOW)
+  rect(x - 2, y + 11, 4, 3, COLOR_CHARCOAL_GRAY, true)
+  pixel(x, y + 12, COLOR_AMBER_ORANGE)
+
+  // === THRUSTERS ===
+  if key("KEY_UP") && energy > 0 {
+    // Center flame
+    poly(
+      [[x - 3, y + 14], [x + 3, y + 14], [x + 1, y + 24], [x - 1, y + 24]],
+      COLOR_AMBER_ORANGE, true
+    )
+    line(x, y + 14, x, y + 27, COLOR_WARM_YELLOW)
+
+    // Left pod flame
+    poly(
+      [[x - 13 + lean, y + 14], [x - 9 + lean, y + 14], [x - 11 + lean, y + 22]],
+      COLOR_AMBER_ORANGE, true
+    )
+    line(x - 11 + lean, y + 14, x - 11 + lean, y + 23, COLOR_ORANGE_RED)
+
+    // Right pod flame
+    poly(
+      [[x + 13 + lean, y + 14], [x + 9 + lean, y + 14], [x + 11 + lean, y + 22]],
+      COLOR_AMBER_ORANGE, true
+    )
+    line(x + 11 + lean, y + 14, x + 11 + lean, y + 23, COLOR_ORANGE_RED)
+  }
+}
+
+fun draw_meteor(m) {
+  let r = m.r
+  let x = m.x
+  let y = m.y
+  circ(x, y, r, COLOR_BRICK_RED, true)
+  circ(x, y, r - 1, COLOR_VIVID_RED, true)
+  circ(x - r / 3, y - r / 3, r / 3, COLOR_ORANGE_RED, true)
+  pixel(x + cos(m.angle) * r / 2, y + sin(m.angle) * r / 2, COLOR_LIGHT_PEACH)
+}
+
+fun draw_gem(g) {
+  let x = g.x + sin(g.phase) * 2
+  let y = g.y
+  if g.kind == 0 {
+    circ(x, y, STAR_R + 1, COLOR_WARM_YELLOW, true)
+    circ(x, y, STAR_R - 1, COLOR_AMBER_ORANGE, true)
+    pixel(x - 1, y - 2, COLOR_SOFT_IVORY)
+  } else {
+    poly([[x, y - 5], [x + 5, y], [x, y + 5], [x - 5, y]], COLOR_SKY_BLUE, true)
+    poly([[x, y - 3], [x + 3, y], [x, y + 3], [x - 3, y]], COLOR_SOFT_IVORY)
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    i += 1
+  }
 }
 
 fun draw_hud() {
-  print("SCORE " + score, 2, 2, COLOR_SOFT_IVORY)
-  print("LIVES " + lives, 76, 2, COLOR_SOFT_IVORY)
+  rect(0, 0, WIDTH, 11, COLOR_SOFT_BLACK, true)
+  print("S " + score, 2, 2, COLOR_SOFT_IVORY)
+  print("L " + lives, 52, 2, COLOR_LIGHT_PEACH)
+  rect(84, 3, 40, 4, COLOR_CHARCOAL_GRAY, true)
+  rect(84, 3, energy * 40 / 100, 4, energy > 22 ? COLOR_SKY_BLUE : COLOR_VIVID_RED, true)
+  if shield > 0 print("SH", 66, 2, COLOR_SKY_BLUE)
 }
 
 fun draw_game_over() {
-  rect(14, 42, 100, 42, COLOR_SOFT_BLACK, true)
-  rect(14, 42, 100, 42, COLOR_COOL_LIGHT_GRAY)
-  print("GAME OVER", 36, 50, COLOR_VIVID_RED)
-  print("SCORE " + score, 38, 62, COLOR_WARM_YELLOW)
-  print("SPACE TO RESTART", 20, 74, COLOR_SOFT_IVORY)
+  rect(14, 42, 100, 44, COLOR_SOFT_BLACK, true)
+  rect(14, 42, 100, 44, COLOR_DUSTY_PURPLE)
+  print("GAME OVER", 36, 51, COLOR_VIVID_RED)
+  print("SCORE " + score, 36, 64, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 78, COLOR_SOFT_IVORY)
 }
 
 reset_game()
 
 while true {
-  if (!game_over) {
-    tick += 1
-
-    if key("KEY_LEFT") && playerX > 2 {
-      playerX -= playerSpeed
-    }
-    if key("KEY_RIGHT") && playerX + PLAYER_W < WIDTH - 2 {
-      playerX += playerSpeed
-    }
-
-    if tick % 18 == 0 {
-      spawn_rock()
-    }
-    if tick % 45 == 0 {
-      spawn_star()
-    }
-
-    for i in 0..len(rocks) {
-      rocks[i].y += rocks[i].speed
-
-      if hit_box(playerX, playerY, PLAYER_W, PLAYER_H, rocks[i].x, rocks[i].y, ROCK_W, ROCK_H) {
-        lives -= 1
-        rocks[i].y = HEIGHT + ROCK_H
-        play(tone(130, 120, 1))
-        if lives <= 0 {
-          game_over = true
-        }
-      }
-    }
-
-    for i in 0..len(stars) {
-      stars[i].y += stars[i].speed
-
-      if hit_box(playerX, playerY, PLAYER_W, PLAYER_H, stars[i].x - STAR_R, stars[i].y - STAR_R, STAR_R * 2, STAR_R * 2) {
-        score += 10
-        stars[i].y = HEIGHT + STAR_R
-        play(tone(760, 60, 0))
-      }
-    }
-
-    let i = len(rocks) - 1
-    while i >= 0 {
-      if rocks[i].y > HEIGHT {
-        remove(rocks, i)
-        score += 1
-      }
-      i -= 1
-    }
-
-    i = len(stars) - 1
-    while i >= 0 {
-      if stars[i].y > HEIGHT {
-        remove(stars, i)
-      }
-      i -= 1
-    }
+  if !game_over {
+    update_play()
   } else {
+    update_particles()
     if key("KEY_SPACE") {
       reset_game()
-      while key("KEY_SPACE") {
-        sleep(20)
-      }
+      while key("KEY_SPACE") sleep(20)
     }
   }
 
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  let oy = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, oy)
   draw_background()
 
-  for i in 0..len(stars) {
-    circ(stars[i].x, stars[i].y, STAR_R, COLOR_WARM_YELLOW, true)
+  let i = 0
+  while i < len(gems) {
+    draw_gem(gems[i])
+    i += 1
   }
 
-  for i in 0..len(rocks) {
-    rect(rocks[i].x, rocks[i].y, ROCK_W, ROCK_H, COLOR_VIVID_RED, true)
-    pixel(rocks[i].x + 2, rocks[i].y + 2, COLOR_LIGHT_PEACH)
+  i = 0
+  while i < len(meteors) {
+    draw_meteor(meteors[i])
+    i += 1
   }
 
-  draw_player()
+  draw_particles()
+  draw_ship()
+  camera()
   draw_hud()
-
-  if game_over {
-    draw_game_over()
-  }
+  if game_over draw_game_over()
 
   draw()
-  sleep(30)
+  sleep(16)
 }

@@ -24,6 +24,7 @@
 typedef struct
 {
     int pc; // Program Counter: Points to the current instruction being executed.
+    int last_pc; // Bytecode offset of the opcode currently/most recently executed.
     int sp; // Stack Pointer: Tracks the top of the stack.
     int bp; // Base Pointer: Used for managing function call frames.
     int ip; // Instruction Pointer: Points to the current instruction being executed.

@@ -1,142 +1,384 @@
+// Neon Breakout
+// LEFT/RIGHT or A/D move. SPACE launches/restarts. P pauses.
 
-PADDLE_WIDTH = 20
-PADDLE_HEIGHT = 6
-BALL_SIZE = 3
+PADDLE_W_BASE = 22
+PADDLE_H = 5
+BALL_R = 3
 ROWS = 5
 COLS = 10
-BRICK_WIDTH = WIDTH / COLS
-BRICK_HEIGHT = 6
+BRICK_W = WIDTH / COLS
+BRICK_H = 6
 
-paddleX = WIDTH / 2 - PADDLE_WIDTH / 2
-paddleY = HEIGHT - 10
+brickColors = [
+  COLOR_DUSTY_PURPLE,
+  COLOR_VIVID_RED,
+  COLOR_AMBER_ORANGE,
+  COLOR_WARM_YELLOW,
+  COLOR_SKY_BLUE
+]
+
+paddleX = WIDTH / 2
+paddleVX = 0
+paddleW = PADDLE_W_BASE
+paddleY = HEIGHT - 12
 
 ballX = WIDTH / 2
-ballY = HEIGHT / 2
-ballDX = 1
-ballDY = -1
+ballY = HEIGHT - 20
+ballDX = 1.4
+ballDY = -1.8
+ballSpeed = 1
+ballStuck = true
 
-ballSpeed = 2
+bricks = []
+particles = []
+powerups = []
+
+score = 0
+lives = 3
+level = 1
+shake = 0
+wideTimer = 0
+paused = false
 game_over = false
 win = false
 
-
-colors = [COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN, COLOR_VIVID_RED,
-          COLOR_AMBER_ORANGE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
-          COLOR_OCEAN_TEAL]
-
-// Initialize brick grid
-bricks = [0] * ROWS
-for i in 0..ROWS
-  bricks[i] = [1] * COLS
-
-fun drawBricks() {
-  for i in 0..ROWS {
-    for j in 0..COLS {
-      if bricks[i][j] == 1 {
-        let x = j * BRICK_WIDTH
-        let y = i * BRICK_HEIGHT
-        rect(x, y, BRICK_WIDTH , BRICK_HEIGHT, colors[i], true)
-      }
+fun reset_bricks() {
+  bricks = [0] * ROWS
+  let r = 0
+  while r < ROWS {
+    bricks[r] = [0] * COLS
+    let c = 0
+    while c < COLS {
+      let gap = level % 2 == 0 && (r + c) % 5 == 0
+      bricks[r][c] = gap ? 0 : 1
+      c += 1
     }
+    r += 1
   }
 }
 
-fun drawPaddle() {
-  rect(paddleX, paddleY, PADDLE_WIDTH, PADDLE_HEIGHT, COLOR_SOFT_IVORY, true)
+fun reset_ball() {
+  ballX = paddleX
+  ballY = paddleY - BALL_R - 1
+  ballDX = rand(0, 1) == 0 ? -1.3 : 1.3
+  ballDY = -1.8
+  ballSpeed = 1 + level * 0.08
+  ballStuck = true
 }
 
-fun drawBall() {
-  circ(ballX, ballY, BALL_SIZE, COLOR_VIVID_RED, true)
+fun reset_game() {
+  paddleX = WIDTH / 2
+  paddleVX = 0
+  paddleW = PADDLE_W_BASE
+  score = 0
+  lives = 3
+  level = 1
+  shake = 0
+  wideTimer = 0
+  paused = false
+  game_over = false
+  win = false
+  particles = []
+  powerups = []
+  reset_bricks()
+  reset_ball()
 }
 
-fun resetBall() {
-  ballX = WIDTH / 2
-  ballY = HEIGHT / 2
-  ballDX = 1
-  ballDY = -1
+fun clamp(v, lo, hi) {
+  if v < lo return lo
+  if v > hi return hi
+  return v
 }
 
-fun checkBrickCollision() {
+fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {x: x, y: y, dx: dx, dy: dy, life: life, color: color})
+}
+
+fun burst(x, y, color) {
+  let i = 0
+  while i < 9 {
+    let a = rand(0, 628) / 100
+    let s = rand(4, 14) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(10, 20), color)
+    i += 1
+  }
+}
+
+fun spawn_powerup(x, y) {
+  if rand(0, 100) < 18 {
+    push(powerups, {x: x, y: y, kind: rand(0, 1), dy: 1.2})
+  }
+}
+
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].dy += 0.03
+    particles[i].life -= 1
+    i += 1
+  }
+
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
+}
+
+fun bricks_left() {
+  let count = 0
+  let r = 0
+  while r < ROWS {
+    let c = 0
+    while c < COLS {
+      if bricks[r][c] == 1 count += 1
+      c += 1
+    }
+    r += 1
+  }
+  return count
+}
+
+fun check_brick_collision() {
   let hit = false
-  for i in 0..ROWS {
-    for j in 0..COLS {
-      if bricks[i][j] == 1 {
-        let bx = j * BRICK_WIDTH
-        let by = i * BRICK_HEIGHT
-        if ballX + BALL_SIZE > bx && ballX < bx + BRICK_WIDTH &&
-           ballY + BALL_SIZE > by && ballY < by + BRICK_HEIGHT {
-          bricks[i][j] = 0
+  let r = 0
+  while r < ROWS && !hit {
+    let c = 0
+    while c < COLS && !hit {
+      if bricks[r][c] == 1 {
+        let bx = c * BRICK_W
+        let by = r * BRICK_H + 14
+        if hit_box(ballX - BALL_R, ballY - BALL_R, BALL_R * 2, BALL_R * 2, bx, by, BRICK_W, BRICK_H) {
+          bricks[r][c] = 0
           ballDY = -ballDY
+          score += 10 * level
+          shake = 3
+          burst(bx + BRICK_W / 2, by + BRICK_H / 2, brickColors[r])
+          spawn_powerup(bx + BRICK_W / 2, by + BRICK_H / 2)
+          play(tone(620 + r * 50, 55, WAVE_SINE))
           hit = true
-          break
         }
       }
+      c += 1
     }
-    if hit break
+    r += 1
   }
 }
 
-fun checkWin() {
-  for i in 0..ROWS {
-    for j in 0..COLS {
-      if bricks[i][j] == 1 return
-    }
+fun lose_life() {
+  lives -= 1
+  shake = 12
+  burst(ballX, HEIGHT - 8, COLOR_VIVID_RED)
+  play(tone(120, 170, WAVE_SQUARE))
+  if lives <= 0 {
+    game_over = true
+  } else {
+    reset_ball()
   }
-  win = true
 }
+
+fun next_level() {
+  level += 1
+  if level > 6 {
+    win = true
+    game_over = true
+  } else {
+    powerups = []
+    reset_bricks()
+    reset_ball()
+    play(tone(820, 120, WAVE_TRIANGLE))
+  }
+}
+
+fun update_play() {
+  if paused || game_over {
+    update_particles()
+    return
+  }
+
+  if shake > 0 shake -= 1
+  if wideTimer > 0 {
+    wideTimer -= 1
+    paddleW = PADDLE_W_BASE + 10
+  } else {
+    paddleW = PADDLE_W_BASE
+  }
+
+  let steer = 0
+  if key("KEY_LEFT") || key("KEY_A") steer -= 1
+  if key("KEY_RIGHT") || key("KEY_D") steer += 1
+  paddleVX += steer * 0.75
+  paddleVX *= 0.72
+  paddleX += paddleVX
+  paddleX = clamp(paddleX, paddleW / 2 + 2, WIDTH - paddleW / 2 - 2)
+
+  if ballStuck {
+    ballX = paddleX
+    ballY = paddleY - BALL_R - 1
+    if key("KEY_SPACE") ballStuck = false
+  } else {
+    ballX += ballDX * ballSpeed
+    ballY += ballDY * ballSpeed
+    add_particle(ballX - ballDX, ballY - ballDY, 0, 0, 7, COLOR_DUSTY_PURPLE)
+  }
+
+  if ballX - BALL_R <= 0 {
+    ballX = BALL_R
+    ballDX = -ballDX
+    play(tone(360, 35, WAVE_TRIANGLE))
+  }
+  if ballX + BALL_R >= WIDTH {
+    ballX = WIDTH - BALL_R
+    ballDX = -ballDX
+    play(tone(360, 35, WAVE_TRIANGLE))
+  }
+  if ballY - BALL_R <= 8 {
+    ballY = 8 + BALL_R
+    ballDY = -ballDY
+    play(tone(420, 35, WAVE_TRIANGLE))
+  }
+
+  if ballDY > 0 && hit_box(ballX - BALL_R, ballY - BALL_R, BALL_R * 2, BALL_R * 2, paddleX - paddleW / 2, paddleY, paddleW, PADDLE_H) {
+    let offset = (ballX - paddleX) / (paddleW / 2)
+    offset = clamp(offset, -1, 1)
+    ballDX = offset * 2.2
+    ballDY = -2
+    ballSpeed += 0.02
+    burst(ballX, paddleY, COLOR_SKY_BLUE)
+    play(tone(700, 45, WAVE_SINE))
+  }
+
+  check_brick_collision()
+
+  if ballY > HEIGHT + 8 lose_life()
+
+  let i = 0
+  while i < len(powerups) {
+    powerups[i].y += powerups[i].dy
+    if hit_box(paddleX - paddleW / 2, paddleY, paddleW, PADDLE_H, powerups[i].x - 4, powerups[i].y - 4, 8, 8) {
+      if powerups[i].kind == 0 {
+        wideTimer = 520
+        play(tone(520, 90, WAVE_TRIANGLE))
+      } else {
+        lives += 1
+        play(tone(860, 90, WAVE_SINE))
+      }
+      burst(powerups[i].x, powerups[i].y, COLOR_WARM_YELLOW)
+      powerups[i].y = HEIGHT + 20
+    }
+    i += 1
+  }
+
+  i = len(powerups) - 1
+  while i >= 0 {
+    if powerups[i].y > HEIGHT + 8 remove(powerups, i)
+    i -= 1
+  }
+
+  if bricks_left() == 0 next_level()
+  update_particles()
+}
+
+fun draw_background() {
+  clear(COLOR_MIDNIGHT_BLUE)
+  rect(0, 8, WIDTH, HEIGHT - 8, COLOR_SOFT_BLACK, true)
+  rect(0, 8, WIDTH, HEIGHT - 8, COLOR_SKY_BLUE)
+}
+
+fun draw_bricks() {
+  let r = 0
+  while r < ROWS {
+    let c = 0
+    while c < COLS {
+      if bricks[r][c] == 1 {
+        let x = c * BRICK_W
+        let y = r * BRICK_H + 14
+        rect(x + 1, y + 1, BRICK_W - 2, BRICK_H - 1, brickColors[r], true)
+        rect(x + 1, y + 1, BRICK_W - 2, BRICK_H - 1, COLOR_SOFT_BLACK)
+        pixel(x + 2, y + 2, COLOR_SOFT_IVORY)
+      }
+      c += 1
+    }
+    r += 1
+  }
+}
+
+fun draw_paddle() {
+  rect(paddleX - paddleW / 2 - 1, paddleY - 1, paddleW + 2, PADDLE_H + 2, COLOR_SOFT_BLACK, true)
+  rect(paddleX - paddleW / 2, paddleY, paddleW, PADDLE_H, COLOR_SKY_BLUE, true)
+  rect(paddleX - paddleW / 2 + 2, paddleY + 1, paddleW - 4, 2, COLOR_SOFT_IVORY, true)
+}
+
+fun draw_ball() {
+  circ(ballX, ballY, BALL_R + 1, COLOR_SOFT_BLACK, true)
+  circ(ballX, ballY, BALL_R, COLOR_WARM_YELLOW, true)
+  pixel(ballX - 1, ballY - 1, COLOR_SOFT_IVORY)
+}
+
+fun draw_powerups() {
+  let i = 0
+  while i < len(powerups) {
+    let c = powerups[i].kind == 0 ? COLOR_SKY_BLUE : COLOR_LIGHT_PEACH
+    circ(powerups[i].x, powerups[i].y, 4, c, true)
+    print(powerups[i].kind == 0 ? "W" : "+", powerups[i].x - 2, powerups[i].y - 3, COLOR_SOFT_BLACK)
+    i += 1
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    i += 1
+  }
+}
+
+fun draw_hud() {
+  rect(0, 0, WIDTH, 8, COLOR_SOFT_BLACK, true)
+  print("S " + score, 2, 1, COLOR_SOFT_IVORY)
+  print("L " + lives, 56, 1, COLOR_LIGHT_PEACH)
+  print("LV " + level, 96, 1, COLOR_SKY_BLUE)
+}
+
+fun draw_overlay(title, sub) {
+  rect(14, 42, 100, 44, COLOR_SOFT_BLACK, true)
+  rect(14, 42, 100, 44, COLOR_DUSTY_PURPLE)
+  print(title, 33, 51, COLOR_SOFT_IVORY)
+  print(sub, 24, 65, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
+}
+
+reset_game()
 
 while true {
-  clear(COLOR_SOFT_BLACK)
+  if key("KEY_P", true) paused = !paused
+  if game_over && key("KEY_SPACE") reset_game()
 
-  // Player input
-  if key("KEY_LEFT") && paddleX > 0
-    paddleX -= 2
-  if key("KEY_RIGHT") && paddleX + PADDLE_WIDTH < WIDTH
-    paddleX += 2
+  update_play()
 
-  // Ball movement
-  ballX += ballDX * ballSpeed
-  ballY += ballDY * ballSpeed
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  let oy = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, oy)
+  draw_background()
+  draw_bricks()
+  draw_powerups()
+  draw_particles()
+  draw_paddle()
+  draw_ball()
+  camera()
+  draw_hud()
 
-  // Wall collisions
-  if ballX <= 0 || ballX + BALL_SIZE >= WIDTH
-    ballDX = -ballDX
-  if ballY <= 0
-    ballDY = -ballDY
-
-  // Paddle collision
-  if ballY + BALL_SIZE >= paddleY && ballX + BALL_SIZE > paddleX && ballX < paddleX + PADDLE_WIDTH {
-    ballDY = -ballDY
-    // Add angle based on where it hit the paddle
-    let hitPos = (ballX + BALL_SIZE / 2) - (paddleX + PADDLE_WIDTH / 2)
-    ballDX = hitPos / (PADDLE_WIDTH / 2)
-  }
-
-  // Brick collision
-  checkBrickCollision()
-
-  // Lose condition
-  if ballY > HEIGHT
-    game_over = true
-
-  // Draw game
-  drawBricks()
-  drawPaddle()
-  drawBall()
-
+  if ballStuck && !game_over print("SPACE LAUNCH", 24, 96, COLOR_SOFT_IVORY)
+  if paused && !game_over draw_overlay("PAUSED", "PRESS P")
   if game_over {
-    print("GAME OVER", 40, 60, COLOR_COOL_LIGHT_GRAY)
-    draw()
-    sleep(1000)
-    break
-  }
-
-  checkWin()
-  if win {
-    print("YOU WIN!", 44, 60, COLOR_WARM_YELLOW)
-    draw()
-    sleep(1000)
-    break
+    let title = win ? "YOU WIN" : "GAME OVER"
+    draw_overlay(title, "SCORE " + score)
   }
 
   draw()

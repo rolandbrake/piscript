@@ -1,277 +1,438 @@
-
+// Neon Tetris
+// LEFT/RIGHT move, DOWN soft drops, UP/X rotate, C holds, SPACE hard drops, P pauses.
 
 ROWS = 15
 COLS = 10
-CELL_SIZE = 8
+CELL = 8
+BOARD_W = COLS * CELL
+BOARD_H = ROWS * CELL
+SIDE_X = 84
 
-game_over = false
-score = 0
-
-tick = 0
-fall_rate = 4  // frames before piece falls
-lastRotate = 0
-
-colors = [COLOR_DARK_MAGENTA, COLOR_DEEP_GREEN, COLOR_VIVID_RED,
-          COLOR_AMBER_ORANGE, COLOR_DUSTY_PURPLE, COLOR_PINK_ROSE,
-          COLOR_OCEAN_TEAL]
-
-// Tetromino definitions (relative coordinates)
-blocks = [
-  [[0,0],[1,0],[0,1],[1,1]],     // O
-  [[0,0],[-1,0],[1,0],[2,0]],    // I
-  [[0,0],[-1,0],[1,0],[1,1]],    // J
-  [[0,0],[-1,0],[1,0],[-1,1]],   // L
-  [[0,0],[-1,0],[0,1],[1,1]],    // S
-  [[0,0],[1,0],[0,1],[-1,1]],    // Z
-  [[0,0],[-1,0],[1,0],[0,1]]     // T
+colors = [
+  COLOR_WARM_YELLOW,
+  COLOR_SKY_BLUE,
+  COLOR_BRIGHT_COBALT,
+  COLOR_AMBER_ORANGE,
+  COLOR_EMERALD,
+  COLOR_VIVID_RED,
+  COLOR_DUSTY_PURPLE
 ]
 
-piece = {}
-nextPiece = {}
+blocks = [
+  [[0,0],[1,0],[0,1],[1,1]],
+  [[0,0],[-1,0],[1,0],[2,0]],
+  [[0,0],[-1,0],[1,0],[1,1]],
+  [[0,0],[-1,0],[1,0],[-1,1]],
+  [[0,0],[-1,0],[0,1],[1,1]],
+  [[0,0],[1,0],[0,1],[-1,1]],
+  [[0,0],[-1,0],[1,0],[0,1]]
+]
+
 board = []
-playing = false
+piece = {}
+next_piece = {}
+hold_piece = {}
+particles = []
 
-// Initialize the next piece
-fun initNextPiece() {
-    nextPiece.type = rand(0, 6)
-    nextPiece.color = colors[nextPiece.type]
-    nextPiece.shape = blocks[nextPiece.type]
+score = 0
+lines = 0
+level = 1
+fall_delay = 34
+fall_tick = 0
+move_timer = 0
+soft_timer = 0
+rot_timer = 0
+hold_used = false
+paused = false
+game_over = false
+playing = true
+
+fun clone_shape(shape) {
+  let result = [0] * 4
+  let i = 0
+  while i < 4 {
+    result[i] = [shape[i][0], shape[i][1]]
+    i += 1
+  }
+  return result
 }
 
-
-// Draw the board cells
-fun drawBoard() {
-  rect(0, 0, COLS * CELL_SIZE, ROWS * CELL_SIZE, COLOR_SOFT_BLACK)
-  for i in 0..ROWS {
-    for j in 0..COLS {
-      if board[i][j] != 0 {
-        let x = j * CELL_SIZE
-        let y = i * CELL_SIZE
-        let color = board[i][j]
-        rect(x, y, CELL_SIZE, CELL_SIZE, color, true)
-        rect(x, y, CELL_SIZE, CELL_SIZE, COLOR_SOFT_BLACK)
-      }
-    }
+fun random_piece() {
+  let t = rand(0, 6)
+  return {
+    x: COLS / 2,
+    y: -1,
+    type: t,
+    color: colors[t],
+    shape: clone_shape(blocks[t])
   }
 }
 
-// Draw the next piece preview
-fun drawNextPiece() {
-    let previewX = COLS * CELL_SIZE + 10  // Right side of main board
-    let previewY = 40  // Below the score display
-    
-    // Draw preview background
-    rect(previewX - 5, previewY - 5, 40, 40, COLOR_SOFT_BLACK)
-    println("NEXT", previewX + 5, previewY - 15)
-    
-    // Calculate center offset for the piece
-    let minX = 0, maxX = 0, minY = 0, maxY = 0
-    for i in 0..4 {
-        minX = min([minX, nextPiece.shape[i][0]])
-        maxX = max([maxX, nextPiece.shape[i][0]])
-        minY = min([minY, nextPiece.shape[i][1]])
-        maxY = max([maxY, nextPiece.shape[i][1]])
-    }
-    let offsetX = (4 - (maxX - minX)) / 2
-    let offsetY = (4 - (maxY - minY)) / 2
-    
-    // Draw each block of the next piece
-    for i in 0..4 {
-        let px = nextPiece.shape[i][0] + offsetX
-        let py = nextPiece.shape[i][1] + offsetY
-        let x = previewX + px * CELL_SIZE 
-        let y = previewY + py * CELL_SIZE 
-        rect(x, y, CELL_SIZE, CELL_SIZE, nextPiece.color, true)
-        rect(x, y, CELL_SIZE, CELL_SIZE, COLOR_SOFT_BLACK)
-    }
-}
-
-// Draw the current falling piece
-fun drawPiece() {
-  for i in 0..4 {
-    let px = piece.x + piece.shape[i][0]
-    let py = piece.y + piece.shape[i][1]
-    if py >= 0 {
-      let x = px * CELL_SIZE
-      let y = py * CELL_SIZE
-      rect(x, y, CELL_SIZE, CELL_SIZE, piece.color, true)
-      rect(x, y, CELL_SIZE, CELL_SIZE, COLOR_SOFT_BLACK)
-    }
+fun reset_board() {
+  board = [0] * ROWS
+  let y = 0
+  while y < ROWS {
+    board[y] = [0] * COLS
+    y += 1
   }
 }
 
-// Spawn a new tetromino
-fun newPiece() {    
-    // Copy next piece to current piece
-    piece.x = COLS / 2
-    piece.y = -1
-    piece.type = nextPiece.type    
-    piece.color = nextPiece.color 
-    piece.shape = blocks[piece.type]    
-    
-    // Generate new next piece
-    nextPiece.type = rand(0, 6)
-    nextPiece.color = colors[nextPiece.type]
-    nextPiece.shape = blocks[nextPiece.type]
+fun reset_game() {
+  reset_board()
+  particles = []
+  score = 0
+  lines = 0
+  level = 1
+  fall_delay = 34
+  fall_tick = 0
+  move_timer = 0
+  soft_timer = 0
+  rot_timer = 0
+  hold_used = false
+  paused = false
+  game_over = false
+  playing = true
+  hold_piece = {type: -1}
+  next_piece = random_piece()
+  spawn_piece()
 }
 
-fun canRotate(rotated) {
-  for i in 0..4 {
-    let x = piece.x + rotated[i][0]
-    let y = piece.y + rotated[i][1]
-    if x < 0 || x >= COLS || y >= ROWS || (y >= 0 && board[y][x] != 0)
-      return false
+fun spawn_piece() {
+  piece = next_piece
+  piece.x = COLS / 2
+  piece.y = -1
+  piece.shape = clone_shape(blocks[piece.type])
+  next_piece = random_piece()
+  hold_used = false
+  if collision(0, 0, piece.shape) {
+    game_over = true
+    playing = false
+    play(tone(110, 220, WAVE_SQUARE))
   }
-  return true
 }
 
-fun rotatePiece() {
-  if piece.type == 0 return
-  let rotated = [0] * 4
-  for i in 0..4 {
-    let x = piece.shape[i][0]
-    let y = piece.shape[i][1]
-    rotated[i] = [-y, x]
-  }  
-  if canRotate(rotated)
-    piece.shape = rotated
-}
-
-// Check if current piece collides with the board or walls
-fun collision(dx, dy) {
-  for i in 0..4 {
-    let x = piece.x + piece.shape[i][0] + dx
-    let y = piece.y + piece.shape[i][1] + dy
-    if x < 0 || x >= COLS || y >= ROWS
-      return true
-      
-    if y >= 0 && board[y][x] != 0
-      return true
+fun collision(dx, dy, shape) {
+  let i = 0
+  while i < 4 {
+    let x = piece.x + shape[i][0] + dx
+    let y = piece.y + shape[i][1] + dy
+    if x < 0 || x >= COLS || y >= ROWS return true
+    if y >= 0 && board[y][x] != 0 return true
+    i += 1
   }
   return false
 }
 
-// Lock the piece into the board
-fun lockPiece() {
-  for i in 0..4 {
+fun try_move(dx, dy) {
+  if !collision(dx, dy, piece.shape) {
+    piece.x += dx
+    piece.y += dy
+    return true
+  }
+  return false
+}
+
+fun rotate_piece() {
+  if piece.type == 0 return
+
+  let rotated = [0] * 4
+  let i = 0
+  while i < 4 {
+    let x = piece.shape[i][0]
+    let y = piece.shape[i][1]
+    rotated[i] = [-y, x]
+    i += 1
+  }
+
+  if !collision(0, 0, rotated) {
+    piece.shape = rotated
+    play(tone(440, 45, WAVE_TRIANGLE))
+    return
+  }
+  if !collision(-1, 0, rotated) {
+    piece.x -= 1
+    piece.shape = rotated
+    play(tone(440, 45, WAVE_TRIANGLE))
+    return
+  }
+  if !collision(1, 0, rotated) {
+    piece.x += 1
+    piece.shape = rotated
+    play(tone(440, 45, WAVE_TRIANGLE))
+  }
+}
+
+fun hold_current() {
+  if hold_used return
+  hold_used = true
+
+  let old_type = piece.type
+  if hold_piece.type < 0 {
+    hold_piece = {type: old_type, color: colors[old_type], shape: clone_shape(blocks[old_type])}
+    spawn_piece()
+  } else {
+    let swap_type = hold_piece.type
+    hold_piece = {type: old_type, color: colors[old_type], shape: clone_shape(blocks[old_type])}
+    piece = {
+      x: COLS / 2,
+      y: -1,
+      type: swap_type,
+      color: colors[swap_type],
+      shape: clone_shape(blocks[swap_type])
+    }
+  }
+}
+
+fun lock_piece() {
+  let i = 0
+  while i < 4 {
     let x = piece.x + piece.shape[i][0]
     let y = piece.y + piece.shape[i][1]
-    if y >= 0
-      board[y][x] = piece.color
+    if y >= 0 && y < ROWS && x >= 0 && x < COLS board[y][x] = piece.color
+    i += 1
   }
+  play(tone(95, 55, WAVE_NOISE))
+  clear_lines()
+  spawn_piece()
 }
 
-// Clear filled rows
-fun clearLines() {
-  let i = ROWS - 1
-  while(i > 0) {    
+fun clear_lines() {
+  let cleared = 0
+  let y = ROWS - 1
+  while y >= 0 {
     let full = true
-    for j in 0..COLS {
-      if board[i][j] == 0 {
-        full = false
-        break
+    let x = 0
+    while x < COLS {
+      if board[y][x] == 0 full = false
+      x += 1
+    }
+
+    if full {
+      burst_line(y)
+      let yy = y
+      while yy > 0 {
+        board[yy] = board[yy - 1]
+        yy -= 1
       }
+      board[0] = [0] * COLS
+      cleared += 1
+    } else {
+      y -= 1
     }
-    if full {             
-      for k in i..0 
-        board[k] = board[k-1]
-      
-      board[0] = [0] * COLS    
-      score += 10
-      play(tone(200, 200, WAVE_SINE))  // line clear sound
-    } else 
-        i--
+  }
+
+  if cleared > 0 {
+    lines += cleared
+    score += [0, 100, 300, 500, 800][cleared] * level
+    level = 1 + floor(lines / 6)
+    fall_delay = 34 - (level - 1) * 3
+    if fall_delay < 7 fall_delay = 7
+    play(tone(620 + cleared * 70, 110, WAVE_SINE))
   }
 }
 
-fun getInput() {
-  if key("KEY_LEFT") && !collision(-1, 0) {
-    piece.x -= 1
-    play(tone(300, 50, WAVE_SQUARE))
-  }
+fun add_particle(x, y, dx, dy, life, color) {
+  push(particles, {x: x, y: y, dx: dx, dy: dy, life: life, color: color})
+}
 
-  if key("KEY_RIGHT") && !collision(1, 0) {
-    piece.x += 1
-    play(tone(300, 50, WAVE_SQUARE))
-  }
-
-  if key("KEY_DOWN") && !collision(0, 1) {
-    piece.y += 1
-    play(tone(250, 40, WAVE_SQUARE))
-  }
-
-  if key("KEY_UP") {
-    if time() - lastRotate > 150 {
-      rotatePiece()
-      lastRotate = time()
-      play(tone(400, 50, WAVE_TRIANGLE))
-    }
+fun burst_line(row) {
+  let x = 0
+  while x < COLS {
+    add_particle(x * CELL + 4, row * CELL + 4, rand(-8, 8) / 10, rand(-12, -3) / 10, rand(12, 24), board[row][x])
+    x += 1
   }
 }
 
-fun init_game() {
-  playing = true
-  piece = {}
-  nextPiece = {}
-  board = [1] * ROWS
-  for i in 0..ROWS
-    board[i] = [0] * COLS
+fun update_particles() {
+  let i = 0
+  while i < len(particles) {
+    particles[i].x += particles[i].dx
+    particles[i].y += particles[i].dy
+    particles[i].dy += 0.04
+    particles[i].life -= 1
+    i += 1
+  }
 
-  score = 0
-
-  game_over = false 
-
-  initNextPiece()
-  newPiece()
+  i = len(particles) - 1
+  while i >= 0 {
+    if particles[i].life <= 0 remove(particles, i)
+    i -= 1
+  }
 }
 
-init_game()
-is_running = true
-
-while is_running {
-
-  while playing {
-    clear()
-    getInput()
-
-    tick += 1
-    if tick >= fall_rate {
-      if !collision(0, 1) 
-        piece.y += 1
-      else {
-        lockPiece()
-        play(tone(100, 70, WAVE_NOISE))  // land thud sound
-        clearLines()
-        newPiece()
-        if collision(0, 0)
-          game_over = true
-      }
-      tick = 0
-    }
-
-    drawBoard()
-    drawPiece()
-    drawNextPiece()  // Draw the next piece preview
-    println("SCORE:",85, 2)
-    println(score,85, 10)
-    draw()
-    sleep(100)
-
-    if game_over {
-      println("GAME OVER",36, 50, COLOR_COOL_LIGHT_GRAY)
-      draw()
-      sleep(1000)
-      break
-    }
+fun hard_drop() {
+  let dropped = 0
+  while try_move(0, 1) {
+    dropped += 1
   }
-  clear()
-  playing = false
-  println("PRESS SPACE TO PLAY", 8, 50,  COLOR_COOL_LIGHT_GRAY)
-  println("PRESS ESC TO EXIST", 10, 60, COLOR_COOL_LIGHT_GRAY)
+  score += dropped * 2
+  lock_piece()
+}
+
+fun read_input() {
+  if move_timer > 0 move_timer -= 1
+  if soft_timer > 0 soft_timer -= 1
+  if rot_timer > 0 rot_timer -= 1
+
+  if key("KEY_LEFT") && move_timer <= 0 {
+    try_move(-1, 0)
+    move_timer = 6
+  }
+  if key("KEY_RIGHT") && move_timer <= 0 {
+    try_move(1, 0)
+    move_timer = 6
+  }
+  if key("KEY_DOWN") && soft_timer <= 0 {
+    if try_move(0, 1) score += 1
+    soft_timer = 3
+  }
+  let rotate_pressed = key("KEY_UP") || key("KEY_X")
+  if rotate_pressed && rot_timer <= 0 {
+    rotate_piece()
+    rot_timer = 10
+  }
+  if key("KEY_C", true) hold_current()
+  if key("KEY_SPACE", true) hard_drop()
+  if key("KEY_P", true) paused = !paused
+}
+
+fun update_game() {
+  if paused || game_over return
+
+  read_input()
+  fall_tick += 1
+  if fall_tick >= fall_delay {
+    if !try_move(0, 1) lock_piece()
+    fall_tick = 0
+  }
+}
+
+fun ghost_y() {
+  let gy = piece.y
+  while !collision(0, gy - piece.y + 1, piece.shape) {
+    gy += 1
+  }
+  return gy
+}
+
+fun draw_cell(x, y, color, ghost) {
+  let px = x * CELL
+  let py = y * CELL
+  if ghost {
+    rect(px + 2, py + 2, CELL - 4, CELL - 4, COLOR_COOL_LIGHT_GRAY)
+  } else {
+    rect(px, py, CELL, CELL, color, true)
+    rect(px, py, CELL, CELL, COLOR_SOFT_BLACK)
+    rect(px + 1, py + 1, CELL - 3, 2, COLOR_SOFT_IVORY, true)
+  }
+}
+
+fun draw_board() {
+  clear(COLOR_MIDNIGHT_BLUE)
+  rect(0, 0, BOARD_W, BOARD_H, COLOR_SOFT_BLACK, true)
+  let y = 0
+  while y < ROWS {
+    let x = 0
+    while x < COLS {
+      let shade = (x + y) % 2
+      if shade == 0 rect(x * CELL, y * CELL, CELL, CELL, COLOR_CHARCOAL_GRAY, true)
+      if board[y][x] != 0 draw_cell(x, y, board[y][x], false)
+      x += 1
+    }
+    y += 1
+  }
+  rect(0, 0, BOARD_W, BOARD_H, COLOR_SKY_BLUE)
+}
+
+fun draw_shape_at(shape, ox, oy, color, small) {
+  let step = CELL
+  let size = CELL
+  if small {
+    step = 5
+    size = 5
+  }
+
+  let i = 0
+  while i < 4 {
+    let px = ox + shape[i][0] * step
+    let py = oy + shape[i][1] * step
+    rect(px, py, size, size, color, true)
+    rect(px, py, size, size, COLOR_SOFT_BLACK)
+    i += 1
+  }
+}
+
+fun draw_piece() {
+  let gy = ghost_y()
+  let i = 0
+  while i < 4 {
+    let gx = piece.x + piece.shape[i][0]
+    let py = gy + piece.shape[i][1]
+    if py >= 0 draw_cell(gx, py, piece.color, true)
+    i += 1
+  }
+
+  i = 0
+  while i < 4 {
+    let x = piece.x + piece.shape[i][0]
+    let y = piece.y + piece.shape[i][1]
+    if y >= 0 draw_cell(x, y, piece.color, false)
+    i += 1
+  }
+}
+
+fun draw_particles() {
+  let i = 0
+  while i < len(particles) {
+    pixel(particles[i].x, particles[i].y, particles[i].color)
+    pixel(particles[i].x + 1, particles[i].y, particles[i].color)
+    i += 1
+  }
+}
+
+fun draw_sidebar() {
+  print("SCORE", SIDE_X, 2, COLOR_SOFT_IVORY)
+  print(score, SIDE_X, 10, COLOR_WARM_YELLOW)
+  print("LINES", SIDE_X, 24, COLOR_SOFT_IVORY)
+  print(lines, SIDE_X, 32, COLOR_SKY_BLUE)
+  print("LV " + level, SIDE_X, 46, COLOR_LIGHT_PEACH)
+
+  print("NEXT", SIDE_X, 62, COLOR_SOFT_IVORY)
+  draw_shape_at(next_piece.shape, SIDE_X + 13, 80, next_piece.color, true)
+
+  print("HOLD", SIDE_X, 102, COLOR_SOFT_IVORY)
+  if hold_piece.type >= 0 draw_shape_at(hold_piece.shape, SIDE_X + 13, 116, hold_piece.color, true)
+}
+
+fun draw_overlay(title, sub) {
+  rect(14, 42, 100, 44, COLOR_SOFT_BLACK, true)
+  rect(14, 42, 100, 44, COLOR_DUSTY_PURPLE)
+  print(title, 31, 51, COLOR_SOFT_IVORY)
+  print(sub, 22, 65, COLOR_WARM_YELLOW)
+  print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
+}
+
+reset_game()
+
+while true {
+  if playing {
+    update_game()
+  } else {
+    if key("KEY_SPACE") reset_game()
+  }
+
+  update_particles()
+  draw_board()
+  draw_piece()
+  draw_particles()
+  draw_sidebar()
+
+  if paused && !game_over draw_overlay("PAUSED", "PRESS P")
+  if game_over {
+    draw_overlay("GAME OVER", "SCORE " + score)
+    if key("KEY_SPACE") reset_game()
+  }
+
   draw()
-  if key("KEY_ESC")
-    is_running = false
-  if key("KEY_SPACE") 
-    init_game()
-
+  sleep(16)
 }

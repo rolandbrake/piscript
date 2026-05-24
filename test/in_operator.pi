@@ -1,4 +1,0 @@
-println(2 in [1, 2, 3])          // Expected output: true
-println(4 in [1, 2, 3])          // Expected output: false
-println("scr" in "piscript")     // Expected output: true
-println("name" in {"name": "Pi"})  // Expected output: true
