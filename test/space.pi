@@ -1,0 +1,174 @@
+// Star Dodger
+// Move with LEFT/RIGHT, collect gold stars, dodge red rocks.
+
+PLAYER_W = 9
+PLAYER_H = 6
+ROCK_W = 8
+ROCK_H = 8
+STAR_R = 3
+
+playerX = WIDTH / 2 - PLAYER_W / 2
+playerY = HEIGHT - 16
+playerSpeed = 3
+
+rocks = []
+stars = []
+score = 0
+lives = 3
+tick = 0
+game_over = false
+
+fun reset_game() {
+  playerX = WIDTH / 2 - PLAYER_W / 2
+  rocks = []
+  stars = []
+  score = 0
+  lives = 3
+  tick = 0
+  game_over = false
+}
+
+fun spawn_rock() {
+  let rock = {
+    x: rand(2, WIDTH - ROCK_W - 2),
+    y: -ROCK_H,
+    speed: rand(1, 3)
+  }
+  push(rocks, rock)
+}
+
+fun spawn_star() {
+  let star = {
+    x: rand(5, WIDTH - 5),
+    y: -STAR_R,
+    speed: rand(1, 2)
+  }
+  push(stars, star)
+}
+
+fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+fun draw_background() {
+  clear()
+  for y in 0..128:16 {
+    let shade = y % 32 == 0 ? COLOR_SOFT_BLACK : COLOR_DEEP_BLUE
+    rect(0, y, WIDTH, 16, shade, true)
+  }
+
+  for i in 0..22 {
+    let sx = (i * 17 + tick) % WIDTH
+    let sy = (i * 29 + tick / 2) % HEIGHT
+    pixel(sx, sy, COLOR_COOL_LIGHT_GRAY)
+  }
+}
+
+fun draw_player() {
+  rect(playerX + 2, playerY, PLAYER_W - 4, PLAYER_H, COLOR_SKY_BLUE, true)
+  rect(playerX, playerY + 3, PLAYER_W, 3, COLOR_SOFT_IVORY, true)
+  pixel(playerX + 4, playerY + PLAYER_H, COLOR_WARM_YELLOW)
+}
+
+fun draw_hud() {
+  print("SCORE " + score, 2, 2, COLOR_SOFT_IVORY)
+  print("LIVES " + lives, 76, 2, COLOR_SOFT_IVORY)
+}
+
+fun draw_game_over() {
+  rect(14, 42, 100, 42, COLOR_SOFT_BLACK, true)
+  rect(14, 42, 100, 42, COLOR_COOL_LIGHT_GRAY)
+  print("GAME OVER", 36, 50, COLOR_VIVID_RED)
+  print("SCORE " + score, 38, 62, COLOR_WARM_YELLOW)
+  print("SPACE TO RESTART", 20, 74, COLOR_SOFT_IVORY)
+}
+
+reset_game()
+
+while true {
+  if (!game_over) {
+    tick += 1
+
+    if key("KEY_LEFT") && playerX > 2 {
+      playerX -= playerSpeed
+    }
+    if key("KEY_RIGHT") && playerX + PLAYER_W < WIDTH - 2 {
+      playerX += playerSpeed
+    }
+
+    if tick % 18 == 0 {
+      spawn_rock()
+    }
+    if tick % 45 == 0 {
+      spawn_star()
+    }
+
+    for i in 0..len(rocks) {
+      rocks[i].y += rocks[i].speed
+
+      if hit_box(playerX, playerY, PLAYER_W, PLAYER_H, rocks[i].x, rocks[i].y, ROCK_W, ROCK_H) {
+        lives -= 1
+        rocks[i].y = HEIGHT + ROCK_H
+        play(tone(130, 120, 1))
+        if lives <= 0 {
+          game_over = true
+        }
+      }
+    }
+
+    for i in 0..len(stars) {
+      stars[i].y += stars[i].speed
+
+      if hit_box(playerX, playerY, PLAYER_W, PLAYER_H, stars[i].x - STAR_R, stars[i].y - STAR_R, STAR_R * 2, STAR_R * 2) {
+        score += 10
+        stars[i].y = HEIGHT + STAR_R
+        play(tone(760, 60, 0))
+      }
+    }
+
+    let i = len(rocks) - 1
+    while i >= 0 {
+      if rocks[i].y > HEIGHT {
+        remove(rocks, i)
+        score += 1
+      }
+      i -= 1
+    }
+
+    i = len(stars) - 1
+    while i >= 0 {
+      if stars[i].y > HEIGHT {
+        remove(stars, i)
+      }
+      i -= 1
+    }
+  } else {
+    if key("KEY_SPACE") {
+      reset_game()
+      while key("KEY_SPACE") {
+        sleep(20)
+      }
+    }
+  }
+
+  draw_background()
+
+  for i in 0..len(stars) {
+    circ(stars[i].x, stars[i].y, STAR_R, COLOR_WARM_YELLOW, true)
+  }
+
+  for i in 0..len(rocks) {
+    rect(rocks[i].x, rocks[i].y, ROCK_W, ROCK_H, COLOR_VIVID_RED, true)
+    pixel(rocks[i].x + 2, rocks[i].y + 2, COLOR_LIGHT_PEACH)
+  }
+
+  draw_player()
+  draw_hud()
+
+  if game_over {
+    draw_game_over()
+  }
+
+  draw()
+  sleep(30)
+}
