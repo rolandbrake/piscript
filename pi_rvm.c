@@ -466,7 +466,10 @@ static Object *construct(vm_t *vm, PiMap *map, size_t argc, Value *argv)
         }
     }
 
-    Value *fargs = (Value *)malloc(sizeof(Value) * (argc + 1));
+    if (argc == SIZE_MAX) {
+        return NULL;
+    }
+    Value *fargs = (Value *)calloc(argc + 1, sizeof(Value));
     fargs[0] = NEW_OBJ(instance);
     memcpy(fargs + 1, argv, sizeof(Value) * argc);
 
@@ -663,8 +666,7 @@ void run(vm_t *vm)
                     if (!res)
                         vm_error(vm, "Memory allocation failed.");
 
-                    strcpy(res, l_str);
-                    strcat(res, r_str);
+                    snprintf(res, len, "%s%s", l_str, r_str);
 
                     set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(res))));
 
@@ -777,7 +779,7 @@ void run(vm_t *vm)
                             r_ptr = match + r_len;
                         }
 
-                        strcpy(w_ptr, r_ptr);
+                        memcpy(w_ptr, r_ptr, strlen(r_ptr) + 1);
 
                         set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(res))));
 
@@ -877,10 +879,9 @@ void run(vm_t *vm)
                         size_t r_len = o_len * count;
 
                         char *result = (char *)malloc(r_len + 1);
-                        result[0] = '\0';
-
                         for (int i = 0; i < count; i++)
-                            strcat(result, str);
+                            memcpy(result + i * o_len, str, o_len);
+                        result[r_len] = '\0';
 
                         set_register(vm, dest_reg, NEW_OBJ(add_obj(vm, new_pistring(result))));
                         free(str);
