@@ -9,6 +9,7 @@ MIN_DELAY = 42
 
 snake = []
 particles = []
+stars = []
 dir = {x: 1, y: 0}
 next_dir = {x: 1, y: 0}
 food = {x: 0, y: 0}
@@ -33,6 +34,7 @@ fun reset_game() {
   dir = {x: 1, y: 0}
   next_dir = {x: 1, y: 0}
   particles = []
+  stars = []
   score = 0
   level = 1
   move_delay = START_DELAY
@@ -41,6 +43,17 @@ fun reset_game() {
   pulse = 0
   paused = false
   game_over = false
+
+  let i = 0
+  while i < 32 {
+    push(stars, {
+      x: rand(0, WIDTH - 1),
+      y: rand(TOP + 2, HEIGHT - 1),
+      layer: rand(1, 3)
+    })
+    i += 1
+  }
+
   spawn_food()
 }
 
@@ -89,10 +102,10 @@ fun add_particle(x, y, dx, dy, life, color) {
 
 fun burst(cx, cy, color) {
   let i = 0
-  while i < 10 {
+  while i < 16 {
     let a = rand(0, 628) / 100
-    let sp = rand(4, 13) / 10
-    add_particle(cx, cy, cos(a) * sp, sin(a) * sp, rand(10, 22), color)
+    let sp = rand(5, 18) / 10
+    add_particle(cx, cy, cos(a) * sp, sin(a) * sp, rand(12, 28), color)
     i += 1
   }
 }
@@ -102,6 +115,8 @@ fun update_particles() {
   while i < len(particles) {
     particles[i].x += particles[i].dx
     particles[i].y += particles[i].dy
+    particles[i].dx *= 0.96
+    particles[i].dy *= 0.96
     particles[i].life -= 1
     i += 1
   }
@@ -165,12 +180,15 @@ fun move_snake() {
     move_delay = START_DELAY - (level - 1) * 6
     if move_delay < MIN_DELAY move_delay = MIN_DELAY
   } else {
+    let tail = snake[last + 1]
+    if tick % 2 == 0 add_particle(cell_px(tail.x) + 4, cell_px(tail.y) + 4, rand(-3, 3) / 10, rand(-3, 3) / 10, 9, COLOR_SKY_BLUE)
     pop(snake)
   }
 }
 
 fun draw_board() {
-  clear(COLOR_DEEP_GREEN)
+  clear(COLOR_MIDNIGHT_BLUE)
+  rect(0, TOP, WIDTH, HEIGHT - TOP, COLOR_SOFT_BLACK, true)
   rect(0, 0, WIDTH, TOP, COLOR_SOFT_BLACK, true)
 
   let y = TOP
@@ -179,27 +197,45 @@ fun draw_board() {
     while x < WIDTH {
       let grid_x = x / CELL
       let grid_y = y / CELL
-      let c = (grid_x + grid_y) % 2 == 0 ? COLOR_DEEP_GREEN : COLOR_OCEAN_TEAL
+      let c = (grid_x + grid_y) % 2 == 0 ? COLOR_DEEP_BLUE : COLOR_MIDNIGHT_BLUE
       rect(x, y, CELL, CELL, c, true)
+      if grid_x % 4 == 0 && grid_y % 4 == 0 pixel(x, y, COLOR_CHARCOAL_GRAY)
       x += CELL
     }
     y += CELL
   }
 
-  line(0, TOP, WIDTH, TOP, COLOR_SKY_BLUE)
+  let i = 0
+  while i < len(stars) {
+    let s = stars[i]
+    let sy = TOP + ((s.y - TOP + tick * s.layer / 12) % (HEIGHT - TOP))
+    let col = s.layer == 1 ? COLOR_CHARCOAL_GRAY : (s.layer == 2 ? COLOR_DUSTY_PURPLE : COLOR_SKY_BLUE)
+    pixel(s.x, sy, col)
+    if s.layer == 3 pixel(s.x + 1, sy, col)
+    i += 1
+  }
+
+  rect(0, TOP, WIDTH, HEIGHT - TOP, pulse > 0 ? COLOR_WARM_YELLOW : COLOR_SKY_BLUE)
+  line(0, TOP + 1, WIDTH, TOP + 1, COLOR_DUSTY_PURPLE)
 }
 
 fun draw_food() {
   let x = cell_px(food.x) + 4
   let y = cell_px(food.y) + 4
   let wobble = sin(tick / 5) * 1
+  let ring = 5 + sin(tick / 4)
 
   if food_type == 0 {
+    circ(x, y + wobble, ring, COLOR_AMBER_ORANGE)
     circ(x, y + wobble, 4, COLOR_WARM_YELLOW, true)
     circ(x - 1, y - 1 + wobble, 2, COLOR_PALE_YELLOW, true)
+    pixel(x + 2, y + 1 + wobble, COLOR_LIGHT_PEACH)
   } else {
+    circ(x, y + wobble, ring + 1, COLOR_VIVID_RED)
+    circ(x, y + wobble, ring - 1, COLOR_ORANGE_RED)
     circ(x, y + wobble, 5, COLOR_VIVID_RED, true)
     circ(x - 1, y - 1 + wobble, 2, COLOR_ORANGE_RED, true)
+    pixel(x + 2, y + wobble, COLOR_LIGHT_PEACH)
   }
 }
 
@@ -209,11 +245,18 @@ fun draw_snake() {
     let x = cell_px(snake[i].x)
     let y = cell_px(snake[i].y)
     let c = i == 0 ? COLOR_SOFT_IVORY : (i % 2 == 0 ? COLOR_SKY_BLUE : COLOR_BRIGHT_COBALT)
+    if i > 0 {
+      circ(x + 4, y + 4, 5, i % 2 == 0 ? COLOR_DUSTY_PURPLE : COLOR_DEEP_BLUE)
+    }
     rect(x + 1, y + 1, CELL - 2, CELL - 2, COLOR_SOFT_BLACK, true)
     rect(x + 2, y + 2, CELL - 4, CELL - 4, c, true)
+    rect(x + 2, y + 2, CELL - 4, 1, COLOR_SOFT_IVORY, true)
     if i == 0 {
-      pixel(x + 3 + dir.y, y + 3 + dir.x, COLOR_SOFT_BLACK)
-      pixel(x + 4 + dir.y, y + 3 + dir.x, COLOR_SOFT_BLACK)
+      circ(x + 4, y + 4, 5, COLOR_SKY_BLUE)
+      let ex = dir.x != 0 ? 0 : 2
+      let ey = dir.y != 0 ? 0 : 2
+      pixel(x + 3 + dir.x * 2 - ex, y + 3 + dir.y * 2 - ey, COLOR_SOFT_BLACK)
+      pixel(x + 4 + dir.x * 2 + ex, y + 3 + dir.y * 2 + ey, COLOR_SOFT_BLACK)
     }
     i -= 1
   }
@@ -222,29 +265,40 @@ fun draw_snake() {
 fun draw_particles() {
   let i = 0
   while i < len(particles) {
-    pixel(particles[i].x, particles[i].y, particles[i].color)
+    let p = particles[i]
+    pixel(p.x, p.y, p.color)
+    if p.life > 12 pixel(p.x + 1, p.y, p.color)
     i += 1
   }
 }
 
 fun draw_hud() {
+  rect(0, 0, WIDTH, TOP, COLOR_SOFT_BLACK, true)
+  line(0, TOP - 1, WIDTH, TOP - 1, COLOR_CHARCOAL_GRAY)
   print("S " + score, 2, 1, COLOR_SOFT_IVORY)
-  print("B " + best, 44, 1, COLOR_WARM_YELLOW)
+  print("B " + best, 43, 1, COLOR_WARM_YELLOW)
   print("L " + level, 94, 1, COLOR_SKY_BLUE)
 }
 
 fun draw_start() {
   draw_board()
-  print("NEON SNAKE", 28, 28, COLOR_SOFT_IVORY)
-  print("ARROWS MOVE", 26, 44, COLOR_WARM_YELLOW)
-  print("P PAUSE", 42, 56, COLOR_SKY_BLUE)
-  print("SPACE START", 26, 76, COLOR_SOFT_IVORY)
+  draw_food()
+  draw_snake()
+  rect(14, 26, 100, 62, COLOR_SOFT_BLACK, true)
+  rect(14, 26, 100, 62, COLOR_SKY_BLUE)
+  rect(16, 28, 96, 58, COLOR_DEEP_BLUE)
+  print("NEON SNAKE", 28, 34, COLOR_SOFT_IVORY)
+  line(27, 43, 101, 43, COLOR_DUSTY_PURPLE)
+  print("ARROWS MOVE", 26, 52, COLOR_WARM_YELLOW)
+  print("P PAUSE", 42, 64, COLOR_SKY_BLUE)
+  print("SPACE START", 26, 78, tick % 20 < 10 ? COLOR_SOFT_IVORY : COLOR_WARM_YELLOW)
   draw()
 }
 
 fun draw_overlay(title, sub) {
-  rect(16, 42, 96, 44, COLOR_SOFT_BLACK, true)
-  rect(16, 42, 96, 44, COLOR_DUSTY_PURPLE)
+  rect(14, 40, 100, 48, COLOR_SOFT_BLACK, true)
+  rect(14, 40, 100, 48, COLOR_DUSTY_PURPLE)
+  rect(16, 42, 96, 44, COLOR_DEEP_BLUE)
   print(title, 32, 51, COLOR_SOFT_IVORY)
   print(sub, 26, 65, COLOR_WARM_YELLOW)
   print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)
@@ -253,6 +307,7 @@ fun draw_overlay(title, sub) {
 reset_game()
 
 while waiting_start {
+  tick += 1
   draw_start()
   if key("KEY_SPACE") {
     waiting_start = false

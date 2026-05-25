@@ -334,6 +334,7 @@ Screen *screen_init(Uint32 color)
     screen->cursor_y = 1;
     screen->text_color = COLOR_WHITE;
     screen->dirty = true;
+    screen->fullscreen = false;
 
     screen_clear(screen, color);
     screen_update(screen);
@@ -392,6 +393,24 @@ void screen_update(Screen *screen)
     // Present the updated rendering to the screen
     SDL_RenderPresent(screen->renderer);
     screen->dirty = false;
+}
+
+void screen_toggleFullscreen(Screen *screen)
+{
+    if (!screen || !screen->window)
+        return;
+
+    bool next = !screen->fullscreen;
+    Uint32 flags = next ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
+    if (SDL_SetWindowFullscreen(screen->window, flags) != 0)
+    {
+        SDL_Log("Failed to toggle fullscreen: %s", SDL_GetError());
+        return;
+    }
+
+    screen->fullscreen = next;
+    SDL_RenderSetLogicalSize(screen->renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+    screen->dirty = true;
 }
 
 /**

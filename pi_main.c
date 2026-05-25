@@ -493,6 +493,14 @@ static void wait_for_exit(Screen *screen)
         if (event.type != SDL_KEYDOWN)
             continue;
 
+        if (event.key.repeat == 0 &&
+            event.key.keysym.sym == SDLK_f &&
+            (event.key.keysym.mod & KMOD_CTRL))
+        {
+            screen_toggleFullscreen(screen);
+            continue;
+        }
+
         if (event.key.keysym.sym == SDLK_c &&
             (event.key.keysym.mod & KMOD_CTRL))
             return;

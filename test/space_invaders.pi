@@ -1,9 +1,9 @@
 // Neon Invaders
 // LEFT/RIGHT or A/D move. SPACE fires. P pauses.
 
-PLAYER_W = 13
-PLAYER_H = 8
-PLAYER_Y = HEIGHT - 13
+PLAYER_W = 20
+PLAYER_H = 15
+PLAYER_Y = HEIGHT - 17
 
 ENEMY_ROWS = 4
 ENEMY_COLS = 8
@@ -18,11 +18,16 @@ enemyBullets = []
 enemies = []
 particles = []
 stars = []
+shipSheet = image("ship.png")
+shipFront = resize(crop(shipSheet, 0, 0, 13, 10), 20, 15)
+shipLeft = resize(crop(shipSheet, 13, 0, 13, 10), 20, 15)
+shipRight = resize(crop(shipSheet, 26, 0, 13, 10), 20, 15)
 
 enemyDir = 1
 enemyTimer = 0
 enemyDelay = 22
 fireCooldown = 0
+tick = 0
 wave = 1
 score = 0
 lives = 3
@@ -41,6 +46,7 @@ fun reset_game() {
   enemyTimer = 0
   enemyDelay = 22
   fireCooldown = 0
+  tick = 0
   wave = 1
   score = 0
   lives = 3
@@ -87,8 +93,12 @@ fun spawn_wave() {
 }
 
 fun clamp(v, lo, hi) {
-  if v < lo return lo
-  if v > hi return hi
+  if v < lo {
+    return lo
+  }
+  if v > hi {
+    return hi
+  }
   return v
 }
 
@@ -102,10 +112,10 @@ fun add_particle(x, y, dx, dy, life, color) {
 
 fun burst(x, y, color) {
   let i = 0
-  while i < 9 {
+  while i < 14 {
     let a = rand(0, 628) / 100
-    let s = rand(4, 15) / 10
-    add_particle(x, y, cos(a) * s, sin(a) * s, rand(9, 20), color)
+    let s = rand(5, 18) / 10
+    add_particle(x, y, cos(a) * s, sin(a) * s, rand(10, 24), color)
     i += 1
   }
 }
@@ -115,6 +125,8 @@ fun update_particles() {
   while i < len(particles) {
     particles[i].x += particles[i].dx
     particles[i].y += particles[i].dy
+    particles[i].dx *= 0.96
+    particles[i].dy *= 0.96
     particles[i].life -= 1
     i += 1
   }
@@ -137,17 +149,26 @@ fun alive_count() {
 }
 
 fun shoot_player() {
-  if fireCooldown > 0 return
-  if len(playerBullets) >= 3 return
+  if fireCooldown > 0 {
+    return
+  }
+  if len(playerBullets) >= 3 {
+    return
+  }
 
   push(playerBullets, {x: player.x, y: PLAYER_Y - 4, dy: -4})
+  add_particle(player.x, PLAYER_Y - 5, 0, 0 - 1.1, 8, COLOR_SOFT_IVORY)
+  add_particle(player.x - 2, PLAYER_Y - 2, 0 - 0.2, 0 - 0.5, 9, COLOR_SKY_BLUE)
+  add_particle(player.x + 2, PLAYER_Y - 2, 0.2, 0 - 0.5, 9, COLOR_SKY_BLUE)
   fireCooldown = 9
   play(tone(880, 45, WAVE_SINE))
 }
 
 fun shoot_enemy() {
   let live = alive_count()
-  if live <= 0 return
+  if live <= 0 {
+    return
+  }
 
   let target = rand(0, live - 1)
   let seen = 0
@@ -196,6 +217,7 @@ fun move_enemies() {
 }
 
 fun update_play() {
+  tick += 1
   if paused || game_over {
     update_particles()
     return
@@ -210,7 +232,12 @@ fun update_play() {
   player.vx += steer * 0.45
   player.vx *= 0.78
   player.x += player.vx
-  player.x = clamp(player.x, 8, WIDTH - 8)
+  player.x = clamp(player.x, 10, WIDTH - 10)
+
+  if steer != 0 && tick % 3 == 0 {
+    add_particle(player.x - steer * 6, PLAYER_Y + 8, -steer * 0.4, 0.7, 10, COLOR_SKY_BLUE)
+  }
+  if tick % 5 == 0 add_particle(player.x + rand(-4, 4), PLAYER_Y + 7, rand(-2, 2) / 10, 0.6, 8, COLOR_AMBER_ORANGE)
 
   if key("KEY_SPACE") shoot_player()
 
@@ -291,46 +318,77 @@ fun update_play() {
 
 fun draw_background() {
   clear(COLOR_MIDNIGHT_BLUE)
+  rect(0, 72, WIDTH, 56, COLOR_DEEP_BLUE, true)
+  line(0, 10, WIDTH, 10, COLOR_DUSTY_PURPLE)
+
   let i = 0
   while i < len(stars) {
     let s = stars[i]
-    let sy = (s.y + wave + enemyTimer * s.layer / 8) % HEIGHT
-    let col = s.layer == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SKY_BLUE
+    let sy = (s.y + wave + tick * s.layer / 12) % HEIGHT
+    let col = s.layer == 1 ? COLOR_COOL_LIGHT_GRAY : (s.layer == 2 ? COLOR_DUSTY_PURPLE : COLOR_SKY_BLUE)
     pixel(s.x, sy, col)
+    if s.layer == 3 pixel(s.x + 1, sy, col)
     i += 1
+  }
+
+  let y = 24 + (tick / 3) % 16
+  while y < HEIGHT {
+    line(0, y, WIDTH, y, COLOR_SOFT_BLACK)
+    y += 16
   }
 }
 
 fun draw_player() {
   let x = player.x
   let y = PLAYER_Y
-  poly([[x, y - 6], [x + 8, y + 6], [x - 8, y + 6]], COLOR_SOFT_IVORY, true)
-  poly([[x, y - 4], [x + 6, y + 5], [x - 6, y + 5]], COLOR_SKY_BLUE, true)
-  rect(x - 3, y + 3, 6, 3, COLOR_SOFT_BLACK, true)
-  pixel(x - 4, y + 1, COLOR_WARM_YELLOW)
-  pixel(x + 4, y + 1, COLOR_WARM_YELLOW)
+  let flash = fireCooldown > 0 && fireCooldown % 3 != 0
+  let shipSprite = shipFront
+  if player.vx < 0 - 0.35 shipSprite = shipLeft
+  if player.vx > 0.35 shipSprite = shipRight
+
+  circ(x, y + 5, 12, COLOR_DEEP_BLUE)
+  circ(x, y + 7, 9, flash ? COLOR_WARM_YELLOW : COLOR_SKY_BLUE)
+  rend2d(shipSprite, x - 10, y)
+
+  if fireCooldown > 0 {
+    line(x, y - 2, x, y - 9, COLOR_SOFT_IVORY)
+    pixel(x, y - 10, COLOR_SKY_BLUE)
+  }
+
+  let flame = 4 + sin(tick / 2) * 2
+  poly([[x - 5, y + 14], [x + 5, y + 14], [x, y + 14 + flame]], COLOR_AMBER_ORANGE, true)
+  line(x, y + 14, x, y + 17 + flame, COLOR_WARM_YELLOW)
 }
 
 fun draw_enemy(e) {
-  if !e.alive return
+  if !e.alive {
+    return
+  }
   let x = e.x
   let y = e.y + sin(e.phase) * 1
   let color = e.kind == 0 ? COLOR_WARM_YELLOW : (e.kind == 1 ? COLOR_LIGHT_PEACH : COLOR_DUSTY_PURPLE)
+  circ(x + ENEMY_W / 2, y + ENEMY_H / 2, 5, COLOR_DEEP_BLUE)
   rect(x + 1, y, ENEMY_W - 2, ENEMY_H, color, true)
   rect(x, y + 2, ENEMY_W, 3, color, true)
+  pixel(x + 1, y + 1, COLOR_SOFT_IVORY)
   pixel(x + 2, y + 2, COLOR_SOFT_BLACK)
   pixel(x + ENEMY_W - 3, y + 2, COLOR_SOFT_BLACK)
+  pixel(x, y + ENEMY_H, color)
+  pixel(x + ENEMY_W - 1, y + ENEMY_H, color)
 }
 
 fun draw_bullets() {
   let i = 0
   while i < len(playerBullets) {
-    rect(playerBullets[i].x - 1, playerBullets[i].y, 2, 5, COLOR_SOFT_IVORY, true)
+    rect(playerBullets[i].x - 1, playerBullets[i].y, 2, 6, COLOR_SOFT_IVORY, true)
+    pixel(playerBullets[i].x, playerBullets[i].y - 1, COLOR_SKY_BLUE)
+    pixel(playerBullets[i].x, playerBullets[i].y + 6, COLOR_DUSTY_PURPLE)
     i += 1
   }
 
   i = 0
   while i < len(enemyBullets) {
+    circ(enemyBullets[i].x, enemyBullets[i].y + 2, 3, COLOR_ORANGE_RED)
     rect(enemyBullets[i].x - 1, enemyBullets[i].y, 2, 5, COLOR_VIVID_RED, true)
     i += 1
   }
@@ -339,13 +397,16 @@ fun draw_bullets() {
 fun draw_particles() {
   let i = 0
   while i < len(particles) {
-    pixel(particles[i].x, particles[i].y, particles[i].color)
+    let p = particles[i]
+    pixel(p.x, p.y, p.color)
+    if p.life > 10 pixel(p.x + 1, p.y, p.color)
     i += 1
   }
 }
 
 fun draw_hud() {
   rect(0, 0, WIDTH, 10, COLOR_SOFT_BLACK, true)
+  line(0, 10, WIDTH, 10, COLOR_SKY_BLUE)
   print("S " + score, 2, 2, COLOR_SOFT_IVORY)
   print("L " + lives, 56, 2, COLOR_LIGHT_PEACH)
   print("W " + wave, 96, 2, COLOR_SKY_BLUE)
@@ -354,6 +415,7 @@ fun draw_hud() {
 fun draw_overlay(title, sub) {
   rect(14, 42, 100, 44, COLOR_SOFT_BLACK, true)
   rect(14, 42, 100, 44, COLOR_DUSTY_PURPLE)
+  rect(16, 44, 96, 40, COLOR_DEEP_BLUE)
   print(title, 31, 51, COLOR_SOFT_IVORY)
   print(sub, 26, 65, COLOR_WARM_YELLOW)
   print("SPACE RESTART", 24, 77, COLOR_SKY_BLUE)

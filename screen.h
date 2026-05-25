@@ -79,6 +79,7 @@ typedef struct
     Uint32 text_color;      // Current palette index or packed ARGB text color
     Uint32 clear_color;     // Last resolved color used by screen_clear
     bool dirty;             // Tracks whether pixel buffer changed since last present
+    bool fullscreen;        // Tracks whether the SDL window is fullscreen
 
     
 
@@ -93,6 +94,9 @@ void screen_close(Screen *screen);
 
 // Updates the display by refreshing the texture and rendering
 void screen_update(Screen *screen);
+
+// Toggles desktop fullscreen for the SDL window.
+void screen_toggleFullscreen(Screen *screen);
 
 // Clears the screen with a specific color
 void screen_clear(Screen *screen, Uint32 color);

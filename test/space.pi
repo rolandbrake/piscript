@@ -252,143 +252,63 @@ fun draw_ship() {
   let lean = clamp(playerVX * 1.5, -5, 5)
   let x = playerX
   let y = playerY
+  let angle = lean * 0.09
 
-  // Shield effect
+  let ca = cos(angle)
+  let sa = sin(angle)
+
+  // Rotate all 3 vertices around center
+  let t1x = x + 10 * sa            // tip    (0, -10)
+  let t1y = y - 10 * ca
+  let t2x = x - 6 * ca - 7 * sa    // rear left  (-6, 7)
+  let t2y = y - 6 * sa + 7 * ca
+  let t3x = x + 6 * ca - 7 * sa    // rear right (6, 7)
+  let t3y = y + 6 * sa + 7 * ca
+
+  // Rear center + exhaust direction (rotates with ship)
+  let bx = (t2x + t3x) / 2
+  let by = (t2y + t3y) / 2
+  let fdx = -sa
+  let fdy = ca
+
+  // Shield
   if shield > 0 {
-    circ(x, y, 18, shield % 12 < 6 ? COLOR_SKY_BLUE : COLOR_DUSTY_PURPLE)
-    circ(x, y, 20, COLOR_COOL_LIGHT_GRAY)
+    circ(x, y, 12, shield % 12 < 6 ? COLOR_SKY_BLUE : COLOR_DUSTY_PURPLE)
+    circ(x, y, 14, COLOR_COOL_LIGHT_GRAY)
   }
 
-  // === ENGINE PODS (behind wings) ===
-  poly(
-    [[x - 13 + lean, y + 3], [x - 9 + lean, y - 1],
-     [x - 7 + lean, y + 8], [x - 12 + lean, y + 13]],
-    COLOR_CHARCOAL_GRAY, true
-  )
-  poly(
-    [[x + 13 + lean, y + 3], [x + 9 + lean, y - 1],
-     [x + 7 + lean, y + 8], [x + 12 + lean, y + 13]],
-    COLOR_CHARCOAL_GRAY, true
-  )
-
-  // === WINGS ===
-  // Left
-  poly(
-    [[x, y - 8], [x - 4 + lean, y + 2],
-     [x - 17 + lean, y + 9], [x - 12 + lean, y + 13], [x - 5 + lean, y + 6]],
-    COLOR_DEEP_BLUE, true
-  )
-  // Right
-  poly(
-    [[x, y - 8], [x + 4 + lean, y + 2],
-     [x + 17 + lean, y + 9], [x + 12 + lean, y + 13], [x + 5 + lean, y + 6]],
-    COLOR_DEEP_BLUE, true
-  )
-
-  // Wing panel lines
-  line(x - 4 + lean, y + 2, x - 14 + lean, y + 8, COLOR_BRIGHT_COBALT)
-  line(x + 4 + lean, y + 2, x + 14 + lean, y + 8, COLOR_BRIGHT_COBALT)
-  line(x - 8 + lean, y + 4, x - 11 + lean, y + 11, COLOR_DUSTY_PURPLE)
-  line(x + 8 + lean, y + 4, x + 11 + lean, y + 11, COLOR_DUSTY_PURPLE)
-
-  // Wing tip nav lights
-  pixel(x - 17 + lean, y + 9, COLOR_VIVID_RED)
-  pixel(x + 17 + lean, y + 9, COLOR_VIVID_RED)
-  if shield % 6 < 3 {
-    pixel(x - 16 + lean, y + 9, COLOR_LIGHT_PEACH)
-    pixel(x + 16 + lean, y + 9, COLOR_LIGHT_PEACH)
+  // Motion trail ghosts (offset opposite to lean)
+  if lean > 1 || lean < -1 {
+    poly(
+      [[t1x - lean * 1.5, t1y], [t2x - lean * 1.5, t2y], [t3x - lean * 1.5, t3y]],
+      COLOR_DEEP_BLUE, true
+    )
+    poly(
+      [[t1x - lean * 0.7, t1y], [t2x - lean * 0.7, t2y], [t3x - lean * 0.7, t3y]],
+      COLOR_DUSTY_PURPLE, true
+    )
   }
 
-  // Weapon hardpoints
-  line(x - 10 + lean, y + 5, x - 14 + lean, y + 3, COLOR_COOL_LIGHT_GRAY)
-  line(x + 10 + lean, y + 5, x + 14 + lean, y + 3, COLOR_COOL_LIGHT_GRAY)
-  pixel(x - 14 + lean, y + 3, COLOR_VIVID_RED)
-  pixel(x + 14 + lean, y + 3, COLOR_VIVID_RED)
+  // Main triangle (solid, rigid)
+  poly([[t1x, t1y], [t2x, t2y], [t3x, t3y]], COLOR_BRIGHT_COBALT, true)
 
-  // === MAIN BODY ===
-  poly(
-    [
-      [x, y - 17],
-      [x + 7 + lean / 2, y - 1],
-      [x + 8 + lean / 2, y + 10],
-      [x, y + 14],
-      [x - 8 + lean / 2, y + 10],
-      [x - 7 + lean / 2, y - 1]
-    ],
-    COLOR_BRIGHT_COBALT, true
-  )
+  // Edge glow
+  line(t1x, t1y, t2x, t2y, COLOR_SKY_BLUE)
+  line(t1x, t1y, t3x, t3y, COLOR_SKY_BLUE)
+  line(t2x, t2y, t3x, t3y, COLOR_SKY_BLUE)
 
-  // Body panel seams
-  line(x - 5 + lean / 3, y - 3, x - 6 + lean / 3, y + 9, COLOR_DEEP_BLUE)
-  line(x + 5 + lean / 3, y - 3, x + 6 + lean / 3, y + 9, COLOR_DEEP_BLUE)
+  // Nose pixel
+  pixel(t1x, t1y, COLOR_SOFT_IVORY)
 
-  // === INNER HULL ===
-  poly(
-    [
-      [x, y - 12],
-      [x + 4 + lean / 3, y + 1],
-      [x + 4, y + 9],
-      [x, y + 12],
-      [x - 4, y + 9],
-      [x - 4 + lean / 3, y + 1]
-    ],
-    COLOR_SOFT_IVORY, true
-  )
-
-  // === COCKPIT ===
-  poly(
-    [
-      [x, y - 11],
-      [x + 3 + lean / 4, y - 3],
-      [x, y - 1],
-      [x - 3 + lean / 4, y - 3]
-    ],
-    COLOR_SKY_BLUE, true
-  )
-  pixel(x - 1 + lean / 5, y - 9, COLOR_SOFT_IVORY)
-  pixel(x     + lean / 5, y - 8, COLOR_SOFT_IVORY)
-
-  // === NOSE ===
-  circ(x, y - 16, 2, COLOR_CHARCOAL_GRAY, true)
-  pixel(x, y - 16, COLOR_WARM_YELLOW)
-
-  // Nose stripe
-  line(x, y - 14, x, y + 5, COLOR_VIVID_RED)
-
-  // Hull edge highlights
-  line(x, y - 17, x - 7 + lean, y + 1, COLOR_SKY_BLUE)
-  line(x, y - 17, x + 7 + lean, y + 1, COLOR_SKY_BLUE)
-
-  // === ENGINE GLOW ===
-  circ(x - 10 + lean, y + 12, 2, COLOR_AMBER_ORANGE, true)
-  circ(x + 10 + lean, y + 12, 2, COLOR_AMBER_ORANGE, true)
-  pixel(x - 10 + lean, y + 12, COLOR_WARM_YELLOW)
-  pixel(x + 10 + lean, y + 12, COLOR_WARM_YELLOW)
-  rect(x - 2, y + 11, 4, 3, COLOR_CHARCOAL_GRAY, true)
-  pixel(x, y + 12, COLOR_AMBER_ORANGE)
-
-  // === THRUSTERS ===
+  // Thruster (direction follows ship rotation)
   if key("KEY_UP") && energy > 0 {
-    // Center flame
     poly(
-      [[x - 3, y + 14], [x + 3, y + 14], [x + 1, y + 24], [x - 1, y + 24]],
+      [[t2x, t2y], [t3x, t3y], [bx + fdx * 11, by + fdy * 11]],
       COLOR_AMBER_ORANGE, true
     )
-    line(x, y + 14, x, y + 27, COLOR_WARM_YELLOW)
-
-    // Left pod flame
-    poly(
-      [[x - 13 + lean, y + 14], [x - 9 + lean, y + 14], [x - 11 + lean, y + 22]],
-      COLOR_AMBER_ORANGE, true
-    )
-    line(x - 11 + lean, y + 14, x - 11 + lean, y + 23, COLOR_ORANGE_RED)
-
-    // Right pod flame
-    poly(
-      [[x + 13 + lean, y + 14], [x + 9 + lean, y + 14], [x + 11 + lean, y + 22]],
-      COLOR_AMBER_ORANGE, true
-    )
-    line(x + 11 + lean, y + 14, x + 11 + lean, y + 23, COLOR_ORANGE_RED)
+    line(bx, by, bx + fdx * 14, by + fdy * 14, COLOR_WARM_YELLOW)
+    line(t2x, t2y, t2x + fdx * 7, t2y + fdy * 7, COLOR_ORANGE_RED)
+    line(t3x, t3y, t3x + fdx * 7, t3y + fdy * 7, COLOR_ORANGE_RED)
   }
 }
 

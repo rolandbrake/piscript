@@ -42,6 +42,14 @@ bool vm_poll_stop(vm_t *vm)
 
     while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_KEYDOWN, SDL_KEYDOWN) > 0)
     {
+        if (event.key.repeat == 0 &&
+            event.key.keysym.sym == SDLK_f &&
+            (event.key.keysym.mod & KMOD_CTRL))
+        {
+            screen_toggleFullscreen(vm->screen);
+            continue;
+        }
+
         if (event.key.keysym.sym == SDLK_c &&
             (event.key.keysym.mod & KMOD_CTRL))
         {

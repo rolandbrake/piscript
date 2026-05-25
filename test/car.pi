@@ -318,79 +318,60 @@ fun draw_particles() {
 }
 
 fun draw_car() {
-  let lean = clamp(car_vx * 1.8, -4, 4)
+  let lean = clamp(car_vx * 1.8, -5, 5)
   let x = car_x
   let y = car_y
-  let boost = key("KEY_UP") && energy > 0
+  let angle = lean * 0.09
 
-  // Ground triangle vertices
-  let gx0 = x + lean   // front tip
-  let gy0 = y - 10
-  let gx1 = x - 10     // rear left
-  let gy1 = y + 10
-  let gx2 = x + 10     // rear right
-  let gy2 = y + 10
+  let ca = cos(angle)
+  let sa = sin(angle)
 
-  // Top (elevated) triangle — 9px of height
-  let tx0 = x + lean
-  let ty0 = y - 19
-  let tx1 = x - 10
-  let ty1 = y + 1
-  let tx2 = x + 10
-  let ty2 = y + 1
+  // Rotate all 3 vertices around center
+  let t1x = x + 11 * sa            // tip    (0, -11)
+  let t1y = y - 11 * ca
+  let t2x = x - 8 * ca - 8 * sa    // rear left  (-8, 8)
+  let t2y = y - 8 * sa + 8 * ca
+  let t3x = x + 8 * ca - 8 * sa    // rear right (8, 8)
+  let t3y = y + 8 * sa + 8 * ca
 
-  // Shadow on ground
-  poly([[gx1 + 4, gy1 + 4], [gx2 + 4, gy2 + 4], [gx0 + 4, gy0 + 4]], COLOR_SOFT_BLACK, true)
+  // Rear center + exhaust direction (rotates with car)
+  let bx = (t2x + t3x) / 2
+  let by = (t2y + t3y) / 2
+  let fdx = -sa
+  let fdy = ca
 
-  // Rear wall face (darkest — faces viewer)
-  poly([[gx1, gy1], [gx2, gy2], [tx2, ty2], [tx1, ty1]], COLOR_CHARCOAL_GRAY, true)
+  // Motion trail ghosts (offset opposite to lean)
+  if lean > 1 || lean < -1 {
+    poly(
+      [[t1x - lean * 1.5, t1y], [t2x - lean * 1.5, t2y], [t3x - lean * 1.5, t3y]],
+      COLOR_DEEP_BLUE, true
+    )
+    poly(
+      [[t1x - lean * 0.7, t1y], [t2x - lean * 0.7, t2y], [t3x - lean * 0.7, t3y]],
+      COLOR_DUSTY_PURPLE, true
+    )
+  }
 
-  // Left wall face
-  poly([[gx0, gy0], [gx1, gy1], [tx1, ty1], [tx0, ty0]], COLOR_DEEP_BLUE, true)
+  // Main triangle (solid, rigid)
+  poly([[t1x, t1y], [t2x, t2y], [t3x, t3y]], COLOR_BRIGHT_COBALT, true)
 
-  // Right wall face
-  poly([[gx0, gy0], [gx2, gy2], [tx2, ty2], [tx0, ty0]], COLOR_DUSTY_PURPLE, true)
+  // Edge glow
+  line(t1x, t1y, t2x, t2y, COLOR_SKY_BLUE)
+  line(t1x, t1y, t3x, t3y, COLOR_SKY_BLUE)
+  line(t2x, t2y, t3x, t3y, COLOR_SKY_BLUE)
 
-  // Top face (brightest)
-  poly([[tx0, ty0], [tx1, ty1], [tx2, ty2]], COLOR_BRIGHT_COBALT, true)
+  // Nose pixel
+  pixel(t1x, t1y, COLOR_SOFT_IVORY)
 
-  // Top edge highlights
-  line(tx0, ty0, tx1, ty1, COLOR_SKY_BLUE)
-  line(tx0, ty0, tx2, ty2, COLOR_SKY_BLUE)
-  line(tx1, ty1, tx2, ty2, COLOR_COOL_LIGHT_GRAY)
-
-  // Vertical front edge (tip pillar)
-  line(gx0, gy0, tx0, ty0, COLOR_SKY_BLUE)
-
-  // Rear vertical edges
-  line(gx1, gy1, tx1, ty1, COLOR_DUSTY_PURPLE)
-  line(gx2, gy2, tx2, ty2, COLOR_DUSTY_PURPLE)
-
-  // Neon spine along top face
-  let mx = (tx1 + tx2) / 2
-  let my = (ty1 + ty2) / 2
-  line(tx0, ty0, mx, my, COLOR_SOFT_IVORY)
-
-  // Headlight at front tip
-  pixel(tx0 - 1, ty0, COLOR_WARM_YELLOW)
-  pixel(tx0,     ty0, COLOR_WARM_YELLOW)
-  pixel(tx0 + 1, ty0, COLOR_WARM_YELLOW)
-
-  // Tail lights on top rear corners
-  pixel(tx1 + 1, ty1, COLOR_VIVID_RED)
-  pixel(tx2 - 1, ty2, COLOR_VIVID_RED)
-
-  // Tail light bar on rear wall
-  line(gx1 + 2, gy1 - 1, gx2 - 2, gy2 - 1, COLOR_VIVID_RED)
-
-  // Boost flames from ground rear center
-  if boost {
-    let bx = (gx1 + gx2) / 2
-    let by = (gy1 + gy2) / 2
-    poly([[bx - 3, by], [bx + 3, by], [bx, by + 13]], COLOR_AMBER_ORANGE, true)
-    line(bx, by, bx, by + 16, COLOR_WARM_YELLOW)
-    line(bx - 3, by, bx - 6, by + 10, COLOR_ORANGE_RED)
-    line(bx + 3, by, bx + 6, by + 10, COLOR_ORANGE_RED)
+  // Boost flames (direction follows car rotation)
+  if key("KEY_UP") && energy > 0 {
+    poly(
+      [[t2x, t2y], [t3x, t3y], [bx + fdx * 11, by + fdy * 11]],
+      COLOR_AMBER_ORANGE, true
+    )
+    line(bx, by, bx + fdx * 14, by + fdy * 14, COLOR_WARM_YELLOW)
+    line(t2x, t2y, t2x + fdx * 7, t2y + fdy * 7, COLOR_ORANGE_RED)
+    line(t3x, t3y, t3x + fdx * 7, t3y + fdy * 7, COLOR_ORANGE_RED)
   }
 }
 
