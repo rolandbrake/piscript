@@ -34,6 +34,7 @@ predict = (x) -> m * x + b
 clear()
 
 
+
 // Plot regression line in color 8 (light blue)
 for i in 0..128 {
     yi = predict(i)

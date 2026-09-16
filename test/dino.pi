@@ -1,0 +1,405 @@
+// Chrome Dino runner
+// SPACE/UP jumps. DOWN ducks. P pauses. SPACE restarts after a crash.
+
+GROUND_Y = 99
+GRAVITY = 0.42
+JUMP_V = -7.1
+START_SPEED = 1.9
+MAX_SPEED = 4.1
+
+dino = {x: 18, y: GROUND_Y - 22, vy: 0, w: 17, h: 22, duck: false}
+obstacles = []
+clouds = []
+dust = []
+
+score = 0
+best = 0
+speed = START_SPEED
+tick = 0
+spawn_timer = 55
+shake = 0
+paused = false
+game_over = false
+started = false
+
+fun reset_game() {
+  dino = {x: 18, y: GROUND_Y - 22, vy: 0, w: 17, h: 22, duck: false}
+  obstacles = []
+  dust = []
+  clouds = []
+  score = 0
+  speed = START_SPEED
+  tick = 0
+  spawn_timer = 45
+  shake = 0
+  paused = false
+  game_over = false
+
+  let i = 0
+  while i < 5 {
+    push(clouds, {x: rand(0, WIDTH - 1), y: rand(14, 42), w: rand(18, 30), s: rand(2, 5) / 10})
+    i += 1
+  }
+}
+
+fun hit_box(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+}
+
+fun add_dust(x, y) {
+  push(dust, {x: x, y: y, dx: -rand(4, 14) / 10, dy: -rand(2, 10) / 10, life: rand(12, 22)})
+  push(dust, {x: x + 2, y: y - 1, dx: -rand(8, 18) / 10, dy: -rand(0, 6) / 10, life: rand(8, 16)})
+}
+
+fun jump() {
+  if dino.y >= GROUND_Y - dino.h - 1 {
+    dino.vy = JUMP_V
+    play(tone(520, 55, WAVE_TRIANGLE))
+  }
+}
+
+fun spawn_obstacle() {
+  let kind = rand(0, 100)
+  if kind < 65 {
+    let tall = rand(0, 100) < 42
+    push(obstacles, {
+      type: 0,
+      x: WIDTH + 8,
+      y: tall ? GROUND_Y - 23 : GROUND_Y - 17,
+      w: tall ? 10 : 8,
+      h: tall ? 23 : 17,
+      flap: 0
+    })
+  } else {
+    let high = rand(0, 100) < 50
+    push(obstacles, {
+      type: 1,
+      x: WIDTH + 8,
+      y: high ? GROUND_Y - 39 : GROUND_Y - 27,
+      w: 18,
+      h: 10,
+      flap: 0
+    })
+  }
+
+  spawn_timer = rand(42, 74) - floor(speed * 5)
+  if spawn_timer < 24 spawn_timer = 24
+}
+
+fun update_input() {
+  if key("KEY_P", true) paused = !paused
+
+  if key("KEY_SPACE") || key("KEY_UP") {
+    if !started started = true
+    if game_over {
+      reset_game()
+      started = true
+    } else {
+      jump()
+    }
+  }
+
+  dino.duck = (key("KEY_DOWN") || key("KEY_S")) && dino.y >= GROUND_Y - dino.h - 1
+  if dino.duck {
+    dino.w = 23
+    dino.h = 13
+    dino.y = GROUND_Y - dino.h
+  } else {
+    dino.w = 17
+    dino.h = 22
+  }
+}
+
+fun update_play() {
+  if paused || game_over || !started return
+
+  score += 1
+  speed = START_SPEED + score / 650
+  if speed > MAX_SPEED speed = MAX_SPEED
+
+  dino.vy += GRAVITY
+  dino.y += dino.vy
+  if dino.y > GROUND_Y - dino.h {
+    dino.y = GROUND_Y - dino.h
+    dino.vy = 0
+    if tick % 5 == 0 add_dust(dino.x + 4, GROUND_Y - 2)
+  }
+
+  spawn_timer -= 1
+  if spawn_timer <= 0 spawn_obstacle()
+
+  let i = 0
+  while i < len(obstacles) {
+    obstacles[i].x -= speed
+    obstacles[i].flap += 1
+    i += 1
+  }
+
+  i = len(obstacles) - 1
+  while i >= 0 {
+    if obstacles[i].x + obstacles[i].w < -4 remove(obstacles, i)
+    i -= 1
+  }
+
+  i = 0
+  while i < len(obstacles) {
+    let o = obstacles[i]
+    let pad = o.type == 0 ? 2 : 3
+    if hit_box(dino.x + 2, dino.y + 2, dino.w - 4, dino.h - 3, o.x + pad, o.y + pad, o.w - pad * 2, o.h - pad) {
+      game_over = true
+      shake = 8
+      if score > best best = score
+      play(tone(110, 180, WAVE_SQUARE))
+    }
+    i += 1
+  }
+}
+
+fun update_fx() {
+  let i = 0
+  while i < len(clouds) {
+    clouds[i].x -= clouds[i].s
+    if clouds[i].x + clouds[i].w < 0 {
+      clouds[i].x = WIDTH + rand(0, 35)
+      clouds[i].y = rand(12, 42)
+      clouds[i].w = rand(18, 30)
+      clouds[i].s = rand(2, 5) / 10
+    }
+    i += 1
+  }
+
+  i = 0
+  while i < len(dust) {
+    dust[i].x += dust[i].dx
+    dust[i].y += dust[i].dy
+    dust[i].dy += 0.06
+    dust[i].life -= 1
+    i += 1
+  }
+
+  i = len(dust) - 1
+  while i >= 0 {
+    if dust[i].life <= 0 remove(dust, i)
+    i -= 1
+  }
+
+  if shake > 0 shake -= 1
+}
+
+// Cloud: layered horizontal slices for a rounder puffier look
+fun draw_cloud(c) {
+  let x = floor(c.x)
+  let y = c.y
+  let w = c.w
+  // bottom base — full width
+  line(x + 3, y + 8, x + w - 3, y + 8, COLOR_COOL_LIGHT_GRAY)
+  // mid row 1
+  line(x + 1, y + 6, x + w - 1, y + 6, COLOR_COOL_LIGHT_GRAY)
+  line(x + 1, y + 7, x + w - 1, y + 7, COLOR_COOL_LIGHT_GRAY)
+  // mid row 2 — slightly narrower, two bumps implied
+  line(x + 2, y + 4, x + w - 4, y + 4, COLOR_COOL_LIGHT_GRAY)
+  line(x + 2, y + 5, x + w - 4, y + 5, COLOR_COOL_LIGHT_GRAY)
+  // left bump top
+  line(x + 3, y + 2, x + 7, y + 2, COLOR_COOL_LIGHT_GRAY)
+  line(x + 2, y + 3, x + 8, y + 3, COLOR_COOL_LIGHT_GRAY)
+  // right bump top (offset from left)
+  line(x + w - 10, y + 1, x + w - 5, y + 1, COLOR_COOL_LIGHT_GRAY)
+  line(x + w - 11, y + 2, x + w - 4, y + 2, COLOR_COOL_LIGHT_GRAY)
+  line(x + w - 10, y + 3, x + w - 3, y + 3, COLOR_COOL_LIGHT_GRAY)
+}
+
+fun draw_ground() {
+  // Main ground line
+  line(0, GROUND_Y, WIDTH, GROUND_Y, COLOR_CHARCOAL_GRAY)
+  // Second thinner line for depth
+  line(0, GROUND_Y + 1, WIDTH, GROUND_Y + 1, COLOR_COOL_LIGHT_GRAY)
+  // Pebble dots — evenly spaced, two alternating rows
+  let x = (tick * 2) % 20
+  while x < WIDTH {
+    pixel(x,      GROUND_Y + 4, COLOR_COOL_LIGHT_GRAY)
+    pixel(x + 10, GROUND_Y + 7, COLOR_COOL_LIGHT_GRAY)
+    x += 20
+  }
+}
+
+// Dino: cleaner silhouette with distinct head, neck ridge, tail, two-toe feet
+fun draw_dino() {
+  let x = dino.x
+  let y = dino.y
+  let leg = (tick / 6) % 2
+
+  if dino.duck {
+    // Ducking body — long low rectangle
+    rect(x + 2, y + 4, 18, 8, COLOR_SOFT_BLACK, true)
+    // Head extension forward
+    rect(x + 17, y + 1, 9, 8, COLOR_SOFT_BLACK, true)
+    // Snout/beak jut
+    rect(x + 24, y + 3, 3, 3, COLOR_SOFT_BLACK, true)
+    // Eye
+    pixel(x + 22, y + 2, COLOR_SOFT_IVORY)
+    // Tail taper behind
+    rect(x,     y + 6, 4, 4, COLOR_SOFT_BLACK, true)
+    rect(x - 3, y + 7, 4, 3, COLOR_SOFT_BLACK, true)
+    // Two short legs
+    rect(x + 6,  y + 11, 4, 4, COLOR_SOFT_BLACK, true)
+    rect(x + 16, y + 11, 4, 4, COLOR_SOFT_BLACK, true)
+    // Toe stubs
+    rect(x + 4,  y + 14, 4, 2, COLOR_SOFT_BLACK, true)
+    rect(x + 14, y + 14, 4, 2, COLOR_SOFT_BLACK, true)
+  } else {
+    // Head — raised above body
+    rect(x + 7, y,     11, 10, COLOR_SOFT_BLACK, true)
+    // Snout jut
+    rect(x + 16, y + 3, 4,  3, COLOR_SOFT_BLACK, true)
+    // Eye
+    pixel(x + 14, y + 1, COLOR_SOFT_IVORY)
+    // Neck connector
+    rect(x + 8, y + 9,  6,  3, COLOR_SOFT_BLACK, true)
+    // Body
+    rect(x + 4, y + 11, 12, 8, COLOR_SOFT_BLACK, true)
+    // Arm nub
+    rect(x + 14, y + 12, 3,  4, COLOR_SOFT_BLACK, true)
+    // Tail — two steps tapering left
+    rect(x + 1, y + 13, 5,  5, COLOR_SOFT_BLACK, true)
+    rect(x - 2, y + 15, 4,  3, COLOR_SOFT_BLACK, true)
+
+    // Legs — alternating stride
+    if leg == 0 {
+      // Left leg forward, right leg back
+      rect(x + 5,  y + 18, 4, 6, COLOR_SOFT_BLACK, true)   // left shin
+      rect(x + 3,  y + 23, 6, 2, COLOR_SOFT_BLACK, true)   // left toe
+      rect(x + 11, y + 18, 4, 3, COLOR_SOFT_BLACK, true)   // right thigh only
+    } else {
+      // Right leg forward, left leg back
+      rect(x + 11, y + 18, 4, 6, COLOR_SOFT_BLACK, true)   // right shin
+      rect(x + 11, y + 23, 6, 2, COLOR_SOFT_BLACK, true)   // right toe
+      rect(x + 5,  y + 18, 4, 3, COLOR_SOFT_BLACK, true)   // left thigh only
+    }
+  }
+}
+
+// Cactus: trunk + asymmetric arms at different heights
+fun draw_cactus(o) {
+  let x = o.x
+  let y = o.y
+  let h = o.h
+
+  // Main trunk
+  rect(x + 3, y, 5, h, COLOR_SOFT_BLACK, true)
+
+  // Left arm — lower, short horizontal then up
+  rect(x,     y + 8,  4, 3, COLOR_SOFT_BLACK, true)   // horizontal
+  rect(x,     y + 4,  3, 8, COLOR_SOFT_BLACK, true)   // upright
+
+  // Right arm — higher, longer reach
+  rect(x + 7, y + 5,  5, 3, COLOR_SOFT_BLACK, true)   // horizontal
+  rect(x + 9, y + 2,  3, 7, COLOR_SOFT_BLACK, true)   // upright
+
+  // Subtle base flare
+  rect(x + 2, y + h - 2, 7, 2, COLOR_SOFT_BLACK, true)
+}
+
+// Bird: solid oval body, beak, eye, animated wings with arc
+fun draw_bird(o) {
+  let wing = (o.flap / 7) % 2
+  let x = o.x
+  let y = o.y
+
+  // Body — oval built from three rects
+  rect(x + 4, y + 3,  11, 5, COLOR_SOFT_BLACK, true)
+  rect(x + 3, y + 4,  13, 3, COLOR_SOFT_BLACK, true)
+
+  // Beak
+  rect(x + 14, y + 4, 4,  2, COLOR_SOFT_BLACK, true)
+
+  // Tail fan
+  rect(x + 2, y + 5, 3, 2, COLOR_SOFT_BLACK, true)
+  rect(x,     y + 6, 3, 1, COLOR_SOFT_BLACK, true)
+
+  // Eye
+  pixel(x + 13, y + 4, COLOR_SOFT_IVORY)
+
+  // Wings — two lines each giving a V shape
+  if wing == 0 {
+    // Wings up
+    line(x + 6,  y + 3, x + 2,  y,     COLOR_SOFT_BLACK)
+    line(x + 7,  y + 3, x + 3,  y,     COLOR_SOFT_BLACK)
+    line(x + 10, y + 3, x + 14, y,     COLOR_SOFT_BLACK)
+    line(x + 11, y + 3, x + 15, y,     COLOR_SOFT_BLACK)
+  } else {
+    // Wings down
+    line(x + 6,  y + 7, x + 2,  y + 11, COLOR_SOFT_BLACK)
+    line(x + 7,  y + 7, x + 3,  y + 11, COLOR_SOFT_BLACK)
+    line(x + 10, y + 7, x + 14, y + 11, COLOR_SOFT_BLACK)
+    line(x + 11, y + 7, x + 15, y + 11, COLOR_SOFT_BLACK)
+  }
+}
+
+fun draw_world() {
+  clear(COLOR_SOFT_IVORY)
+
+  let i = 0
+  while i < len(clouds) {
+    draw_cloud(clouds[i])
+    i += 1
+  }
+
+  draw_ground()
+
+  i = 0
+  while i < len(dust) {
+    if dust[i].life > 10 {
+      pixel(dust[i].x, dust[i].y, COLOR_CHARCOAL_GRAY)
+    } else {
+      pixel(dust[i].x, dust[i].y, COLOR_WARM_STONE)
+    }
+    i += 1
+  }
+
+  i = 0
+  while i < len(obstacles) {
+    if obstacles[i].type == 0 draw_cactus(obstacles[i])
+    else draw_bird(obstacles[i])
+    i += 1
+  }
+
+  draw_dino()
+}
+
+fun draw_hud() {
+  print("HI " + best, 74, 2, COLOR_CHARCOAL_GRAY)
+  print(score, 108, 2, COLOR_SOFT_BLACK)
+}
+
+fun draw_panel(title, sub) {
+  rect(14, 38, 100, 44, COLOR_SOFT_IVORY, true)
+  rect(14, 38, 100, 44, COLOR_SOFT_BLACK)
+  print(title, 30, 48, COLOR_SOFT_BLACK)
+  print(sub, 23, 62, COLOR_CHARCOAL_GRAY)
+  print("SPACE", 48, 73, tick % 20 < 10 ? COLOR_SOFT_BLACK : COLOR_WARM_STONE)
+}
+
+reset_game()
+
+while true {
+  update_input()
+
+  if !paused {
+    tick += 1
+    update_fx()
+  }
+  update_play()
+
+  let ox = shake > 0 ? rand(-1, 1) : 0
+  camera(ox, 0)
+  draw_world()
+  camera()
+  draw_hud()
+
+  if !started draw_panel("DINO RUN", "UP JUMP  DOWN DUCK")
+  if paused && !game_over draw_panel("PAUSED", "PRESS P")
+  if game_over draw_panel("GAME OVER", "SCORE " + score)
+
+  draw()
+  sleep(16)
+}

@@ -2107,7 +2107,7 @@ void run(vm_t *vm)
             Value container = pop_stack(vm); // Get the container from the stack
 
             if (!IS_OBJ(container))
-                vm_error(vm, "Unsupported operand type for get item operator.\n");
+                vm_errorf(vm, "Unsupported operand type for get item operator: %s.\n", type_name(container));
 
             if (IS_SLICE(index))
             {
@@ -2164,7 +2164,7 @@ void run(vm_t *vm)
             }
 
             default:
-                vm_error(vm, "Unsupported operand type for get item operator.\n");
+                vm_errorf(vm, "Unsupported operand type for get item operator: %s.\n", type_name(container));
             }
             break;
         }

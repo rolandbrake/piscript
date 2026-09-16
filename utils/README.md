@@ -1,12 +1,12 @@
-## PiScript JS Formatter + Minifier
+## pilang JS Formatter + Minifier
 
-This project provides a JavaScript implementation of a formatter and minifier for the PiScript programming language. It includes a scanner, parser, AST nodes, and formatting/minification utilities.
+This project provides a JavaScript implementation of a formatter and minifier for the pilang programming language. It includes a scanner, parser, AST nodes, and formatting/minification utilities.
 
-If you want a quick way to see it in action, `PiTester.js` reads a `.pi` file, parses it, and prints the formatted output (with a minification option in code).
+If you want a quick way to see it in action, the native Pilang CLI calls `PiCli.js`, which reads a `.pi` file and writes formatted or minified output back to that file.
 
 ## Features
 
-- Parses PiScript source into an AST
+- Parses pilang source into an AST
 - Stable, readable formatting with comment preservation
 - Minification support (with optional identifier mangling)
 - CLI-style tester for quick local runs
@@ -17,10 +17,18 @@ If you want a quick way to see it in action, `PiTester.js` reads a `.pi` file, p
 
 ## Quick Start
 
-Format a file using the tester:
+Format or minify a file in place from the repository root:
 
 ```bash
-node PiTester.js path\to\script.pi
+pilang fmt path\to\script.pi
+pilang min path\to\script.pi
+```
+
+You can also call the utility wrapper directly:
+
+```bash
+node utils/PiCli.js fmt path\to\script.pi
+node utils/PiCli.js min path\to\script.pi
 ```
 
 ## Programmatic Usage
@@ -56,7 +64,7 @@ const tokens = scanner.scanTokens();
 const parser = new PiParser();
 const statements = parser.parse(tokens);
 
-const builtins = ["print", "println"]; // add PiScript built-ins you want to preserve
+const builtins = ["print", "println"]; // add pilang built-ins you want to preserve
 const ctx = new PiContext(builtins, true); // true = enable mangling
 
 const minified = statements.minify(ctx);
@@ -74,4 +82,4 @@ console.log(minified);
 - `PiFormatter.js` - formatting entry point
 - `PiMangler.js` - name mangling for minification
 - `PiContext.js` - scope handling for minification
-- `PiTester.js` - CLI-style runner that formats a `.pi` file
+- `PiCli.js` - CLI-style runner used by `pilang fmt` and `pilang min`

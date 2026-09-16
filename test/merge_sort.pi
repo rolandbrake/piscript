@@ -28,22 +28,17 @@ fun merge(left, right) {
         }
     }
 
-    if (left_idx < #left) 
-        append(left[left_idx:],result)
-
-    if (right_idx < #right)               
-        append(right[right_idx:],result)
+    // Slices include all remaining items through the end.
+    for item in left[left_idx:]
+        push(result, item)
+    for item in right[right_idx:]
+        push(result, item)
 
     return result
 }
 
-fun append(list = [], result = []) {            
-    for(i in list)
-        result += i  
-}
-
 let list = [5,3,4,1,2]
-println(merge_sort(list))
+writeln(merge_sort(list)) // [1, 2, 3, 4, 5]
 
   
   

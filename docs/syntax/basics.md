@@ -125,7 +125,13 @@ Use C-style comments.
 ## Access and Mutation
 
 Lists and strings use bracket indexing. Maps support bracket lookup and dot
-lookup. Negative indexing is supported by sequence lookup.
+lookup. Sequence indices are zero-based; negative indices count from the end
+(`-1` is the last element). For a nonempty sequence, valid indices run from
+`-len(sequence)` through `len(sequence) - 1`. Other indices raise an error
+instead of wrapping. The existing empty-list lookup behavior returns `nil`;
+indexing an empty string or assigning into an empty list raises an error.
+For deliberate circular access, use `items[index % len(items)]` after checking
+that the list is nonempty.
 
 ```piscript
 let nums = [3, 5, 8]
@@ -145,9 +151,26 @@ nums[1] = 13
 Bracket slices use `start:end` or `start:end:step`. A range expression uses
 `start..end` with an optional `:step`.
 
+Slices return a new list or string, include the start, and exclude the end.
+With a positive step, omitted bounds mean the beginning and end; with a negative
+step, they mean the last element and the position before the beginning.
+Explicit negative bounds count from the end, and bounds beyond the sequence
+are clamped. Thus `items[:]` copies the whole list and `items[::-1]` reverses it.
+An explicit reverse stop of `-1` means the last element, unlike an omitted stop.
+Empty or direction-mismatched slices return an empty list or string.
+
+Numeric bounds and steps truncate toward zero. A step must be finite, fit a
+signed 32-bit integer, and remain nonzero after conversion (`0.5` is invalid).
+List slices have separate storage but share nested objects with the original.
+Strings are sliced by bytes. Slice assignment is not supported.
+
 ```piscript
 let text = "piscript"
-writeln(text[0:2])
+writeln(text[0:2])   // pi
+writeln(text[:])      // piscript
+writeln(text[::2])    // psrp
+writeln(text[::-1])   // tpircsip
+writeln(text[-100:100]) // piscript
 
 for i in 0..10:2 {
     writeln(i)

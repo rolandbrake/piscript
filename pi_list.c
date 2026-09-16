@@ -86,15 +86,17 @@ void list_add(list_t *list, const void *item)
  * room for the new item.
  *
  * @param list The list to insert the item into.
- * @param index The index at which to insert the item. If the index
- *              is negative or greater than the list size, it will
- *              be adjusted accordingly.
+ * @param index Insertion position in [0, size], including the end.
  * @param item A pointer to the item to be inserted into the list.
  */
 void list_addAt(list_t *list, int index, const void *item)
 {
-    // Adjust index for negative values or values greater than the current size
-    int _index = get_index(index, list->size);
+    // Insertion positions include the end, even for an empty list.
+    if (index < 0 || index > list->size)
+        error("Insertion index out of range.");
+    int _index = index;
+    if (list->size == list->capacity)
+        list_expand(list, list->capacity * 2);
 
     // Calculate the target position in memory
     void *target = (byte *)list->data + _index * list->i_size;
@@ -114,8 +116,7 @@ void list_addAt(list_t *list, int index, const void *item)
  *
  * @param list The list to retrieve an element from.
  * @param index The index of the element to retrieve.
- * @return The element at the specified index. If the index is out of bounds,
- *         a null pointer is returned.
+ * @return The element at the specified index; out-of-bounds indices error.
  */
 void *list_getAt(list_t *list, int index)
 {
@@ -128,9 +129,7 @@ void *list_getAt(list_t *list, int index)
 /**
  * @brief Sets the element at the specified index to the given item.
  *
- * This function currently does not handle out-of-bounds access. If the index
- * is negative or greater than or equal to the list's size, the function will
- * exit without doing anything. This behavior is subject to change.
+ * Negative indices count from the end. Out-of-bounds indices raise an error.
  *
  * @param list The list to modify.
  * @param index The index of the element to set.
@@ -230,12 +229,21 @@ list_t *list_addAll(list_t *list, list_t *items)
 
 void *list_remove(list_t *list, int index)
 {
+    if (list->size == 0)
+        return NULL;
+
     index = get_index(index, list->size);
 
     void *target = (byte *)list->data + index * list->i_size;
 
     // Allocate temporary buffer to hold the removed item
     void *removed_item = malloc(list->i_size);
+    if (!removed_item)
+    {
+        perror("Failed to allocate memory for removed list item");
+        exit(EXIT_FAILURE);
+    }
+    memcpy(removed_item, target, list->i_size);
 
     void *next = (byte *)list->data + (index + 1) * list->i_size;
     memmove(target, next, (list->size - index - 1) * list->i_size);

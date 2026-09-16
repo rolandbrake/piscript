@@ -48,8 +48,6 @@ typedef struct
     Object *iters[STACK_MAX]; // Iterator stack to support loops and iteration constructs.
     int iter_sp;              // Iterator Stack Pointer: Tracks the top of the iterator stack.
 
-    // UpValue *openUpvalues[STACK_MAX]; // Stack of open upvalues used in nested functions.
-    // int upvalue_sp;
 
     UpValue *openUpvalues; // linked list of open upvalues used in nested functions.
 

@@ -276,7 +276,7 @@ Value pi_sort(vm_t *vm, int argc, Value *argv)
  * @brief Inserts a value into a list or string at a specified index.
  *
  * For lists, the value is inserted directly.
- * For strings, only single-character strings can be inserted.
+ * For strings, the value is converted to text and inserted.
  *
  * @param vm The virtual machine instance.
  * @param argc Number of arguments passed.
@@ -309,7 +309,8 @@ Value pi_insert(vm_t *vm, int argc, Value *argv)
 
         char *_str = as_string(value);
 
-        index = get_index(index, str->length);
+        if (index < 0 || index > str->length)
+            error("[insert] Index out of bounds for string.");
 
         // Allocate new space for +1 character
         int new_len = str->length + strlen(_str);
@@ -363,7 +364,13 @@ Value pi_remove(vm_t *vm, int argc, Value *argv)
     if (IS_LIST(collection))
     {
         list_t *list = AS_CLIST(collection);
-        return *(Value *)list_remove(list, index); // Assumes list_removeAt returns a pointer to Value
+        Value *removed = (Value *)list_remove(list, index);
+        if (removed == NULL)
+            return NEW_NIL();
+
+        Value value = *removed;
+        free(removed);
+        return value;
     }
 
     // Handle string character removal

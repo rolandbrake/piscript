@@ -1,4 +1,6 @@
 #include <math.h>
+#include <limits.h>
+#include <stdint.h>
 #include <string.h>
 #include "pi_object.h"
 #include "common.h"
@@ -17,28 +19,16 @@ static Object *create_obj(size_t size, o_type type)
 }
 
 /**
- * Calculates the hash of a string.
- *
- * The hash is calculated by the djb2 algorithm, which is a simple string
- * hashing algorithm. The algorithm is as follows:
- *
- * 1. Set the hash to a prime number (here, 2166136261).
- * 2. Iterate through the string and for each character:
- *    a. XOR the hash with the character.
- *    b. Multiply the hash with a prime number (here, 16777619).
- * 3. Return the hash.
- *
- * @param chars The string to hash.
- * @param length The length of the string.
- * @return The hash of the string.
+ * Computes the 64-bit FNV-1a hash of exactly length bytes.
+ * Uses the same offset basis and prime as the hash tables.
  */
-uint32_t string_hash(char *chars, size_t length)
+uint64_t string_hash(char *chars, size_t length)
 {
-    uint32_t hash = 2166136261u;
-    for (int i = 0; i < length; i++)
+    uint64_t hash = FNV_OFFSET;
+    for (size_t i = 0; i < length; i++)
     {
         hash ^= (uint8_t)chars[i];
-        hash *= 16777619;
+        hash *= FNV_PRIME;
     }
     return hash;
 }
@@ -324,22 +314,14 @@ int map_size(PiMap *map)
     return map->table->size;
 }
 
-/**
- * Computes a hash value for a given block of code using a variant of the FNV-1a hash algorithm.
- *
- * This function processes the first 16 bytes of the input code array and
- * returns a 32-bit hash value. It's designed for quick hashing of small data blocks.
- *
- * @param code A pointer to the code block (array of bytes) to be hashed.
- * @return A 32-bit hash value representing the input code block.
- */
+/* Bytecode hashes retain their existing 32-bit representation. */
 uint32_t code_hash(uint8_t *code)
 {
-    uint32_t hash = 2166136261u; // FNV offset basis
+    uint32_t hash = 2166136261u;
     for (int i = 0; i < 16; i++)
     {
-        hash ^= code[i];  // XOR the next byte into the hash
-        hash *= 16777619; // Multiply by FNV prime
+        hash ^= code[i];
+        hash *= 16777619u;
     }
     return hash;
 }
@@ -563,108 +545,83 @@ bool is_iterable(Object *obj)
     }
 }
 
-/**
- * @brief Converts a given index to a valid index within a sequence.
- *
- * @details This function takes an index and a sequence length as input, and
- * returns a valid index within the sequence. If the index is negative, it is
- * converted to a positive index by adding the sequence length. If the index is
- * greater than the sequence length, it is wrapped around to the beginning of
- * the sequence by taking the modulo of the sequence length.
- *
- * @param index The index to convert.
- * @param length The length of the sequence.
- * @return A valid index within the sequence.
- */
+/* Element indices support one negative offset, never modulo wrapping. */
 int get_index(int index, int length)
 {
-    if (length == 0)
-        return 0;
-    int _index = index % length;
-    if (_index < 0) // Handle negative indices
-        _index += length;
-    return _index;
+    if (length <= 0)
+        error("Index out of range.");
+    if (index < 0)
+        index += length;
+    if (index < 0 || index >= length)
+        error("Index out of range.");
+    return index;
 }
 
-/**
- * Retrieves a slice of a sequence (list or string) from the specified start
- * index to the specified end index with the specified step.
- *
- * @param sequence The sequence (list or string) to retrieve the slice from.
- * @param start The index to start the slice from.
- * @param end The index to end the slice at.
- * @param step The increment between each element in the slice.
- * @return A new sequence containing the sliced elements.
- */
+static int slice_index(double index, int length, int step)
+{
+    if (isnan(index))
+        error("Slice bounds cannot be NaN.");
+    index = trunc(index);
+    if (index < 0)
+        index += length;
+    int lower = step > 0 ? 0 : -1;
+    int upper = step > 0 ? length : length - 1;
+    if (index < lower)
+        return lower;
+    if (index > upper)
+        return upper;
+    return (int)index;
+}
+
 Value get_slice(Object *sequence, double start, double end, double step)
 {
-    int size = 0; // Size of the sequence (list or string)
-    int sign = (step > 0) ? 1 : -1;
-    int _start, _end, _step;
+    if (!isfinite(step) || step < INT_MIN || step > INT_MAX)
+        error("Slice step must be a finite integer-sized number.");
+    int stride = (int)step;
+    if (stride == 0)
+        error("Slice step cannot be zero after integer conversion.");
 
-    // Convert step to integer (must be non-zero)
-    if (step == 0)
+    int size;
+    if (sequence->type == OBJ_LIST)
+        size = LIST_SIZE(((PiList *)sequence)->items);
+    else if (sequence->type == OBJ_STRING)
+        size = ((PiString *)sequence)->length;
+    else
     {
-        fprintf(stderr, "Slice step cannot be zero.\n");
-        exit(EXIT_FAILURE);
+        error("Invalid sequence type.");
+        return NEW_NIL();
     }
-    _step = (int)step;
+
+    // The parser represents omitted bounds with infinity. An explicit -1
+    // must still resolve to the last item, not the omitted reverse stop.
+    int first = isinf(start) ? (stride > 0 ? 0 : size - 1)
+                             : slice_index(start, size, stride);
+    int stop = isinf(end) ? (stride > 0 ? size : -1)
+                          : slice_index(end, size, stride);
+    // Widen arithmetic so even INT_MIN / INT_MAX strides cannot overflow.
+    int64_t distance = stride > 0 ? (int64_t)stop - first : (int64_t)first - stop;
+    int64_t magnitude = stride > 0 ? (int64_t)stride : -(int64_t)stride;
+    int count = distance > 0 ? (int)((distance - 1) / magnitude + 1) : 0;
 
     if (sequence->type == OBJ_LIST)
     {
-        PiList *list = (PiList *)sequence;
-        size = LIST_SIZE(list->items);
-
-        // Handle infinity values and convert to integers
-        if (isinf(start))
-            _start = (sign > 0) ? size : -1;
-        else
-            _start = get_index((int)start, size);
-
-        if (isinf(end))
-            _end = (sign > 0) ? size : -1;
-        else
-            _end = get_index((int)end, size);
-
-        // Create the sliced list
-        list_t *s_list = list_create(sizeof(Value));
-        while (sign * (_end - _start) > 0)
-        {
-            Value *item = (Value *)list_getAt(list->items, _start);
-            list_add(s_list, item); // Add the item to the sublist
-            _start += _step;
-        }
-
-        return NEW_OBJ(new_list(s_list));
-    }
-    else if (sequence->type == OBJ_STRING)
-    {
-        PiString *str = (PiString *)sequence;
-        size = str->length;
-
-        // Handle infinity values and convert to integers
-        if (isinf(start))
-            _start = (sign > 0) ? size : -1;
-        else
-            _start = get_index((int)start, size);
-
-        if (isinf(end))
-            _end = (sign > 0) ? size : -1;
-        else
-            _end = get_index((int)end, size);
-
-        // Create the sliced string
-        char *s_str = malloc(abs(_end - _start) + 1);
-        int i, j = 0;
-        for (i = _start; sign * (_end - i) > 0; i += _step)
-            s_str[j++] = str->chars[i];
-        s_str[j] = '\0';
-
-        return NEW_OBJ(new_pistring(s_str));
+        list_t *src = ((PiList *)sequence)->items;
+        list_t *dst = list_create(sizeof(Value));
+        int64_t index = first;
+        for (int j = 0; j < count; j++, index += stride)
+            list_add(dst, list_getAt(src, (int)index));
+        return NEW_OBJ(new_list(dst));
     }
 
-    fprintf(stderr, "Invalid sequence type.\n");
-    exit(EXIT_FAILURE);
+    PiString *str = (PiString *)sequence;
+    char *buf = malloc((size_t)count + 1);
+    if (!buf)
+        error("[get_slice] Memory allocation failed.");
+    int64_t index = first;
+    for (int j = 0; j < count; j++, index += stride)
+        buf[j] = str->chars[index];
+    buf[count] = '\0';
+    return NEW_OBJ(new_pistring(buf));
 }
 
 void free_sound(ObjSound *sound)

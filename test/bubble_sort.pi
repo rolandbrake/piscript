@@ -2,7 +2,7 @@ fun bubbleSort(list = []) {
     let n = #list    
     let swapped = false
     for i in 0..n {             
-        for j in 0..n - i {                            
+        for j in 0..n - i - 1 {
             if list[j] > list[j + 1] {
                 let temp = list[j]                                                       
                 list[j] = list[j + 1]                                     

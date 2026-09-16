@@ -86,12 +86,30 @@ EM_FLAGS := \
 	-s USE_SDL_MIXER=2 \
 	-s FULL_ES3=1 \
 	-s OFFSCREEN_FRAMEBUFFER=1 \
-	-s EXPORTED_RUNTIME_METHODS=cwrap \
-	-s EXPORTED_FUNCTIONS=_main,_set_source,_stop_execution,_init_audio \
+	-s EXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,FS_createPreloadedFile \
+	-s EXPORTED_FUNCTIONS=_main,_set_source,_stop_execution,_pause_execution,_resume_execution,_init_audio,_load_sprites_from_buffer,_load_sfx_from_buffer \
 	--shell-file index.html
+
+EM_WEB_FLAGS := \
+	-Os \
+	-s ASYNCIFY \
+	-s ALLOW_MEMORY_GROWTH \
+	-s MODULARIZE=1 \
+	-s EXPORT_NAME=createMyModule \
+	-s EXPORT_ES6=1 \
+	-s USE_SDL=2 \
+	-s USE_SDL_IMAGE=2 \
+	-s USE_SDL_MIXER=2 \
+	-s FULL_ES3=1 \
+	-s OFFSCREEN_FRAMEBUFFER=1 \
+	-s EXPORTED_RUNTIME_METHODS=ccall,cwrap,FS,FS_createPreloadedFile \
+	-s EXPORTED_FUNCTIONS=_main,_set_source,_stop_execution,_pause_execution,_resume_execution,_init_audio,_load_sprites_from_buffer,_load_sfx_from_buffer
 
 emscripten:
 	$(EMCC) $(EM_FLAGS) -o $(WEB_OUT) $(EM_SRC)
+
+website-wasm:
+	$(EMCC) $(EM_WEB_FLAGS) -o website/src/lib/wasm/piscript.js $(EM_SRC)
 
 # ===== Run =====
 run: release

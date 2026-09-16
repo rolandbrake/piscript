@@ -1,0 +1,25 @@
+// Run with PiScript; results are written to the host console.
+let nums = [10, 20, 30, 40]
+writeln(nums[0])            // 10
+writeln(nums[-1])           // 40
+nums[-1] = 50
+writeln(nums[:])            // [10, 20, 30, 50]
+writeln(nums[1:])           // [20, 30, 50]
+writeln(nums[:2])           // [10, 20]
+writeln(nums[::2])          // [10, 30]
+writeln(nums[::-1])         // [50, 30, 20, 10]
+writeln(nums[-100:100])     // [10, 20, 30, 50]
+writeln(nums[:-1:-1])       // []: explicit -1 means the last item
+writeln("piscript"[::-1])   // tpircsip
+writeln("abcdef"[slice(0, 6, 2)]) // ace
+
+let copied = nums[:]
+copied[0] = 99
+writeln(nums[0])            // 10: the slice has separate list storage
+let inserted = []
+insert(inserted, 0, 1)
+insert(inserted, len(inserted), 2)
+writeln(inserted)           // [1, 2]
+
+// nums[4], nums[-5], and nums[::0] raise errors.
+// For deliberate circular indexing, use nums[index % len(nums)] on a nonempty list.

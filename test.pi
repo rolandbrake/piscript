@@ -1,1 +1,2 @@
-println("Hello, from PiScript!")
+l = [1,2,3,4]
+writeln(l[1:3])

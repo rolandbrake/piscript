@@ -5,7 +5,7 @@ angle = 0
 color = COLOR_COOL_LIGHT_GRAY
 while true {
   clear(COLOR_SKY_BLUE)
-  p_obj = proj3d(tran3d(rot3d(obj, angle * 0.2, angle * 1.2, angle * 0.1),0, -1.5, 0), 30, 16)  
+  p_obj = proj3d(tran3d(rot3d(obj, -10, angle * 0.9, 0),0, -1.5, 0), 30, 16)  
   rend3d(p_obj, color, true)
   
   draw()

@@ -10,5 +10,6 @@ fun binary_search(l = [], value =  0) {
     return -1;
 }
 
-for(i in 1..6)
-    println(binary_search([1,2,3,4,5], i));
+l = [1,2,3,4,5]
+for i in 0..5
+   println(binary_search(l, i));

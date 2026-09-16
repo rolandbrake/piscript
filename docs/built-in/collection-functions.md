@@ -64,12 +64,15 @@ writeln(path)
 ### `insert(collection, index, value)`
 
 Inserts a value into a list or text into a string at `index`. List insertion
-requires an index between the start and end insertion positions.
+and string insertion require `0 <= index <= len(collection)`. Position `0`
+works on an empty collection; `len(collection)` appends. Unlike element lookup,
+insertion positions do not accept negative indices.
 
 ```piscript
 let nums = [1, 3]
 insert(nums, 1, 2)
-writeln(nums)
+insert(nums, len(nums), 4)
+writeln(nums) // [1, 2, 3, 4]
 ```
 
 ### `remove(collection, index)`
@@ -177,12 +180,18 @@ writeln(other)
 ### `slice(start, end[, step])`
 
 Creates a slice value. Inline bracket slice syntax is shorter for direct access,
-but a slice value can be kept and reused.
+but a slice value can be kept and reused. The default step is `1`; the end is
+exclusive and out-of-bounds endpoints are clamped. Negative steps read in
+reverse. Bounds and steps truncate toward zero; a step that becomes zero is
+invalid, as are nonfinite steps and steps outside the signed 32-bit range.
+See [slice semantics](../syntax/basics.md#slices-and-ranges) for omitted bounds
+and copying behavior.
 
 ```piscript
 let every_other = slice(0, 6, 2)
 let letters = "abcdef"
-writeln(letters[every_other])
+writeln(letters[every_other]) // ace
+writeln(letters[slice(5, -7, -2)]) // fdb
 ```
 
 ### `range(end)`

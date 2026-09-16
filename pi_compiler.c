@@ -153,9 +153,6 @@ static void free_loop(loop_t *loop)
 
 static void free_loop(loop_t *loop);
 
-
-
-
 /**
  * Retrieves the current active context from the stack of contexts.
  *

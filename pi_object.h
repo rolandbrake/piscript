@@ -91,7 +91,7 @@ typedef struct
     Object object;
     char *chars;
     size_t length;
-    uint32_t hash;
+    uint64_t hash;
 
     int current;
 } PiString;
@@ -201,7 +201,7 @@ typedef struct
     uint8_t *alpha;  // A flat array of width*height values (0–255)
 } ObjSprite;
 
-uint32_t string_hash(char *chars, size_t length);
+uint64_t string_hash(char *chars, size_t length);
 Object *new_pistring(char *str);
 PiString *copy_pistring(char *chars, int length);
 

@@ -54,6 +54,8 @@ fun load_rom(rom) {
         memory[0x200 + i] = rom[i]
     
 }
+
+
 // Emulate one cycle
 fun run() {
 
@@ -236,6 +238,7 @@ fun loop() {
 
 fun _draw() {
   clear(COLOR_SOFT_BLACK)
+  println("Starting CHIP-8 Emulator...")
   for(row in 0..height) 
     for(col in 0..width)  {
       let color = display[row * width + col] == 1 ? COLOR_COOL_LIGHT_GRAY : COLOR_SOFT_BLACK
@@ -246,7 +249,7 @@ fun _draw() {
 // Load ROM and start emulation
 fun start(rom) {
     load_rom(rom)
-    loop()
+    loop()    
 }
 
 // Example usage
